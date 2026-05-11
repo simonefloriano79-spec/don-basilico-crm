@@ -1,0 +1,269 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  super_admin
+  sede_manager
+  operatore
+}
+
+enum OrdineCanale {
+  online
+  walk_in
+  telefono
+}
+
+enum OrdineTipo {
+  asporto
+  domicilio
+  tavolo
+}
+
+enum OrdineStato {
+  nuovo
+  confermato
+  in_preparazione
+  pronto
+  consegnato
+  annullato
+}
+
+enum CategoriaMenu {
+  pizze
+  fritti
+  bevande
+  dolci
+  extra
+  menu_speciale
+}
+
+model Sede {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome             String
+  indirizzo        String
+  citta            String
+  telefono         String?
+  email            String?
+  slug             String   @unique
+  attiva           Boolean  @default(true)
+  orarioApertura   String   @default("11:30") @map("orario_apertura")
+  orarioChiusura   String   @default("23:00") @map("orario_chiusura")
+  note             String?
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  utenti           Utente[]
+  ordini           Ordine[]
+  menuOverride     SedeMenuOverride[]
+  menuExtra        SedeMenuExtra[]
+  ingredientiDis   SedeIngredienteDisabilitato[]
+
+  @@map("sedi")
+}
+
+model Utente {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email     String   @unique
+  nome      String
+  cognome   String
+  ruolo     UserRole @default(operatore)
+  sedeId    String?  @db.Uuid @map("sede_id")
+  attivo    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  sede                    Sede?  @relation(fields: [sedeId], references: [id])
+  ordiniGestiti           Ordine[] @relation("OperatoreOrdini")
+  ingredientiDisabilitati SedeIngredienteDisabilitato[]
+  statiLog                OrdineStatoLog[]
+
+  @@map("utenti")
+}
+
+model MenuItem {
+  id                   String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome                 String
+  descrizione          String?
+  categoria            CategoriaMenu
+  prezzoBase           Decimal       @db.Decimal(10, 2) @map("prezzo_base")
+  immagineUrl          String?       @map("immagine_url")
+  disponibileDefault   Boolean       @default(true) @map("disponibile_default")
+  ordineVisualizzazione Int          @default(0) @map("ordine_visualizzazione")
+  isAttivo             Boolean       @default(true) @map("is_attivo")
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+
+  ingredienti  MenuItemIngrediente[]
+  sedeOverride SedeMenuOverride[]
+  ordineItems  OrdineItem[]
+
+  @@map("menu_items")
+}
+
+model Ingrediente {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome        String   @unique
+  isAllergene Boolean  @default(false) @map("is_allergene")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  menuItems    MenuItemIngrediente[]
+  disabilitati SedeIngredienteDisabilitato[]
+
+  @@map("ingredienti")
+}
+
+model MenuItemIngrediente {
+  menuItemId    String @db.Uuid @map("menu_item_id")
+  ingredienteId String @db.Uuid @map("ingrediente_id")
+
+  menuItem    MenuItem    @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  ingrediente Ingrediente @relation(fields: [ingredienteId], references: [id], onDelete: Cascade)
+
+  @@id([menuItemId, ingredienteId])
+  @@map("menu_item_ingredienti")
+}
+
+model SedeMenuOverride {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sedeId      String   @db.Uuid @map("sede_id")
+  menuItemId  String   @db.Uuid @map("menu_item_id")
+  disponibile Boolean  @default(true)
+  prezzoCustom Decimal? @db.Decimal(10, 2) @map("prezzo_custom")
+  noteSede    String?  @map("note_sede")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  sede     Sede     @relation(fields: [sedeId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@unique([sedeId, menuItemId])
+  @@map("sede_menu_override")
+}
+
+model SedeIngredienteDisabilitato {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sedeId          String   @db.Uuid @map("sede_id")
+  ingredienteId   String   @db.Uuid @map("ingrediente_id")
+  disabilitatoDa  String?  @db.Uuid @map("disabilitato_da")
+  note            String?
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  sede        Sede        @relation(fields: [sedeId], references: [id], onDelete: Cascade)
+  ingrediente Ingrediente @relation(fields: [ingredienteId], references: [id], onDelete: Cascade)
+  utente      Utente?     @relation(fields: [disabilitatoDa], references: [id])
+
+  @@unique([sedeId, ingredienteId])
+  @@map("sede_ingrediente_disabilitato")
+}
+
+model SedeMenuExtra {
+  id                   String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sedeId               String        @db.Uuid @map("sede_id")
+  nome                 String
+  descrizione          String?
+  categoria            CategoriaMenu
+  prezzo               Decimal       @db.Decimal(10, 2)
+  disponibile          Boolean       @default(true)
+  ordineVisualizzazione Int          @default(0) @map("ordine_visualizzazione")
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+
+  sede        Sede         @relation(fields: [sedeId], references: [id], onDelete: Cascade)
+  ordineItems OrdineItem[]
+
+  @@map("sede_menu_extra")
+}
+
+model Cliente {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome             String
+  cognome          String?
+  telefono         String?
+  email            String?
+  indirizzoDefault String?  @map("indirizzo_default")
+  note             String?
+  puntiFedelta     Int      @default(0) @map("punti_fedelta")
+  sedePreferita    String?  @db.Uuid @map("sede_preferita")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  ordini Ordine[]
+
+  @@map("clienti")
+}
+
+model Ordine {
+  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  numeroOrdine    Int         @default(autoincrement()) @map("numero_ordine")
+  sedeId          String      @db.Uuid @map("sede_id")
+  canale          OrdineCanale
+  tipo            OrdineTipo  @default(asporto)
+  stato           OrdineStato @default(nuovo)
+  clienteId       String?     @db.Uuid @map("cliente_id")
+  operatoreId     String?     @db.Uuid @map("operatore_id")
+
+  clienteNome     String?  @map("cliente_nome")
+  clienteTelefono String?  @map("cliente_telefono")
+  clienteIndirizzo String? @map("cliente_indirizzo")
+
+  oraRichiesta       DateTime  @default(now()) @map("ora_richiesta")
+  oraStimataPronte   DateTime? @map("ora_stimata_pronto")
+  oraEffettivaPronte DateTime? @map("ora_effettiva_pronto")
+
+  totale           Decimal  @db.Decimal(10, 2) @default(0)
+  pagato           Boolean  @default(false)
+  metodoPagamento  String?  @map("metodo_pagamento")
+  stripePaymentId  String?  @map("stripe_payment_id")
+
+  note      String?
+  stampato  Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  sede      Sede      @relation(fields: [sedeId], references: [id])
+  cliente   Cliente?  @relation(fields: [clienteId], references: [id])
+  operatore Utente?   @relation("OperatoreOrdini", fields: [operatoreId], references: [id])
+  items     OrdineItem[]
+  statiLog  OrdineStatoLog[]
+
+  @@map("ordini")
+}
+
+model OrdineItem {
+  id           String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ordineId     String  @db.Uuid @map("ordine_id")
+  menuItemId   String? @db.Uuid @map("menu_item_id")
+  sedeExtraId  String? @db.Uuid @map("sede_extra_id")
+  nomeSnapshot String  @map("nome_snapshot")
+  prezzoSnapshot Decimal @db.Decimal(10, 2) @map("prezzo_snapshot")
+  quantita     Int     @default(1)
+  ingredientiRimossi String[] @map("ingredienti_rimossi")
+  noteItem     String? @map("note_item")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  ordine    Ordine         @relation(fields: [ordineId], references: [id], onDelete: Cascade)
+  menuItem  MenuItem?      @relation(fields: [menuItemId], references: [id])
+  sedeExtra SedeMenuExtra? @relation(fields: [sedeExtraId], references: [id])
+
+  @@map("ordine_items")
+}
+
+model OrdineStatoLog {
+  id        String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ordineId  String      @db.Uuid @map("ordine_id")
+  stato     OrdineStato
+  utenteId  String?     @db.Uuid @map("utente_id")
+  note      String?
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  ordine  Ordine  @relation(fields: [ordineId], references: [id], onDelete: Cascade)
+  utente  Utente? @relation(fields: [utenteId], references: [id])
+
+  @@map("ordine_stati_log")
+}

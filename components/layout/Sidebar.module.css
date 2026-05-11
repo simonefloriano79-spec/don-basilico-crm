@@ -1,0 +1,118 @@
+.sidebar {
+  width: 220px;
+  min-width: 220px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+}
+
+.logo {
+  padding: 24px 20px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.logoTitle {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--terracotta);
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+}
+
+.logoSub {
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.nav {
+  padding: 16px 12px;
+  flex: 1;
+}
+
+.sectionLabel {
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 0 8px;
+  margin-bottom: 6px;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-dim);
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+  text-decoration: none;
+  margin-bottom: 2px;
+}
+
+.navItem:hover {
+  background: var(--surface-high);
+  color: var(--text);
+}
+
+.navItem.active {
+  background: rgba(200, 90, 46, 0.1);
+  color: var(--terracotta);
+  border-color: rgba(200, 90, 46, 0.2);
+}
+
+.icon {
+  font-size: 15px;
+  width: 18px;
+  text-align: center;
+}
+
+.footer {
+  padding: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.userPill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface-high);
+}
+
+.avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--terracotta);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.userName {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.userRole {
+  font-size: 10px;
+  color: var(--text-dim);
+}
