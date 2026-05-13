@@ -14,12 +14,64 @@ function slugify(value: string) {
     .slice(0, 64);
 }
 
-export async function GET() {
-  const sedi = await prisma.sede.findMany({
+async function ensureSediTable() {
+  // In produzione alcuni database creati prima dello step multi-sede possono non avere ancora
+  // la tabella `sedi`. La creiamo/normalizziamo in modo idempotente prima delle operazioni.
+  await prisma.$executeRawUnsafe(`CREATE EXTENSION IF NOT EXISTS pgcrypto`);
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS sedi (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      nome text NOT NULL,
+      indirizzo text NOT NULL,
+      citta text NOT NULL,
+      telefono text,
+      email text,
+      slug text NOT NULL,
+      attiva boolean NOT NULL DEFAULT true,
+      orario_apertura text NOT NULL DEFAULT '11:30',
+      orario_chiusura text NOT NULL DEFAULT '23:00',
+      note text,
+      created_at timestamp with time zone NOT NULL DEFAULT now(),
+      updated_at timestamp with time zone NOT NULL DEFAULT now()
+    )
+  `);
+  await prisma.$executeRawUnsafe(`ALTER TABLE sedi ADD COLUMN IF NOT EXISTS nome text NOT NULL DEFAULT 'Filiale Don Basilico'`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE sedi ADD COLUMN IF NOT EXISTS indirizzo text NOT NULL DEFAULT ''`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE sedi ADD COLUMN IF NOT EXISTS citta text NOT NULL DEFAULT ''`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE sedi ADD COLUMN IF NOT EXISTS telefono text`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE sedi ADD COLUMN IF NOT EXISTS email text`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE sedi ADD COLUMN IF NOT EXISTS slug text`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE sedi ADD COLUMN IF NOT EXISTS attiva boolean NOT NULL DEFAULT true`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE sedi ADD COLUMN IF NOT EXISTS orario_apertura text NOT NULL DEFAULT '11:30'`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE sedi ADD COLUMN IF NOT EXISTS orario_chiusura text NOT NULL DEFAULT '23:00'`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE sedi ADD COLUMN IF NOT EXISTS note text`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE sedi ADD COLUMN IF NOT EXISTS created_at timestamp with time zone NOT NULL DEFAULT now()`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE sedi ADD COLUMN IF NOT EXISTS updated_at timestamp with time zone NOT NULL DEFAULT now()`);
+  await prisma.$executeRawUnsafe(`UPDATE sedi SET slug = lower(regexp_replace(nome || '-' || citta, '[^a-zA-Z0-9]+', '-', 'g')) WHERE slug IS NULL OR trim(slug) = ''`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE sedi ALTER COLUMN slug SET NOT NULL`);
+  await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS sedi_slug_key ON sedi(slug)`);
+}
+
+async function listSedi() {
+  return prisma.sede.findMany({
     where: { attiva: true },
     orderBy: { nome: "asc" },
   });
-  return NextResponse.json(sedi);
+}
+
+export async function GET() {
+  try {
+    return NextResponse.json(await listSedi());
+  } catch (error) {
+    console.error("Errore lettura sedi, provo inizializzazione tabella", error);
+    try {
+      await ensureSediTable();
+      return NextResponse.json(await listSedi());
+    } catch (fallbackError) {
+      console.error("Errore inizializzazione/lettura sedi", fallbackError);
+      return NextResponse.json({ error: "Errore interno durante il caricamento delle filiali" }, { status: 500 });
+    }
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -32,6 +84,8 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    await ensureSediTable();
+
     const body = await req.json();
     const nome = String(body.nome ?? "").trim();
     const indirizzo = String(body.indirizzo ?? "").trim();
@@ -59,7 +113,7 @@ export async function POST(req: NextRequest) {
 
     const existing = await prisma.sede.findUnique({ where: { slug } });
     if (existing) {
-      return NextResponse.json({ error: `Esiste già una filiale con slug “${slug}”. Modifica il nome o lo slug.` }, { status: 409 });
+      return NextResponse.json({ error: `Esiste già una filiale con slug “${slug}”. Modifica il nome o lo slug.`, sede: existing }, { status: 409 });
     }
 
     const sede = await prisma.sede.create({
