@@ -1,7 +1,7 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
+import { verifyPassword } from "./password";
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
@@ -23,11 +23,8 @@ export const authOptions: NextAuthOptions = {
 
         if (!utente || !utente.attivo || !utente.passwordHash) return null;
 
-        // Verifica password bcrypt
-        const passwordOk = await bcrypt.compare(
-          credentials.password,
-          utente.passwordHash
-        );
+        // Verifica password compatibile con hash scrypt legacy e bcrypt
+        const passwordOk = verifyPassword(credentials.password, utente.passwordHash);
 
         if (!passwordOk) return null;
 
