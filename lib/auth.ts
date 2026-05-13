@@ -5,9 +5,7 @@ import { verifyPassword } from "./password";
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
-  pages: {
-    signIn: "/login",
-  },
+  pages: { signIn: "/login" },
   providers: [
     CredentialsProvider({
       name: "credentials",
@@ -23,10 +21,10 @@ export const authOptions: NextAuthOptions = {
           include: { sede: true },
         });
 
-        if (!utente || !utente.attivo) return null;
+        if (!utente || !utente.attivo || !utente.passwordHash) return null;
 
-        const passwordValida = verifyPassword(credentials.password, utente.passwordHash);
-        if (!passwordValida) return null;
+        const passwordOk = verifyPassword(credentials.password, utente.passwordHash);
+        if (!passwordOk) return null;
 
         return {
           id: utente.id,
@@ -45,12 +43,13 @@ export const authOptions: NextAuthOptions = {
         token.ruolo = (user as any).ruolo;
         token.sedeId = (user as any).sedeId;
         token.sedeNome = (user as any).sedeNome;
+        token.userId = (user as any).id;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token.sub;
+        (session.user as any).id = token.userId ?? token.sub;
         (session.user as any).ruolo = token.ruolo;
         (session.user as any).sedeId = token.sedeId;
         (session.user as any).sedeNome = token.sedeNome;

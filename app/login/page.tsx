@@ -34,13 +34,8 @@ export default function LoginPage() {
     <div className={styles.wrapper}>
       <div className={styles.card}>
         <div className={styles.logo}>
-          <div className={styles.logoMark}>
-            <img
-              className={styles.logoImage}
-              src="/brand/don-basilico-logo-header.png"
-              alt="Don Basilico - Naturalmente Pizza"
-            />
-          </div>
+          <div className={styles.logoIcon}>🍕</div>
+          <div className={styles.logoTitle}>Don Basilico</div>
           <div className={styles.logoSub}>Sistema Ordini</div>
         </div>
 

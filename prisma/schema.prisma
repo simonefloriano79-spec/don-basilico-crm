@@ -69,16 +69,16 @@ model Sede {
 }
 
 model Utente {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email     String   @unique
-  nome      String
-  cognome   String
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String   @unique
+  nome         String
+  cognome      String
   ruolo        UserRole @default(operatore)
-  passwordHash String?  @map("password_hash")
   sedeId       String?  @db.Uuid @map("sede_id")
+  passwordHash String?  @map("password_hash")
   attivo       Boolean  @default(true)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   sede                    Sede?  @relation(fields: [sedeId], references: [id])
   ordiniGestiti           Ordine[] @relation("OperatoreOrdini")
@@ -109,10 +109,13 @@ model MenuItem {
 }
 
 model Ingrediente {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nome        String   @unique
-  isAllergene Boolean  @default(false) @map("is_allergene")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome             String   @unique
+  isAllergene      Boolean  @default(false) @map("is_allergene")
+  prezzoAggiunta   Decimal  @default(0.00) @db.Decimal(10,2) @map("prezzo_aggiunta")
+  disponibileDefault Boolean @default(true) @map("disponibile_default")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
 
   menuItems    MenuItemIngrediente[]
   disabilitati SedeIngredienteDisabilitato[]
@@ -267,4 +270,14 @@ model OrdineStatoLog {
   utente  Utente? @relation(fields: [utenteId], references: [id])
 
   @@map("ordine_stati_log")
+}
+
+model FarineSpeciali {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome        String
+  prezzoExtra Decimal  @default(1.00) @db.Decimal(10,2) @map("prezzo_extra")
+  disponibile Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("farine_speciali")
 }

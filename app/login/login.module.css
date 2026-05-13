@@ -21,20 +21,17 @@
   margin-bottom: 32px;
 }
 
-.logoMark {
-  width: 220px;
-  margin: 0 auto 14px;
-  padding: 16px 18px 14px;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #fffaf0 0%, #f4ead8 100%);
-  border: 1px solid rgba(255, 245, 225, 0.2);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+.logoIcon {
+  font-size: 40px;
+  margin-bottom: 8px;
 }
 
-.logoImage {
-  display: block;
-  width: 100%;
-  height: auto;
+.logoTitle {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--terracotta);
+  letter-spacing: -0.5px;
 }
 
 .logoSub {

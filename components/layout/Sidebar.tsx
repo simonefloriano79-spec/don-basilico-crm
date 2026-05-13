@@ -5,9 +5,7 @@ import Link from "next/link";
 import { Session } from "next-auth";
 import styles from "./Sidebar.module.css";
 
-interface Props {
-  session: Session;
-}
+interface Props { session: Session; }
 
 export function Sidebar({ session }: Props) {
   const pathname = usePathname();
@@ -15,27 +13,31 @@ export function Sidebar({ session }: Props) {
   const isSuperAdmin = user.ruolo === "super_admin";
 
   const navItems = [
-    { href: "/dashboard", icon: "◈", label: "Dashboard" },
-    { href: "/ordini", icon: "≡", label: "Ordini" },
-    { href: "/nuovo-ordine", icon: "+", label: "Nuovo Ordine" },
-    { href: "/kds", icon: "⊞", label: "Cucina (KDS)" },
-    { href: "/menu", icon: "♦", label: "Menù" },
-    ...(isSuperAdmin ? [{ href: "/sedi", icon: "⊙", label: "Sedi" }] : []),
-    ...(isSuperAdmin ? [{ href: "/utenti", icon: "●", label: "Utenti" }] : []),
+    { href: "/dashboard",      icon: "◈", label: "Dashboard"    },
+    { href: "/ordini",         icon: "≡", label: "Ordini"       },
+    { href: "/nuovo-ordine",   icon: "+", label: "Nuovo Ordine" },
+    { href: "/kds",            icon: "⊞", label: "Cucina (KDS)" },
+    { href: "/menu",           icon: "♦", label: "Menù"         },
+    { href: "/ingredienti",    icon: "🧄", label: "Ingredienti"  },
+    { href: "/clienti",        icon: "👥", label: "Clienti"     },
+    { href: "/statistiche",    icon: "📊", label: "Statistiche" },
+    ...(isSuperAdmin ? [
+      { href: "/sedi",   icon: "⊙", label: "Sedi"   },
+      { href: "/utenti", icon: "🔑", label: "Utenti" },
+    ] : []),
   ];
 
-  const initials = (user.name ?? "??").split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
+  const initials = (user.name ?? "??")
+    .split(" ")
+    .map((n: string) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <nav className={styles.sidebar}>
       <div className={styles.logo}>
-        <div className={styles.logoMark}>
-          <img
-            className={styles.logoImage}
-            src="/brand/don-basilico-logo-header.png"
-            alt="Don Basilico - Naturalmente Pizza"
-          />
-        </div>
+        <div className={styles.logoTitle}>Don Basilico</div>
         <div className={styles.logoSub}>Sistema ordini</div>
       </div>
 

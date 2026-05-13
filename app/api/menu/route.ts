@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     : [];
 
   // Processa items con override
-  const itemsConOverride = items.map((item: any) => {
+  const itemsConOverride = items.map((item) => {
     const override = sedeId
       ? (item.sedeOverride as any[])?.[0]
       : null;
