@@ -2,6 +2,23 @@ import { PrismaClient } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
+function getSupabaseProjectRef(value?: string) {
+  if (!value) return null;
+
+  try {
+    const url = new URL(value);
+    const directHostMatch = url.hostname.match(/^db\.([a-z0-9]+)\.supabase\.co$/);
+    if (directHostMatch) return directHostMatch[1];
+
+    const usernameMatch = decodeURIComponent(url.username).match(/^postgres\.([a-z0-9]+)$/);
+    if (usernameMatch) return usernameMatch[1];
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 function getRuntimeDatabaseUrl() {
   const databaseUrl = process.env.DATABASE_URL;
 
@@ -9,10 +26,12 @@ function getRuntimeDatabaseUrl() {
 
   try {
     const url = new URL(databaseUrl);
-    const match = url.hostname.match(/^db\.([a-z0-9]+)\.supabase\.co$/);
+    const projectRef =
+      getSupabaseProjectRef(databaseUrl) || getSupabaseProjectRef(process.env.DIRECT_URL);
+    const isSupabaseDirectHost = /^db\.[a-z0-9]+\.supabase\.co$/.test(url.hostname);
+    const isSupabasePoolerHost = url.hostname.endsWith(".pooler.supabase.com");
 
-    if (match) {
-      const projectRef = match[1];
+    if (projectRef && (isSupabaseDirectHost || isSupabasePoolerHost)) {
       url.hostname = "aws-1-eu-central-1.pooler.supabase.com";
       url.port = "6543";
       url.username = `postgres.${projectRef}`;
