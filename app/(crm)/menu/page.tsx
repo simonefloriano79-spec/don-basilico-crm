@@ -15,19 +15,34 @@ export default function MenuPage() {
   const [catFiltro, setCatFiltro] = useState("tutti");
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
+  const [sedi, setSedi] = useState<any[]>([]);
+  const [sedeVisualizzata, setSedeVisualizzata] = useState("");
   const [form, setForm] = useState({ nome: "", descrizione: "", categoria: "pizze", prezzoBase: "" });
   const user = session?.user as any;
   const isSuperAdmin = user?.ruolo === "super_admin";
   const sedeId = user?.sedeId;
+  const sedeMenuId = isSuperAdmin ? sedeVisualizzata : sedeId;
+
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    fetch("/api/sedi")
+      .then((r) => r.json())
+      .then((data) => {
+        const elenco = Array.isArray(data) ? data : [];
+        setSedi(elenco);
+        const querySede = new URLSearchParams(window.location.search).get("sedeId") ?? "";
+        if (querySede) setSedeVisualizzata(querySede);
+      });
+  }, [isSuperAdmin]);
 
   const caricaMenu = async () => {
-    const url = sedeId ? `/api/menu?sedeId=${sedeId}` : "/api/menu";
+    const url = sedeMenuId ? `/api/menu?sedeId=${sedeMenuId}` : "/api/menu";
     const res = await fetch(url);
     const data = await res.json();
     setItems(data.items ?? []);
   };
 
-  useEffect(() => { caricaMenu(); }, [sedeId]);
+  useEffect(() => { caricaMenu(); }, [sedeMenuId]);
 
   const cats = ["tutti", ...Array.from(new Set(items.map((m) => m.categoria)))] as string[];
   const itemsFiltrati = items.filter((m) => catFiltro === "tutti" || m.categoria === catFiltro);
@@ -91,6 +106,15 @@ export default function MenuPage() {
           ))}
         </div>
         {isSuperAdmin && (
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <select
+              value={sedeVisualizzata}
+              onChange={(e) => setSedeVisualizzata(e.target.value)}
+              style={{ background: "var(--surface-high)", border: "1px solid var(--border)", color: "var(--text)", padding: "8px 12px", borderRadius: 8, fontSize: 13 }}
+            >
+              <option value="">Menù base condiviso</option>
+              {sedi.map((s) => <option key={s.id} value={s.id}>Vista filiale: {s.nome}</option>)}
+            </select>
           <button
             onClick={() => { setShowModal(true); setEditItem(null); setForm({ nome: "", descrizione: "", categoria: "pizze", prezzoBase: "" }); }}
             style={{
@@ -101,21 +125,24 @@ export default function MenuPage() {
           >
             + Aggiungi prodotto
           </button>
+          </div>
         )}
       </div>
 
-      {!isSuperAdmin && (
+      {(!isSuperAdmin || sedeVisualizzata) && (
         <div style={{
           background: "rgba(212,168,83,0.1)", border: "1px solid rgba(212,168,83,0.2)",
           borderRadius: 10, padding: "10px 16px", marginBottom: 16, fontSize: 13, color: "#d4a853",
         }}>
-          💡 Modalità sede: puoi disabilitare prodotti temporaneamente esauriti. Le modifiche globali sono gestite dall&apos;admin.
+          {isSuperAdmin
+            ? "Vista filiale: stai verificando come il menù base condiviso viene applicato a questo punto vendita."
+            : "Modalità sede: puoi disabilitare prodotti temporaneamente esauriti. Le modifiche globali sono gestite dall'admin."}
         </div>
       )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
         {itemsFiltrati.map((item) => {
-          const dispSede = isSuperAdmin ? true : item.disponibileInSede;
+          const dispSede = isSuperAdmin && !sedeVisualizzata ? true : item.disponibileInSede;
           const dispGlobale = item.isAttivo;
           const disabled = !dispSede || !dispGlobale;
           const catColor = CAT_COLORS[item.categoria] ?? "var(--text-dim)";

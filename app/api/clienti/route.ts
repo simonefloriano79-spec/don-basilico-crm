@@ -9,21 +9,42 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Non autorizzato" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const q = searchParams.get("q");
+  const q = (searchParams.get("q") ?? "").trim();
   const sedeId = searchParams.get("sedeId");
   const limit = parseInt(searchParams.get("limit") ?? "50");
+  const partiNome = q.split(/\s+/).filter(Boolean);
+  const nomeCognome = partiNome.length >= 2
+    ? {
+        OR: [
+          {
+            AND: [
+              { nome: { contains: partiNome[0], mode: "insensitive" as const } },
+              { cognome: { contains: partiNome.slice(1).join(" "), mode: "insensitive" as const } },
+            ],
+          },
+          {
+            AND: [
+              { cognome: { contains: partiNome[0], mode: "insensitive" as const } },
+              { nome: { contains: partiNome.slice(1).join(" "), mode: "insensitive" as const } },
+            ],
+          },
+        ],
+      }
+    : null;
 
   const clienti = await prisma.cliente.findMany({
-    where: {
-      ...(q && {
-        OR: [
-          { nome:     { contains: q, mode: "insensitive" } },
-          { cognome:  { contains: q, mode: "insensitive" } },
-          { telefono: { contains: q } },
-          { email:    { contains: q, mode: "insensitive" } },
-        ],
-      }),
-    },
+    where: q
+      ? {
+          OR: [
+            { nome: { contains: q, mode: "insensitive" } },
+            { cognome: { contains: q, mode: "insensitive" } },
+            { telefono: { contains: q } },
+            { email: { contains: q, mode: "insensitive" } },
+            { indirizzoDefault: { contains: q, mode: "insensitive" } },
+            ...(nomeCognome ? [nomeCognome] : []),
+          ],
+        }
+      : {},
     include: {
       _count: { select: { ordini: true } },
       ordini: {
