@@ -1,6 +1,7 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "./prisma";
+import { verifyPassword } from "./password";
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
@@ -15,7 +16,7 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email) return null;
+        if (!credentials?.email || !credentials?.password) return null;
 
         const utente = await prisma.utente.findUnique({
           where: { email: credentials.email },
@@ -24,8 +25,9 @@ export const authOptions: NextAuthOptions = {
 
         if (!utente || !utente.attivo) return null;
 
-        // In produzione: bcrypt compare
-        // Per ora accesso semplificato (aggiungere hash in produzione)
+        const passwordValida = verifyPassword(credentials.password, utente.passwordHash);
+        if (!passwordValida) return null;
+
         return {
           id: utente.id,
           email: utente.email,

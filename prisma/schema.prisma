@@ -73,9 +73,10 @@ model Utente {
   email     String   @unique
   nome      String
   cognome   String
-  ruolo     UserRole @default(operatore)
-  sedeId    String?  @db.Uuid @map("sede_id")
-  attivo    Boolean  @default(true)
+  ruolo        UserRole @default(operatore)
+  passwordHash String?  @map("password_hash")
+  sedeId       String?  @db.Uuid @map("sede_id")
+  attivo       Boolean  @default(true)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
