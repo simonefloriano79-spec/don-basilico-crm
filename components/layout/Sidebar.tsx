@@ -37,7 +37,13 @@ export function Sidebar({ session }: Props) {
   return (
     <nav className={styles.sidebar}>
       <div className={styles.logo}>
-        <div className={styles.logoTitle}>Don Basilico</div>
+        <div className={styles.logoMark}>
+          <img
+            src="/brand/don-basilico-logo-header.png"
+            alt="Don Basilico - Naturalmente Pizza"
+            className={styles.logoImage}
+          />
+        </div>
         <div className={styles.logoSub}>Sistema ordini</div>
       </div>
 
