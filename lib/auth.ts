@@ -51,34 +51,36 @@ export const authOptions: NextAuthOptions = {
 
         if (!previewAdminOk) return null;
 
-        const previewAdmin = await prisma.utente.upsert({
-          where: { email: PREVIEW_ADMIN_EMAIL },
-          update: {
-            nome: "Admin",
-            cognome: "Don Basilico",
-            ruolo: "super_admin",
-            attivo: true,
-            sedeId: null,
-            passwordHash: PREVIEW_ADMIN_PASSWORD_HASH,
-          },
-          create: {
-            email: PREVIEW_ADMIN_EMAIL,
-            nome: "Admin",
-            cognome: "Don Basilico",
-            ruolo: "super_admin",
-            attivo: true,
-            passwordHash: PREVIEW_ADMIN_PASSWORD_HASH,
-          },
-          include: { sede: true },
-        });
+        const [previewAdmin] = await prisma.$queryRaw<
+          Array<{
+            id: string;
+            email: string;
+            nome: string;
+            cognome: string;
+            ruolo: string;
+            sede_id: string | null;
+          }>
+        >`
+          INSERT INTO utenti (email, nome, cognome, ruolo, attivo, password_hash, sede_id, created_at, updated_at)
+          VALUES (${PREVIEW_ADMIN_EMAIL}, 'Admin', 'Don Basilico', 'super_admin', true, ${PREVIEW_ADMIN_PASSWORD_HASH}, NULL, NOW(), NOW())
+          ON CONFLICT (email) DO UPDATE SET
+            nome = EXCLUDED.nome,
+            cognome = EXCLUDED.cognome,
+            ruolo = EXCLUDED.ruolo,
+            attivo = EXCLUDED.attivo,
+            password_hash = EXCLUDED.password_hash,
+            sede_id = EXCLUDED.sede_id,
+            updated_at = NOW()
+          RETURNING id, email, nome, cognome, ruolo, sede_id
+        `;
 
         return {
           id: previewAdmin.id,
           email: previewAdmin.email,
           name: `${previewAdmin.nome} ${previewAdmin.cognome}`,
           ruolo: previewAdmin.ruolo,
-          sedeId: previewAdmin.sedeId,
-          sedeNome: previewAdmin.sede?.nome ?? null,
+          sedeId: previewAdmin.sede_id,
+          sedeNome: null,
         };
       },
     }),
