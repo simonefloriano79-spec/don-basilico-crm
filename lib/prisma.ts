@@ -35,7 +35,8 @@ function getRuntimeDatabaseUrl() {
       url.hostname = "aws-1-eu-central-1.pooler.supabase.com";
       url.port = "6543";
       url.username = `postgres.${projectRef}`;
-      url.searchParams.delete("pgbouncer");
+      url.searchParams.set("pgbouncer", "true");
+      url.searchParams.set("connection_limit", "1");
       url.searchParams.set("sslmode", "require");
       return url.toString();
     }
