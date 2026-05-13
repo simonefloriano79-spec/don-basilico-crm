@@ -47,6 +47,12 @@ async function ensureSediTable() {
   await prisma.$executeRawUnsafe(`ALTER TABLE sedi ADD COLUMN IF NOT EXISTS note text`);
   await prisma.$executeRawUnsafe(`ALTER TABLE sedi ADD COLUMN IF NOT EXISTS created_at timestamp with time zone NOT NULL DEFAULT now()`);
   await prisma.$executeRawUnsafe(`ALTER TABLE sedi ADD COLUMN IF NOT EXISTS updated_at timestamp with time zone NOT NULL DEFAULT now()`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE sedi ALTER COLUMN orario_apertura DROP DEFAULT`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE sedi ALTER COLUMN orario_chiusura DROP DEFAULT`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE sedi ALTER COLUMN orario_apertura TYPE text USING COALESCE(substring(orario_apertura::text from '([0-9]{2}:[0-9]{2})'), '11:30')`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE sedi ALTER COLUMN orario_chiusura TYPE text USING COALESCE(substring(orario_chiusura::text from '([0-9]{2}:[0-9]{2})'), '23:00')`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE sedi ALTER COLUMN orario_apertura SET DEFAULT '11:30'`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE sedi ALTER COLUMN orario_chiusura SET DEFAULT '23:00'`);
   await prisma.$executeRawUnsafe(`UPDATE sedi SET slug = lower(regexp_replace(nome || '-' || citta, '[^a-zA-Z0-9]+', '-', 'g')) WHERE slug IS NULL OR trim(slug) = ''`);
   await prisma.$executeRawUnsafe(`ALTER TABLE sedi ALTER COLUMN slug SET NOT NULL`);
   await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS sedi_slug_key ON sedi(slug)`);
