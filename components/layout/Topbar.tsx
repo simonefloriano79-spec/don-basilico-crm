@@ -11,6 +11,7 @@ const TITLES: Record<string, string> = {
   "/kds":          "Schermo Cucina",
   "/menu":         "Gestione Menù",
   "/ingredienti":  "Gestione Ingredienti",
+  "/profilo":      "Il mio profilo",
   "/clienti":      "Clienti",
   "/statistiche":  "Statistiche",
   "/sedi":         "Sedi",

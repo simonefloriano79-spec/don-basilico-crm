@@ -2,35 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-
-function subDays(date: Date, days: number): Date {
-  const result = new Date(date);
-  result.setDate(result.getDate() - days);
-  return result;
-}
-
-function startOfDay(date: Date): Date {
-  const result = new Date(date);
-  result.setHours(0, 0, 0, 0);
-  return result;
-}
-
-function formatDate(date: Date, pattern: "yyyy-MM-dd" | "dd/MM/yyyy" | "label"): string {
-  const formatter = new Intl.DateTimeFormat("it-IT", {
-    ...(pattern === "label" ? { weekday: "short", day: "numeric", month: "numeric" } : {}),
-    ...(pattern === "dd/MM/yyyy" ? { day: "2-digit", month: "2-digit", year: "numeric" } : {}),
-    ...(pattern === "yyyy-MM-dd" ? { year: "numeric", month: "2-digit", day: "2-digit" } : {}),
-  });
-
-  if (pattern === "yyyy-MM-dd") {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  }
-
-  return formatter.format(date).replace(/^./, (char) => char.toUpperCase());
-}
+import { subDays, startOfDay, format } from "date-fns";
+import { it } from "date-fns/locale";
 
 // GET /api/statistiche?giorni=7&sedeId=xxx
 export async function GET(req: NextRequest) {
@@ -68,13 +41,13 @@ export async function GET(req: NextRequest) {
   const perGiorno: Record<string, { data: string; ordini: number; incasso: number; online: number; telefono: number; walk_in: number }> = {};
 
   for (let i = giorni - 1; i >= 0; i--) {
-    const d = formatDate(subDays(new Date(), i), "yyyy-MM-dd");
-    const label = formatDate(subDays(new Date(), i), "label");
+    const d = format(subDays(new Date(), i), "yyyy-MM-dd");
+    const label = format(subDays(new Date(), i), "EEE d/M", { locale: it });
     perGiorno[d] = { data: label, ordini: 0, incasso: 0, online: 0, telefono: 0, walk_in: 0 };
   }
 
   ordini.forEach((o) => {
-    const d = formatDate(new Date(o.createdAt), "yyyy-MM-dd");
+    const d = format(new Date(o.createdAt), "yyyy-MM-dd");
     if (!perGiorno[d]) return;
     perGiorno[d].ordini++;
     perGiorno[d].incasso += parseFloat(o.totale.toString());
@@ -114,8 +87,8 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     periodo: {
       giorni,
-      dataInizio: formatDate(dataInizio, "dd/MM/yyyy"),
-      dataFine: formatDate(new Date(), "dd/MM/yyyy"),
+      dataInizio: format(dataInizio, "dd/MM/yyyy"),
+      dataFine: format(new Date(), "dd/MM/yyyy"),
     },
     graficoDati: Object.values(perGiorno),
     topProdotti: topProdotti.map((p) => ({
