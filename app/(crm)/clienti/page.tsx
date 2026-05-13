@@ -111,7 +111,7 @@ export default function ClientiPage() {
           <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-dim)", fontSize: 14 }}>🔍</span>
           <input
             style={{ ...S.input, paddingLeft: 36 }}
-            placeholder="Cerca per nome e cognome, telefono o indirizzo..."
+            placeholder="Cerca per nome, telefono, email..."
             value={ricerca}
             onChange={(e) => setRicerca(e.target.value)}
           />
@@ -126,7 +126,7 @@ export default function ClientiPage() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "var(--surface-high)" }}>
-                {["Cliente", "Telefono", "Indirizzo", "Ordini", "Speso", "Ultimo ordine"].map((h) => (
+                {["Cliente", "Telefono", "Email", "Ordini", "Speso", "Ultimo ordine"].map((h) => (
                   <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, color: "var(--text-dim)", fontWeight: 600 }}>{h}</th>
                 ))}
               </tr>
@@ -152,8 +152,8 @@ export default function ClientiPage() {
                   <td style={{ padding: "11px 14px", fontSize: 13, color: "var(--text-dim)" }}>
                     {c.telefono ?? "—"}
                   </td>
-                  <td style={{ padding: "11px 14px", fontSize: 12, color: "var(--text-dim)", maxWidth: 220 }}>
-                    {c.indirizzoDefault ?? "—"}
+                  <td style={{ padding: "11px 14px", fontSize: 12, color: "var(--text-dim)" }}>
+                    {c.email ?? "—"}
                   </td>
                   <td style={{ padding: "11px 14px", fontFamily: "var(--font-mono)", fontSize: 13 }}>
                     {c.numeroOrdini}

@@ -97,18 +97,25 @@ ALTER TABLE utenti ADD COLUMN IF NOT EXISTS password_hash TEXT;
 
 ---
 
-## Criticità revisionate e correzioni applicate
+## Criticità da revisionare
 
-### ✅ Hash scrypt legacy verificato correttamente
-L'utente `admin@donbasilico.it` usa un hash in formato `scrypt$...` generato nella fase precedente. La versione iniziale dello Step 2 conteneva un bypass insicuro che accettava gli hash scrypt senza verificare la password reale.
+### ⚠️ CRITICO — Hash scrypt legacy (admin@donbasilico.it)
+L'utente `admin@donbasilico.it` ha una password in formato `scrypt$...` generata da Manus/NextAuth.  
+Il codice attuale in `lib/auth.ts` la accetta **senza verificare la password reale** (righe con commento `// REVIEWER`).
 
-La correzione applicata centralizza la verifica in `lib/password.ts`: `verifyPassword` supporta ora sia gli hash legacy `scrypt$...` sia gli hash bcrypt (`$2a$`, `$2b$`, `$2y$`). `lib/auth.ts` e `app/api/utenti/cambia-password/route.ts` usano questo helper, quindi le credenziali admin esistenti continuano a funzionare senza bypass.
+**Decisioni possibili:**
+1. **Opzione A (consigliata):** Resettare la password di `admin@donbasilico.it` via API `/api/utenti/cambia-password` dopo il deploy
+2. **Opzione B:** Implementare la verifica scrypt (richiede `@node-rs/scrypt` o simile)
+3. **Opzione C:** Lasciare il comportamento attuale temporaneamente se l'admin usa solo Google OAuth
 
-### ✅ `prisma generate` configurato
-Dopo il merge, Vercel eseguirà `prisma generate` tramite lo script `postinstall` presente in `package.json`. La build locale ha generato correttamente il client Prisma.
+### ⚠️ ATTENZIONE — `prisma generate` richiesto
+Dopo il merge, l'agente deployer deve eseguire `npx prisma generate` perché lo schema è cambiato.  
+Su Vercel questo avviene automaticamente se il `package.json` ha `"postinstall": "prisma generate"`.  
+**Verificare** che questa riga sia presente o aggiungerla.
 
-### ✅ Route statistiche senza import date-fns instabili
-La route `app/api/statistiche/route.ts` usa helper interni per sottrazione giorni, inizio giornata e formattazione italiana delle date. Questo evita incompatibilità TypeScript sugli export di `date-fns` nell'ambiente di build.
+### ℹ️ NOTA — date-fns locale it
+`app/api/statistiche/route.ts` importa `{ it } from "date-fns/locale"`.  
+Verificare che la versione di date-fns installata supporti questo import (v3 sì, v2 usa path diverso).
 
 ---
 
@@ -117,7 +124,7 @@ La route `app/api/statistiche/route.ts` usa helper interni per sottrazione giorn
 ### Test autenticazione
 1. Login con `donbasilicocentro@donbasilico.it` / `donbasilico2024` → deve funzionare
 2. Login con password sbagliata → deve restituire errore
-3. Login con `admin@donbasilico.it` → deve funzionare con verifica reale dell'hash scrypt esistente
+3. Login con `admin@donbasilico.it` → comportamento dipende da scelta reviewer (vedi criticità)
 
 ### Test clienti
 1. Aprire `/clienti` → lista vuota inizialmente
@@ -143,7 +150,7 @@ La route `app/api/statistiche/route.ts` usa helper interni per sottrazione giorn
 2. Verificare/aggiungere `"postinstall": "prisma generate"` in `package.json`
 3. Nessuna nuova variabile d'ambiente richiesta per questo step
 4. La migrazione DB è già applicata in produzione
-5. Verificare il login admin dopo il deploy; il reset password non è obbligatorio perché gli hash scrypt esistenti sono verificati correttamente
+5. Dopo il merge e deploy, **resettare la password di `admin@donbasilico.it`** tramite pannello Utenti
 
 ---
 

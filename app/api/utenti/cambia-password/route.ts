@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { hashPasswordBcrypt, verifyPassword } from "@/lib/password";
+import bcrypt from "bcryptjs";
 
 // POST /api/utenti/cambia-password
 // Permette a chiunque di cambiare la propria password, o all'admin di cambiarla per altri
@@ -35,11 +35,11 @@ export async function POST(req: NextRequest) {
     if (!utente.passwordHash) {
       return NextResponse.json({ error: "Nessuna password impostata" }, { status: 400 });
     }
-    const ok = verifyPassword(vecchiaPassword, utente.passwordHash);
+    const ok = await bcrypt.compare(vecchiaPassword, utente.passwordHash);
     if (!ok) return NextResponse.json({ error: "Vecchia password errata" }, { status: 401 });
   }
 
-  const passwordHash = hashPasswordBcrypt(nuovaPassword);
+  const passwordHash = await bcrypt.hash(nuovaPassword, 12);
   await prisma.utente.update({ where: { email: emailTarget }, data: { passwordHash } });
 
   return NextResponse.json({ ok: true, message: "Password aggiornata con successo" });
