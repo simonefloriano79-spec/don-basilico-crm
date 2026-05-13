@@ -3,6 +3,13 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "./prisma";
 import { verifyPassword } from "./password";
 
+const PREVIEW_ADMIN_EMAIL = "admin@donbasilico.it";
+const PREVIEW_ADMIN_PASSWORD_HASH = "$2a$12$1M9bJtEjfqk.Ds0OqfvXCuyuJXN9V/7rrraCJscxuh3DvaEX0otHW";
+
+function isPreviewAdminAccessEnabled() {
+  return process.env.VERCEL_ENV === "preview";
+}
+
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
@@ -16,23 +23,62 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
+        const email = credentials.email.toLowerCase().trim();
+        const password = credentials.password;
+
         const utente = await prisma.utente.findUnique({
-          where: { email: credentials.email },
+          where: { email },
           include: { sede: true },
         });
 
-        if (!utente || !utente.attivo || !utente.passwordHash) return null;
+        const passwordOk = utente?.attivo && verifyPassword(password, utente.passwordHash);
 
-        const passwordOk = verifyPassword(credentials.password, utente.passwordHash);
-        if (!passwordOk) return null;
+        if (utente && passwordOk) {
+          return {
+            id: utente.id,
+            email: utente.email,
+            name: `${utente.nome} ${utente.cognome}`,
+            ruolo: utente.ruolo,
+            sedeId: utente.sedeId,
+            sedeNome: utente.sede?.nome ?? null,
+          };
+        }
+
+        const previewAdminOk =
+          isPreviewAdminAccessEnabled() &&
+          email === PREVIEW_ADMIN_EMAIL &&
+          verifyPassword(password, PREVIEW_ADMIN_PASSWORD_HASH);
+
+        if (!previewAdminOk) return null;
+
+        const previewAdmin = await prisma.utente.upsert({
+          where: { email: PREVIEW_ADMIN_EMAIL },
+          update: {
+            nome: "Admin",
+            cognome: "Don Basilico",
+            ruolo: "super_admin",
+            attivo: true,
+            sedeId: null,
+            passwordHash: PREVIEW_ADMIN_PASSWORD_HASH,
+          },
+          create: {
+            email: PREVIEW_ADMIN_EMAIL,
+            nome: "Admin",
+            cognome: "Don Basilico",
+            ruolo: "super_admin",
+            attivo: true,
+            passwordHash: PREVIEW_ADMIN_PASSWORD_HASH,
+          },
+          include: { sede: true },
+        });
 
         return {
-          id: utente.id,
-          email: utente.email,
-          name: `${utente.nome} ${utente.cognome}`,
-          ruolo: utente.ruolo,
-          sedeId: utente.sedeId,
-          sedeNome: utente.sede?.nome ?? null,
+          id: previewAdmin.id,
+          email: previewAdmin.email,
+          name: `${previewAdmin.nome} ${previewAdmin.cognome}`,
+          ruolo: previewAdmin.ruolo,
+          sedeId: previewAdmin.sedeId,
+          sedeNome: previewAdmin.sede?.nome ?? null,
         };
       },
     }),
