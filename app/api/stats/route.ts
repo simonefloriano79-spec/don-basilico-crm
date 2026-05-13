@@ -66,14 +66,14 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
-  const incassoOggi = ordiniOggi.reduce((acc, o) => acc + parseFloat(o.totale.toString()), 0);
+  const incassoOggi = ordiniOggi.reduce((acc: number, o: any) => acc + parseFloat(o.totale.toString()), 0);
 
   return NextResponse.json({
     ordiniAttivi,
     incassoOggi,
     pronti,
     online,
-    sediStats: sediStats.map((s) => ({
+    sediStats: sediStats.map((s: any) => ({
       id: s.id,
       nome: s.nome,
       ordiniAttivi: s._count.ordini,

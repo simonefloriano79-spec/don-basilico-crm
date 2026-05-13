@@ -46,7 +46,7 @@ export default function NuovoOrdinePage() {
       .then((data) => setMenuItems((data.items ?? []).filter((i: any) => i.disponibileInSede && i.isAttivo)));
   }, [sedeSelezionata]);
 
-  const cats = ["tutti", ...new Set(menuItems.map((m) => m.categoria))] as string[];
+  const cats = ["tutti", ...Array.from(new Set(menuItems.map((m) => m.categoria)))] as string[];
   const itemsFiltrati = menuItems.filter((m) => catFiltro === "tutti" || m.categoria === catFiltro);
 
   const addToCart = (item: any) => {

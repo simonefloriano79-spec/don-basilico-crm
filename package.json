@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "db:generate": "prisma generate",
@@ -12,22 +12,22 @@
     "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@prisma/client": "^5.10.0",
     "@auth/prisma-adapter": "^1.4.0",
+    "@prisma/client": "^5.10.0",
+    "clsx": "^2.1.0",
+    "date-fns": "^3.6.0",
+    "lucide-react": "^0.363.0",
     "next": "14.2.3",
     "next-auth": "^4.24.7",
     "react": "^18",
     "react-dom": "^18",
-    "stripe": "^14.21.0",
+    "react-hot-toast": "^2.4.1",
     "resend": "^3.2.0",
-    "twilio": "^5.0.4",
-    "date-fns": "^3.6.0",
-    "clsx": "^2.1.0",
-    "zustand": "^4.5.2",
     "socket.io": "^4.7.5",
     "socket.io-client": "^4.7.5",
-    "react-hot-toast": "^2.4.1",
-    "lucide-react": "^0.363.0"
+    "stripe": "^14.21.0",
+    "twilio": "^5.0.4",
+    "zustand": "^4.5.2"
   },
   "devDependencies": {
     "@types/node": "^20",

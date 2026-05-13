@@ -29,7 +29,7 @@ export default function MenuPage() {
 
   useEffect(() => { caricaMenu(); }, [sedeId]);
 
-  const cats = ["tutti", ...new Set(items.map((m) => m.categoria))] as string[];
+  const cats = ["tutti", ...Array.from(new Set(items.map((m) => m.categoria)))] as string[];
   const itemsFiltrati = items.filter((m) => catFiltro === "tutti" || m.categoria === catFiltro);
 
   const toggleDisponibilitaSede = async (item: any) => {
