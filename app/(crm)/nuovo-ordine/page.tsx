@@ -31,11 +31,15 @@ export default function NuovoOrdinePage() {
   const [clienteIndirizzo, setClienteIndirizzo] = useState("");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showClienteModal, setShowClienteModal] = useState(true);
 
   useEffect(() => {
     fetch("/api/sedi").then((r) => r.json()).then((data) => {
-      setSedi(data);
-      if (!sedeSelezionata && data.length > 0) setSedeSelezionata(data[0].id);
+      const elenco = Array.isArray(data) ? data : [];
+      const sedeDaQuery = new URLSearchParams(window.location.search).get("sedeId") ?? "";
+      setSedi(elenco);
+      if (sedeDaQuery) setSedeSelezionata(sedeDaQuery);
+      else if (!sedeSelezionata && elenco.length > 0) setSedeSelezionata(elenco[0].id);
     });
   }, []);
 
@@ -46,7 +50,7 @@ export default function NuovoOrdinePage() {
       .then((data) => setMenuItems((data.items ?? []).filter((i: any) => i.disponibileInSede && i.isAttivo)));
   }, [sedeSelezionata]);
 
-  const cats = ["tutti", ...new Set(menuItems.map((m) => m.categoria))] as string[];
+  const cats = ["tutti", ...Array.from(new Set(menuItems.map((m) => m.categoria)))] as string[];
   const itemsFiltrati = menuItems.filter((m) => catFiltro === "tutti" || m.categoria === catFiltro);
 
   const addToCart = (item: any) => {
@@ -69,6 +73,15 @@ export default function NuovoOrdinePage() {
 
   const totale = cart.reduce((acc, c) => acc + c.prezzo * c.qty, 0);
   const nomeSede = sedi.find((s) => s.id === sedeSelezionata)?.nome ?? "";
+
+  const confermaDatiCliente = () => {
+    if (!clienteNome.trim()) return toast.error("Inserisci nome e cognome del cliente");
+    if (!clienteTel.trim()) return toast.error("Inserisci il numero di telefono del cliente");
+    if (!clienteIndirizzo.trim()) return toast.error("Inserisci l'indirizzo del cliente");
+    setCanale("telefono");
+    setTipo("domicilio");
+    setShowClienteModal(false);
+  };
 
   const conferma = async () => {
     if (!cart.length) return toast.error("Aggiungi almeno un prodotto");
@@ -124,6 +137,9 @@ export default function NuovoOrdinePage() {
       setClienteTel("");
       setClienteIndirizzo("");
       setNote("");
+      setCanale("walk_in");
+      setTipo("asporto");
+      setShowClienteModal(true);
     } else {
       toast.error("Errore nella creazione dell'ordine");
     }
@@ -133,6 +149,33 @@ export default function NuovoOrdinePage() {
 
   return (
     <div className="animate-in" style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16, height: "calc(100vh - 104px)" }}>
+      {showClienteModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1200, backdropFilter: "blur(5px)", padding: "24px 12px", overflowY: "auto", boxSizing: "border-box" }}>
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, padding: 28, width: 460, maxWidth: "92vw", maxHeight: "calc(100dvh - 48px)", overflowY: "auto", boxShadow: "0 24px 80px rgba(0,0,0,0.45)", margin: "auto" }}>
+            <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 22, fontWeight: 700, color: "var(--cream)", marginBottom: 6 }}>Dati cliente</h2>
+            <p style={{ color: "var(--text-dim)", fontSize: 13, lineHeight: 1.5, marginBottom: 20 }}>
+              Prima di procedere con l’ordine inserisci nome e cognome, telefono e indirizzo. Dopo l’OK potrai scegliere i prodotti dal menù della filiale.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 11, color: "var(--text-dim)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Nome e cognome *</label>
+                <input autoFocus style={{ width: "100%", background: "var(--surface-high)", border: "1px solid var(--border)", color: "var(--text)", padding: "10px 12px", borderRadius: 8, fontSize: 14, outline: "none" }} value={clienteNome} onChange={(e) => setClienteNome(e.target.value)} placeholder="Mario Rossi" />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 11, color: "var(--text-dim)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Numero di telefono *</label>
+                <input style={{ width: "100%", background: "var(--surface-high)", border: "1px solid var(--border)", color: "var(--text)", padding: "10px 12px", borderRadius: 8, fontSize: 14, outline: "none" }} value={clienteTel} onChange={(e) => setClienteTel(e.target.value)} placeholder="333 1234567" />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 11, color: "var(--text-dim)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Indirizzo *</label>
+                <input style={{ width: "100%", background: "var(--surface-high)", border: "1px solid var(--border)", color: "var(--text)", padding: "10px 12px", borderRadius: 8, fontSize: 14, outline: "none" }} value={clienteIndirizzo} onChange={(e) => setClienteIndirizzo(e.target.value)} placeholder="Via Roma 1, Pescara" />
+              </div>
+            </div>
+            <button onClick={confermaDatiCliente} style={{ width: "100%", marginTop: 20, background: "var(--terracotta)", color: "white", border: "none", padding: 13, borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-sans)" }}>
+              OK, procedi con l’ordine
+            </button>
+          </div>
+        </div>
+      )}
       {/* MENU PICKER */}
       <div style={{ overflowY: "auto", paddingRight: 4 }}>
         {isSuperAdmin && (
