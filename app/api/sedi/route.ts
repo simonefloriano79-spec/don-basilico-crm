@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -17,10 +18,9 @@ function slugify(value: string) {
 async function ensureSediTable() {
   // In produzione alcuni database creati prima dello step multi-sede possono non avere ancora
   // la tabella `sedi`. La creiamo/normalizziamo in modo idempotente prima delle operazioni.
-  await prisma.$executeRawUnsafe(`CREATE EXTENSION IF NOT EXISTS pgcrypto`);
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS sedi (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      id uuid PRIMARY KEY,
       nome text NOT NULL,
       indirizzo text NOT NULL,
       citta text NOT NULL,
@@ -118,6 +118,7 @@ export async function POST(req: NextRequest) {
 
     const sede = await prisma.sede.create({
       data: {
+        id: randomUUID(),
         nome,
         indirizzo,
         citta,
