@@ -84,15 +84,33 @@ export default function SediPage() {
   });
 
   const salva = async () => {
-    if (!form.nome || !form.indirizzo || !form.citta) {
-      return toast.error("Compila nome, indirizzo e città della filiale");
+    const payload = {
+      ...form,
+      nome: form.nome.trim(),
+      indirizzo: form.indirizzo.trim(),
+      citta: form.citta.trim(),
+      telefono: form.telefono.trim(),
+      email: form.email.trim(),
+      slug: (form.slug || slugSuggerito).trim(),
+      orarioApertura: form.orarioApertura.trim() || "11:30",
+      orarioChiusura: form.orarioChiusura.trim() || "23:00",
+    };
+
+    if (!payload.nome) {
+      return toast.error("Inserisci il nome della filiale, ad esempio Don Basilico Centro");
+    }
+    if (!payload.indirizzo) {
+      return toast.error("Inserisci l’indirizzo della filiale");
+    }
+    if (!payload.citta) {
+      return toast.error("Inserisci la città della filiale");
     }
 
     setSaving(true);
     const res = await fetch("/api/sedi", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, slug: form.slug || slugSuggerito }),
+      body: JSON.stringify(payload),
     });
     const data = await res.json().catch(() => ({}));
     setSaving(false);
@@ -162,15 +180,15 @@ export default function SediPage() {
       </div>
 
       {showModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }} onClick={() => setShowModal(false)}>
-          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, padding: 28, width: 560, maxWidth: "92vw" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)", padding: "24px 12px", overflowY: "auto", boxSizing: "border-box" }} onClick={() => setShowModal(false)}>
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, padding: 28, width: 560, maxWidth: "92vw", maxHeight: "calc(100dvh - 48px)", overflowY: "auto", boxShadow: "0 24px 80px rgba(0,0,0,0.45)", margin: "auto" }} onClick={(e) => e.stopPropagation()}>
             <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 21, fontWeight: 700, color: "var(--cream)", marginBottom: 6 }}>Nuova filiale Don Basilico</h2>
             <p style={{ color: "var(--text-dim)", fontSize: 13, marginBottom: 20 }}>Lo slug viene generato automaticamente; puoi modificarlo solo se ti serve un URL specifico.</p>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
               <div style={{ gridColumn: "1 / -1" }}>
                 <label style={labelStyle}>Nome filiale *</label>
-                <input style={inputStyle} placeholder="Don Basilico Pescara Est" value={form.nome} onChange={(e) => aggiornaCampo("nome", e.target.value)} />
+                <input autoFocus style={inputStyle} placeholder="Don Basilico Pescara Centro" value={form.nome} onChange={(e) => aggiornaCampo("nome", e.target.value)} />
               </div>
               <div style={{ gridColumn: "1 / -1" }}>
                 <label style={labelStyle}>Indirizzo *</label>

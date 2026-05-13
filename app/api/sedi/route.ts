@@ -43,8 +43,14 @@ export async function POST(req: NextRequest) {
     const orarioChiusura = String(body.orarioChiusura ?? "23:00").trim() || "23:00";
     const slug = slugify(String(body.slug ?? "").trim() || `${nome} ${citta}`);
 
-    if (!nome || !indirizzo || !citta) {
-      return NextResponse.json({ error: "Compila nome, indirizzo e città della filiale" }, { status: 400 });
+    if (!nome) {
+      return NextResponse.json({ error: "Inserisci il nome della filiale, ad esempio Don Basilico Centro" }, { status: 400 });
+    }
+    if (!indirizzo) {
+      return NextResponse.json({ error: "Inserisci l’indirizzo della filiale" }, { status: 400 });
+    }
+    if (!citta) {
+      return NextResponse.json({ error: "Inserisci la città della filiale" }, { status: 400 });
     }
 
     if (!slug) {

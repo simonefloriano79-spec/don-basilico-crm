@@ -150,8 +150,8 @@ export default function NuovoOrdinePage() {
   return (
     <div className="animate-in" style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16, height: "calc(100vh - 104px)" }}>
       {showClienteModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1200, backdropFilter: "blur(5px)" }}>
-          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, padding: 28, width: 460, maxWidth: "92vw", boxShadow: "0 24px 80px rgba(0,0,0,0.45)" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1200, backdropFilter: "blur(5px)", padding: "24px 12px", overflowY: "auto", boxSizing: "border-box" }}>
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, padding: 28, width: 460, maxWidth: "92vw", maxHeight: "calc(100dvh - 48px)", overflowY: "auto", boxShadow: "0 24px 80px rgba(0,0,0,0.45)", margin: "auto" }}>
             <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 22, fontWeight: 700, color: "var(--cream)", marginBottom: 6 }}>Dati cliente</h2>
             <p style={{ color: "var(--text-dim)", fontSize: 13, lineHeight: 1.5, marginBottom: 20 }}>
               Prima di procedere con l’ordine inserisci nome e cognome, telefono e indirizzo. Dopo l’OK potrai scegliere i prodotti dal menù della filiale.
