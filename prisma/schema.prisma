@@ -37,6 +37,9 @@ enum OrdineStato {
 
 enum CategoriaMenu {
   pizze
+  pizze_rosse
+  pizze_bianche
+  calzoni
   fritti
   bevande
   dolci

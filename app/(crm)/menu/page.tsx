@@ -5,7 +5,8 @@ import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 
 const CAT_COLORS: Record<string, string> = {
-  pizze: "#c85a2e", fritti: "#d4a853", bevande: "#4a7ec8",
+  pizze: "#c85a2e", pizze_rosse: "#c85a2e", pizze_bianche: "#d4a853",
+  calzoni: "#9b7ecb", fritti: "#4a7ec8", bevande: "#4a9e6b",
   dolci: "#4a9e6b", extra: "#8a7a65", menu_speciale: "#9b59b6",
 };
 
@@ -199,7 +200,7 @@ export default function MenuPage() {
                 <label style={{ display: "block", fontSize: 11, color: "var(--text-dim)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Categoria *</label>
                 <select style={{ width: "100%", background: "var(--surface-high)", border: "1px solid var(--border)", color: "var(--text)", padding: "9px 12px", borderRadius: 8, fontSize: 13 }}
                   value={form.categoria} onChange={(e) => setForm((p) => ({ ...p, categoria: e.target.value }))}>
-                  {["pizze", "fritti", "bevande", "dolci", "extra", "menu_speciale"].map((c) => <option key={c}>{c}</option>)}
+                  {["pizze_rosse", "pizze_bianche", "calzoni", "fritti", "bevande", "dolci", "extra", "menu_speciale"].map((c) => <option key={c}>{c}</option>)}
                 </select>
               </div>
               <div>
