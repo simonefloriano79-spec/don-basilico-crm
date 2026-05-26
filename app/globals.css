@@ -66,3 +66,32 @@ input, textarea, select {
 
 .animate-in { animation: fadeIn 0.25s ease forwards; }
 .slide-in   { animation: slideIn 0.2s ease forwards; }
+
+/* ── MOBILE RESPONSIVE ── */
+html { overflow-x: hidden; }
+
+@media (max-width: 768px) {
+  .sidebar-desktop { display: none !important; }
+  .mobile-nav {
+    display: flex !important;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 64px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    z-index: 100;
+    align-items: center;
+    justify-content: space-around;
+    padding: 0 8px;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .main-content { padding-bottom: 80px !important; }
+  .dashboard-stats { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+  .dashboard-bottom { grid-template-columns: 1fr !important; }
+  .kds-grid { grid-template-columns: 1fr !important; }
+}
+
+@media (min-width: 769px) {
+  .mobile-nav { display: none !important; }
+  .sidebar-desktop { display: flex !important; }
+}

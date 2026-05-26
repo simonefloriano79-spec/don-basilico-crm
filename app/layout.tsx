@@ -24,6 +24,7 @@ const dmMono = DM_Mono({
 export const metadata: Metadata = {
   title: "Don Basilico — Sistema Ordini",
   description: "CRM e gestione ordini per la catena Don Basilico",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
 };
 
 export default function RootLayout({
