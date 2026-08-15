@@ -17,6 +17,7 @@ export function Sidebar({ session }: Props) {
     { href: "/ordini",         icon: "≡", label: "Ordini"       },
     { href: "/nuovo-ordine",   icon: "+", label: "Nuovo Ordine" },
     { href: "/kds",            icon: "⊞", label: "Cucina (KDS)" },
+    { href: "/schermo-cassa",  icon: "📞", label: "Ordini Vocali" },
     { href: "/menu",           icon: "♦", label: "Menù"         },
     { href: "/ingredienti",    icon: "🧄", label: "Ingredienti"  },
     { href: "/clienti",        icon: "👥", label: "Clienti"     },
