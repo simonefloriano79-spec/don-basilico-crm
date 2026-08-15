@@ -33,6 +33,12 @@ export default function KDSPage() {
     if (res.ok) { if (newStato === "pronto") toast.success(`#${ordine.numeroOrdine} PRONTO! 🔔`); carica(); }
   };
 
+  const annulla = async (ordine: any) => {
+    if (!confirm(`Annullare l'ordine #${ordine.numeroOrdine}?`)) return;
+    const res = await fetch(`/api/ordini/${ordine.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stato: "annullato" }) });
+    if (res.ok) { toast.success(`#${ordine.numeroOrdine} annullato`); carica(); }
+  };
+
   const stampa = async (ordine: any) => {
     stampaBrowser({
       numero: ordine.numeroOrdine, sede: ordine.sede?.nome ?? "", canale: ordine.canale, tipo: ordine.tipo,
@@ -108,6 +114,7 @@ export default function KDSPage() {
                 <button onClick={() => avanza(ordine)} style={{ flex: 1, background: ordine.stato === "in_preparazione" ? "#4a9e6b" : "var(--terracotta)", border: "none", color: "white", padding: "10px", borderRadius: 8, fontSize: 14, fontWeight: 700 }}>
                   {NEXT_LABEL[ordine.stato]} →
                 </button>
+                <button onClick={() => annulla(ordine)} title="Annulla ordine" style={{ background: "rgba(200,64,64,0.1)", border: "1px solid rgba(200,64,64,0.3)", color: "#c84040", padding: "10px 12px", borderRadius: 8, fontSize: 14 }}>✕</button>
               </div>
             </div>
           ))}

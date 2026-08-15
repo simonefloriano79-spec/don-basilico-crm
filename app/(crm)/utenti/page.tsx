@@ -43,6 +43,17 @@ export default function UtentiPage() {
     else { const e = await res.json(); toast.error(e.error ?? "Errore"); }
   };
 
+  const toggleAttivo = async (u: any) => {
+    const azione = u.attivo ? "disattivare" : "riattivare";
+    if (!confirm(`Vuoi ${azione} ${u.nome} ${u.cognome}?`)) return;
+    const res = await fetch(`/api/utenti/${u.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ attivo: !u.attivo }),
+    });
+    if (res.ok) { toast.success(u.attivo ? "Utente disattivato" : "Utente riattivato"); carica(); }
+    else { const e = await res.json(); toast.error(e.error ?? "Errore"); }
+  };
+
   const cambiaPwd = async () => {
     if (!nuovaPwd || nuovaPwd.length < 8) return toast.error("Password minimo 8 caratteri");
     const res = await fetch("/api/utenti/cambia-password", {
@@ -99,10 +110,18 @@ export default function UtentiPage() {
                   </span>
                 </td>
                 <td style={{ padding: "11px 14px" }}>
-                  <button onClick={() => { setShowPwdModal(u); setNuovaPwd(""); }} style={{
-                    background: "var(--surface-high)", border: "1px solid var(--border)",
-                    color: "var(--text-dim)", padding: "5px 10px", borderRadius: 8, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-sans)",
-                  }}>🔑 Password</button>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => { setShowPwdModal(u); setNuovaPwd(""); }} style={{
+                      background: "var(--surface-high)", border: "1px solid var(--border)",
+                      color: "var(--text-dim)", padding: "5px 10px", borderRadius: 8, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-sans)",
+                    }}>🔑 Password</button>
+                    <button onClick={() => toggleAttivo(u)} style={{
+                      background: u.attivo ? "rgba(200,64,64,0.1)" : "rgba(74,158,107,0.1)",
+                      border: `1px solid ${u.attivo ? "rgba(200,64,64,0.3)" : "rgba(74,158,107,0.3)"}`,
+                      color: u.attivo ? "#c84040" : "#4a9e6b",
+                      padding: "5px 10px", borderRadius: 8, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-sans)",
+                    }}>{u.attivo ? "🚫 Disattiva" : "✓ Riattiva"}</button>
+                  </div>
                 </td>
               </tr>
             ))}

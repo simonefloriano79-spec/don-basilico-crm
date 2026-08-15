@@ -306,9 +306,10 @@ export default function NuovoOrdinePage() {
         items: cart.map((c) => ({
           menuItemId: c.menuItemId,
           nomeSnapshot: c.nome + (c.ingredientiAggiunti.length ? ` +${c.ingredientiAggiunti.map(i=>i.nome).join("+")}` : "") + (c.ingredientiRimossi.length ? ` -${c.ingredientiRimossi.map(i=>i.nome).join("-")}` : ""),
-          prezzoSnapshot: c.prezzoTotaleItem, quantita: c.qty,
+          quantita: c.qty,
           noteItem: [c.ingredientiRimossi.length ? `Senza: ${c.ingredientiRimossi.map(i=>i.nome).join(", ")}` : "", c.ingredientiAggiunti.length ? `Con: ${c.ingredientiAggiunti.map(i=>i.nome).join(", ")}` : "", c.noteItem].filter(Boolean).join(" | ") || null,
           ingredientiRimossi: c.ingredientiRimossi.map(i=>i.id),
+          ingredientiAggiuntiIds: c.ingredientiAggiunti.map(i=>i.id),
         })),
       }),
     });

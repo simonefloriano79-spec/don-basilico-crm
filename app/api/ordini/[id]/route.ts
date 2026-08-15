@@ -8,6 +8,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Non autorizzato" }, { status: 401 });
 
+  const user = session.user as any;
+
   const ordine = await prisma.ordine.findUnique({
     where: { id: params.id },
     include: {
@@ -27,6 +29,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   });
 
   if (!ordine) return NextResponse.json({ error: "Non trovato" }, { status: 404 });
+
+  if (user.ruolo !== "super_admin" && ordine.sedeId !== user.sedeId) {
+    return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
+  }
+
   return NextResponse.json(ordine);
 }
 
@@ -39,10 +46,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const user = session.user as any;
   const { stato, stampato, note } = body;
 
-  const STATI_FLOW = ["nuovo", "confermato", "in_preparazione", "pronto", "consegnato"];
+  const STATI_FLOW = ["nuovo", "confermato", "in_preparazione", "pronto", "consegnato", "annullato"];
 
   const ordineAttuale = await prisma.ordine.findUnique({ where: { id: params.id } });
   if (!ordineAttuale) return NextResponse.json({ error: "Non trovato" }, { status: 404 });
+
+  if (user.ruolo !== "super_admin" && ordineAttuale.sedeId !== user.sedeId) {
+    return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
+  }
 
   // Validazione avanzamento stato
   if (stato) {
