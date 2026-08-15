@@ -46,6 +46,21 @@ export default function OrdiniPage() {
     }
   };
 
+  const annullaOrdine = async (ordine: any) => {
+    if (!confirm(`Annullare l'ordine #${ordine.numeroOrdine}?`)) return;
+    const res = await fetch(`/api/ordini/${ordine.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stato: "annullato" }),
+    });
+    if (res.ok) {
+      toast.success(`Ordine #${ordine.numeroOrdine} annullato`);
+      caricaOrdini();
+    } else {
+      toast.error("Errore durante l'annullamento");
+    }
+  };
+
   const gestisciStampa = async (ordine: any) => {
     stampaBrowser({
       numero: ordine.numeroOrdine,
@@ -147,6 +162,13 @@ export default function OrdiniPage() {
                         color: "var(--text)", padding: "5px 10px", borderRadius: 8, fontSize: 12,
                         cursor: "pointer", fontFamily: "var(--font-sans)",
                       }}>→</button>
+                    )}
+                    {!["consegnato", "annullato"].includes(o.stato) && (
+                      <button onClick={() => annullaOrdine(o)} title="Annulla ordine" style={{
+                        background: "rgba(200,64,64,0.1)", border: "1px solid rgba(200,64,64,0.3)",
+                        color: "#c84040", padding: "5px 10px", borderRadius: 8, fontSize: 12,
+                        cursor: "pointer", fontFamily: "var(--font-sans)",
+                      }}>✕</button>
                     )}
                   </div>
                 </td>
