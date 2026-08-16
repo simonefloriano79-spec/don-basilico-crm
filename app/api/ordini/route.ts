@@ -130,13 +130,29 @@ export async function POST(req: NextRequest) {
   const costoConsegnaFinale = tipo === "domicilio" ? Math.max(0, parseFloat(costoConsegna) || 0) : 0;
   totale += costoConsegnaFinale;
 
+  // Se non è stato selezionato un cliente esistente ma è stato inserito un telefono,
+  // collega l'ordine all'anagrafica cliente corrispondente (creandola se non esiste).
+  let clienteIdFinale = clienteId || null;
+  if (!clienteIdFinale && clienteTelefono) {
+    const clienteEsistente = await prisma.cliente.findFirst({ where: { telefono: clienteTelefono } });
+    clienteIdFinale = clienteEsistente
+      ? clienteEsistente.id
+      : (await prisma.cliente.create({
+          data: {
+            nome: clienteNome || "Cliente",
+            telefono: clienteTelefono,
+            indirizzoDefault: clienteIndirizzo || null,
+          },
+        })).id;
+  }
+
   const ordine = await prisma.ordine.create({
     data: {
       sedeId,
       canale,
       tipo,
       stato: "nuovo",
-      clienteId: clienteId || null,
+      clienteId: clienteIdFinale,
       operatoreId: canale !== "online" ? user.id : null,
       clienteNome,
       clienteTelefono,
