@@ -12,18 +12,24 @@ enum UserRole {
   super_admin
   sede_manager
   operatore
+
+  @@map("user_role")
 }
 
 enum OrdineCanale {
   online
   walk_in
   telefono
+
+  @@map("ordine_canale")
 }
 
 enum OrdineTipo {
   asporto
   domicilio
   tavolo
+
+  @@map("ordine_tipo")
 }
 
 enum OrdineStato {
@@ -33,6 +39,8 @@ enum OrdineStato {
   pronto
   consegnato
   annullato
+
+  @@map("ordine_stato")
 }
 
 enum CategoriaMenu {
@@ -45,6 +53,8 @@ enum CategoriaMenu {
   dolci
   extra
   menu_speciale
+
+  @@map("categoria_menu")
 }
 
 model Sede {
@@ -301,16 +311,22 @@ enum OrdineVocaleStato {
   nuovo
   preso_in_carico
   annullato
+
+  @@map("ordine_vocale_stato")
 }
 
 enum OrdineVocaleTipo {
   domicilio
   asporto
+
+  @@map("ordine_vocale_tipo")
 }
 
 enum InterazioneCanale {
   voce
   whatsapp
+
+  @@map("interazione_canale")
 }
 
 enum InterazioneEsito {
@@ -319,6 +335,8 @@ enum InterazioneEsito {
   cucina_piena
   chiuso
   errore
+
+  @@map("interazione_esito")
 }
 
 model SedeCopertura {
