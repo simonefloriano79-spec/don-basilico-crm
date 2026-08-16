@@ -4,7 +4,7 @@
     radial-gradient(circle at top left, rgba(106, 142, 60, 0.18), transparent 34%),
     radial-gradient(circle at bottom right, rgba(212, 168, 83, 0.12), transparent 36%),
     linear-gradient(135deg, #15100d 0%, #211713 48%, #0f0c0a 100%);
-  color: var(--cream);
+  color: var(--text);
   padding: 56px clamp(18px, 4vw, 64px);
 }
 
@@ -60,8 +60,8 @@
 .sectionHeader h2,
 .securityStrip h2 {
   margin: 0;
-  font-family: var(--font-serif);
-  color: var(--cream);
+  font-family: var(--font-display);
+  color: var(--text);
   line-height: 1.04;
 }
 
@@ -106,7 +106,7 @@
 }
 
 .secondaryAction {
-  color: var(--cream);
+  color: var(--text);
   border: 1px solid rgba(244, 232, 205, 0.22);
   background: rgba(255, 255, 255, 0.04);
 }
@@ -154,7 +154,7 @@
 .sidebarLogo {
   margin-bottom: 28px;
   color: #d4a853;
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: 18px;
   font-weight: 800;
 }
@@ -192,9 +192,9 @@
 .dashboardHeader strong {
   display: block;
   margin-top: 8px;
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: clamp(24px, 4vw, 38px);
-  color: var(--cream);
+  color: var(--text);
 }
 
 .dashboardHeader b {
@@ -220,7 +220,7 @@
 
 .cardsGrid strong {
   display: block;
-  color: var(--cream);
+  color: var(--text);
   font-size: 18px;
   margin-bottom: 8px;
 }
@@ -250,7 +250,7 @@
 }
 
 .ordersMock b {
-  color: var(--cream);
+  color: var(--text);
   font-size: 14px;
 }
 
@@ -296,8 +296,8 @@
 
 .moduleCard h3 {
   margin: 0 0 12px;
-  color: var(--cream);
-  font-family: var(--font-serif);
+  color: var(--text);
+  font-family: var(--font-display);
   font-size: 20px;
 }
 

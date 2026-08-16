@@ -12,21 +12,35 @@ export function Sidebar({ session }: Props) {
   const user = session.user as any;
   const isSuperAdmin = user.ruolo === "super_admin";
 
-  const navItems = [
-    { href: "/dashboard",      icon: "◈", label: "Dashboard"    },
-    { href: "/ordini",         icon: "≡", label: "Ordini"       },
-    { href: "/nuovo-ordine",   icon: "+", label: "Nuovo Ordine" },
-    { href: "/kds",            icon: "⊞", label: "Cucina (KDS)" },
-    { href: "/schermo-cassa",  icon: "📞", label: "Ordini Vocali" },
-    { href: "/menu",           icon: "♦", label: "Menù"         },
-    { href: "/ingredienti",    icon: "🧄", label: "Ingredienti"  },
-    { href: "/clienti",        icon: "👥", label: "Clienti"     },
-    { href: "/profilo",        icon: "⚙", label: "Profilo"     },
-    { href: "/statistiche",    icon: "📊", label: "Statistiche" },
-    ...(isSuperAdmin ? [
-      { href: "/sedi",   icon: "⊙", label: "Sedi"   },
-      { href: "/utenti", icon: "🔑", label: "Utenti" },
-    ] : []),
+  const sections = [
+    {
+      label: "Operatività",
+      items: [
+        { href: "/dashboard",     glyph: "◇", label: "Panoramica"   },
+        { href: "/ordini",        glyph: "≡", label: "Ordini"       },
+        { href: "/nuovo-ordine",  glyph: "+", label: "Nuovo ordine" },
+        { href: "/kds",           glyph: "◉", label: "Cucina"       },
+        { href: "/schermo-cassa", glyph: "☏", label: "Ordini vocali" },
+      ],
+    },
+    {
+      label: "Direzione",
+      items: [
+        { href: "/clienti",     glyph: "◍", label: "Clienti" },
+        { href: "/statistiche", glyph: "▤", label: "Report"  },
+      ],
+    },
+    {
+      label: "Configurazione",
+      items: [
+        { href: "/menu",        glyph: "◆", label: "Menù"        },
+        { href: "/ingredienti", glyph: "◈", label: "Ingredienti" },
+        ...(isSuperAdmin ? [
+          { href: "/sedi",   glyph: "⊙", label: "Sedi"   },
+          { href: "/utenti", glyph: "◎", label: "Utenti" },
+        ] : []),
+      ],
+    },
   ];
 
   const initials = (user.name ?? "??")
@@ -39,34 +53,38 @@ export function Sidebar({ session }: Props) {
   return (
     <nav className={styles.sidebar}>
       <div className={styles.logo}>
-        <div className={styles.logoTitle}>Don Basilico</div>
+        <img src="/brand/don-basilico-logo.svg" alt="Don Basilico" className={styles.logoImg} />
         <div className={styles.logoSub}>Sistema ordini</div>
       </div>
 
       <div className={styles.nav}>
-        <div className={styles.sectionLabel}>Navigazione</div>
-        {navItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`${styles.navItem} ${pathname === item.href ? styles.active : ""}`}
-          >
-            <span className={styles.icon}>{item.icon}</span>
-            {item.label}
-          </Link>
+        {sections.map((section) => (
+          <div key={section.label}>
+            <div className={styles.sectionLabel}>{section.label}</div>
+            {section.items.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`${styles.navItem} ${pathname === item.href ? styles.active : ""}`}
+              >
+                <span className={styles.icon}>{item.glyph}</span>
+                {item.label}
+              </Link>
+            ))}
+          </div>
         ))}
       </div>
 
       <div className={styles.footer}>
-        <div className={styles.userPill}>
+        <Link href="/profilo" className={styles.userPill}>
           <div className={styles.avatar}>{initials}</div>
           <div>
             <div className={styles.userName}>{user.name}</div>
             <div className={styles.userRole}>
-              {isSuperAdmin ? "Super Admin" : user.sedeNome ?? "Operatore"}
+              {isSuperAdmin ? "super admin" : user.sedeNome ?? "operatore"}
             </div>
           </div>
-        </div>
+        </Link>
       </div>
     </nav>
   );

@@ -1,6 +1,6 @@
 .sidebar {
-  width: 220px;
-  min-width: 220px;
+  width: 236px;
+  min-width: 236px;
   background: var(--surface);
   border-right: 1px solid var(--border);
   display: flex;
@@ -11,108 +11,114 @@
 }
 
 .logo {
-  padding: 24px 20px 20px;
-  border-bottom: 1px solid var(--border);
+  padding: 26px 22px 20px;
+  border-bottom: 1px solid var(--border-soft);
 }
 
-.logoTitle {
-  font-family: var(--font-serif);
-  font-size: 20px;
-  font-weight: 900;
-  color: var(--terracotta);
-  letter-spacing: -0.5px;
-  line-height: 1.1;
+.logoImg {
+  width: 150px;
+  display: block;
 }
 
 .logoSub {
-  font-size: 10px;
-  color: var(--text-dim);
-  letter-spacing: 2px;
+  font-size: 9.5px;
+  color: var(--text-muted);
+  letter-spacing: 2.4px;
   text-transform: uppercase;
-  margin-top: 2px;
+  margin-top: 14px;
 }
 
 .nav {
-  padding: 16px 12px;
+  padding: 0 12px 16px;
   flex: 1;
+  overflow-y: auto;
 }
 
 .sectionLabel {
   font-size: 9px;
-  letter-spacing: 2px;
+  letter-spacing: 2.2px;
   text-transform: uppercase;
-  color: var(--text-dim);
-  padding: 0 8px;
-  margin-bottom: 6px;
+  color: var(--text-faint);
+  padding: 20px 10px 8px;
+}
+
+.nav > div:first-child .sectionLabel {
+  padding-top: 0;
 }
 
 .navItem {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-dim);
-  transition: all 0.15s ease;
-  border: 1px solid transparent;
+  gap: 11px;
+  padding: 9px 11px;
+  border-radius: 9px;
+  font-size: 13.5px;
+  font-weight: 400;
+  color: var(--text-3);
+  transition: background .15s, color .15s;
   text-decoration: none;
   margin-bottom: 2px;
 }
 
 .navItem:hover {
-  background: var(--surface-high);
+  background: var(--surface-muted);
   color: var(--text);
 }
 
 .navItem.active {
-  background: rgba(200, 90, 46, 0.1);
-  color: var(--terracotta);
-  border-color: rgba(200, 90, 46, 0.2);
+  background: var(--accent-bg-2);
+  color: var(--text);
+  font-weight: 500;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.navItem.active:hover {
+  background: var(--accent-bg-2);
 }
 
 .icon {
-  font-size: 15px;
-  width: 18px;
+  width: 16px;
+  font-size: 13px;
   text-align: center;
+  flex-shrink: 0;
 }
 
 .footer {
-  padding: 16px;
-  border-top: 1px solid var(--border);
+  padding: 14px;
+  border-top: 1px solid var(--border-soft);
 }
 
 .userPill {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: var(--surface-high);
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: var(--bg);
+  text-decoration: none;
 }
 
 .avatar {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: var(--terracotta);
+  background: var(--text);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  color: white;
+  color: #fff;
   flex-shrink: 0;
 }
 
 .userName {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 12.5px;
+  font-weight: 500;
   color: var(--text);
 }
 
 .userRole {
-  font-size: 10px;
-  color: var(--text-dim);
+  font-size: 10.5px;
+  color: var(--text-muted);
 }

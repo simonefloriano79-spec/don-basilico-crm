@@ -86,7 +86,7 @@ export default function SchermoCassaPage() {
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#4a9e6b", animation: "pulse 2s infinite" }} />
           <span style={{ fontSize: 13, color: "#4a9e6b" }}>Live · aggiornamento ogni 8s</span>
         </div>
-        <span style={{ marginLeft: "auto", fontSize: 13, color: "var(--text-dim)" }}>
+        <span style={{ marginLeft: "auto", fontSize: 13, color: "var(--text-muted)" }}>
           {nuovi.length} nuovi · {presiInCarico.length} in carico
         </span>
       </div>
@@ -94,7 +94,7 @@ export default function SchermoCassaPage() {
       {nuovi.length === 0 && presiInCarico.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px 20px" }}>
           <div style={{ fontSize: 56, marginBottom: 12, opacity: 0.3 }}>📞</div>
-          <div style={{ fontSize: 16, color: "var(--text-dim)" }}>Nessun ordine vocale in arrivo</div>
+          <div style={{ fontSize: 16, color: "var(--text-muted)" }}>Nessun ordine vocale in arrivo</div>
         </div>
       ) : (
         <>
@@ -108,7 +108,7 @@ export default function SchermoCassaPage() {
 
           {presiInCarico.length > 0 && (
             <>
-              <div style={{ fontSize: 12, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>
                 Presi in carico
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14, opacity: 0.6 }}>
@@ -135,37 +135,37 @@ function CardOrdine({
 }) {
   return (
     <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", borderTop: `4px solid ${ordine.stato === "nuovo" ? "#4a7ec8" : "#8a7a65"}` }}>
-      <div style={{ padding: "12px 16px", background: "var(--surface-high)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ padding: "12px 16px", background: "var(--surface-muted)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 22, fontWeight: 700, color: "var(--cream)" }}>#{ordine.numeroOrdine}</div>
-          <div style={{ fontSize: 12, color: "var(--text-dim)" }}>
+          <div style={{ fontFamily: "var(--font-ui)", fontSize: 22, fontWeight: 700, color: "var(--text)" }}>#{ordine.numeroOrdine}</div>
+          <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
             {new Date(ordine.createdAt).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
             {isSuperAdmin && ` · ${ordine.sede.nome.replace("Don Basilico ", "")}`}
           </div>
         </div>
-        <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 20, background: ordine.tipo === "domicilio" ? "rgba(200,90,46,0.15)" : "rgba(74,158,107,0.15)", color: ordine.tipo === "domicilio" ? "var(--terracotta)" : "#4a9e6b" }}>
+        <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 20, background: ordine.tipo === "domicilio" ? "rgba(200,90,46,0.15)" : "rgba(74,158,107,0.15)", color: ordine.tipo === "domicilio" ? "var(--text)" : "#4a9e6b" }}>
           {ordine.tipo === "domicilio" ? "🛵 Domicilio" : "🏠 Asporto"}
         </span>
       </div>
 
       <div style={{ padding: "12px 16px" }}>
-        <div style={{ fontSize: 13, color: "var(--text-dim)", marginBottom: 8 }}>
+        <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 8 }}>
           👤 {ordine.clienteNome} · 📞 {ordine.clienteTelefono}
         </div>
         {ordine.tipo === "domicilio" && ordine.clienteIndirizzo && (
-          <div style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 10 }}>📍 {ordine.clienteIndirizzo}</div>
+          <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10 }}>📍 {ordine.clienteIndirizzo}</div>
         )}
 
         {ordine.articoli.map((a, i) => (
           <div key={i} style={{ display: "flex", gap: 8, padding: "6px 0", borderBottom: i < ordine.articoli.length - 1 ? "1px solid var(--border)" : "none", fontSize: 14 }}>
-            <span style={{ fontFamily: "var(--font-mono)", color: "var(--terracotta)", fontWeight: 700, minWidth: 28 }}>{a.quantita}x</span>
+            <span style={{ fontFamily: "var(--font-ui)", color: "var(--text)", fontWeight: 700, minWidth: 28 }}>{a.quantita}x</span>
             <div>
               <div>
                 {a.nomeSnapshot}
-                {a.taglia === "maxi" && <span style={{ marginLeft: 6, fontSize: 10, background: "var(--terracotta)", color: "white", padding: "1px 6px", borderRadius: 8 }}>MAXI</span>}
+                {a.taglia === "maxi" && <span style={{ marginLeft: 6, fontSize: 10, background: "var(--text)", color: "white", padding: "1px 6px", borderRadius: 8 }}>MAXI</span>}
               </div>
-              {a.extra.length > 0 && <div style={{ fontSize: 11, color: "var(--text-dim)" }}>+ {a.extra.map((e) => e.nome).join(", ")}</div>}
-              {a.note && <div style={{ fontSize: 11, color: "var(--text-dim)" }}>→ {a.note}</div>}
+              {a.extra.length > 0 && <div style={{ fontSize: 11, color: "var(--text-muted)" }}>+ {a.extra.map((e) => e.nome).join(", ")}</div>}
+              {a.note && <div style={{ fontSize: 11, color: "var(--text-muted)" }}>→ {a.note}</div>}
             </div>
           </div>
         ))}
@@ -176,7 +176,7 @@ function CardOrdine({
           </div>
         )}
 
-        <div style={{ marginTop: 10, fontFamily: "var(--font-mono)", fontSize: 18, fontWeight: 700, color: "#d4a853" }}>
+        <div style={{ marginTop: 10, fontFamily: "var(--font-ui)", fontSize: 18, fontWeight: 700, color: "#d4a853" }}>
           €{parseFloat(ordine.totale).toFixed(2)}
         </div>
       </div>

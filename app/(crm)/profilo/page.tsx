@@ -37,13 +37,13 @@ export default function ProfiloPage() {
   };
 
   const inputStyle: React.CSSProperties = {
-    width: "100%", background: "var(--surface-high)", border: "1px solid var(--border)",
+    width: "100%", background: "var(--surface-muted)", border: "1px solid var(--border)",
     color: "var(--text)", padding: "10px 12px", borderRadius: 8, fontSize: 13,
-    outline: "none", fontFamily: "var(--font-sans)",
+    outline: "none", fontFamily: "var(--font-ui)",
   };
 
   const labelStyle: React.CSSProperties = {
-    display: "block", fontSize: 11, color: "var(--text-dim)",
+    display: "block", fontSize: 11, color: "var(--text-muted)",
     marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.5px",
   };
 
@@ -52,7 +52,7 @@ export default function ProfiloPage() {
 
       {/* INFO UTENTE */}
       <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 24, marginBottom: 20 }}>
-        <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 700, color: "var(--cream)", marginBottom: 16 }}>
+        <h2 style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 700, color: "var(--text)", marginBottom: 16 }}>
           Il mio profilo
         </h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -63,8 +63,8 @@ export default function ProfiloPage() {
             ...(user?.sedeNome ? [{ label: "Sede", value: user.sedeNome }] : []),
           ].map(f => (
             <div key={f.label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-              <span style={{ fontSize: 12, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: 0.5 }}>{f.label}</span>
-              <span style={{ fontSize: 13, fontWeight: 500, color: "var(--cream)" }}>{f.value}</span>
+              <span style={{ fontSize: 12, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.5 }}>{f.label}</span>
+              <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text)" }}>{f.value}</span>
             </div>
           ))}
         </div>
@@ -72,10 +72,10 @@ export default function ProfiloPage() {
 
       {/* CAMBIO PASSWORD */}
       <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 24 }}>
-        <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 700, color: "var(--cream)", marginBottom: 6 }}>
+        <h2 style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 700, color: "var(--text)", marginBottom: 6 }}>
           Cambia password
         </h2>
-        <p style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 20 }}>
+        <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 20 }}>
           Ti consigliamo di cambiare la password predefinita al primo accesso.
         </p>
 
@@ -100,9 +100,9 @@ export default function ProfiloPage() {
             onClick={cambiaPassword}
             disabled={loading}
             style={{
-              background: "var(--terracotta)", color: "white", border: "none",
+              background: "var(--text)", color: "white", border: "none",
               padding: "12px", borderRadius: 10, fontSize: 14, fontWeight: 700,
-              cursor: loading ? "not-allowed" : "pointer", fontFamily: "var(--font-sans)",
+              cursor: loading ? "not-allowed" : "pointer", fontFamily: "var(--font-ui)",
               opacity: loading ? 0.7 : 1, marginTop: 4,
             }}
           >

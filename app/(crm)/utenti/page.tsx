@@ -3,17 +3,18 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
-const S = {
-  input: {
-    width: "100%", background: "var(--surface-high)", border: "1px solid var(--border)",
-    color: "var(--text)", padding: "9px 12px", borderRadius: 8, fontSize: 13,
-    outline: "none", fontFamily: "var(--font-sans)",
-  } as React.CSSProperties,
-  label: {
-    display: "block" as const, fontSize: 11, color: "var(--text-dim)",
-    marginBottom: 6, textTransform: "uppercase" as const, letterSpacing: "0.5px",
-  },
+const fieldSt: React.CSSProperties = {
+  width: "100%", background: "var(--surface-muted)", border: "1px solid var(--border)",
+  color: "var(--text)", padding: "9px 12px", borderRadius: 9, fontSize: 12.5, outline: "none", fontFamily: "var(--font-ui)",
 };
+const labelSt: React.CSSProperties = {
+  display: "block", fontSize: 10, color: "var(--text-muted)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1.6,
+};
+const RUOLO_LABEL: Record<string, string> = { super_admin: "super admin", sede_manager: "sede manager", operatore: "operatore" };
+
+function iniziali(u: { nome: string; cognome: string }) {
+  return `${u.nome[0] ?? ""}${u.cognome?.[0] ?? ""}`.toUpperCase();
+}
 
 export default function UtentiPage() {
   const [utenti, setUtenti] = useState<any[]>([]);
@@ -35,113 +36,115 @@ export default function UtentiPage() {
     if (!form.email || !form.nome || !form.cognome || !form.password) return toast.error("Compila tutti i campi obbligatori");
     if (form.password.length < 8) return toast.error("Password minimo 8 caratteri");
     setLoading(true);
-    const res = await fetch("/api/utenti", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form),
-    });
+    const res = await fetch("/api/utenti", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
     setLoading(false);
-    if (res.ok) { toast.success("Utente creato!"); setShowModal(false); setForm({ email: "", nome: "", cognome: "", ruolo: "operatore", sedeId: "", password: "" }); carica(); }
+    if (res.ok) { toast.success("Utente creato"); setShowModal(false); setForm({ email: "", nome: "", cognome: "", ruolo: "operatore", sedeId: "", password: "" }); carica(); }
     else { const e = await res.json(); toast.error(e.error ?? "Errore"); }
   };
 
   const toggleAttivo = async (u: any) => {
     const azione = u.attivo ? "disattivare" : "riattivare";
     if (!confirm(`Vuoi ${azione} ${u.nome} ${u.cognome}?`)) return;
-    const res = await fetch(`/api/utenti/${u.id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ attivo: !u.attivo }),
-    });
+    const res = await fetch(`/api/utenti/${u.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ attivo: !u.attivo }) });
     if (res.ok) { toast.success(u.attivo ? "Utente disattivato" : "Utente riattivato"); carica(); }
     else { const e = await res.json(); toast.error(e.error ?? "Errore"); }
   };
 
   const cambiaPwd = async () => {
     if (!nuovaPwd || nuovaPwd.length < 8) return toast.error("Password minimo 8 caratteri");
-    const res = await fetch("/api/utenti/cambia-password", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ targetEmail: showPwdModal.email, nuovaPassword: nuovaPwd }),
-    });
-    if (res.ok) { toast.success("Password aggiornata!"); setShowPwdModal(null); setNuovaPwd(""); }
+    const res = await fetch("/api/utenti/cambia-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ targetEmail: showPwdModal.email, nuovaPassword: nuovaPwd }) });
+    if (res.ok) { toast.success("Password aggiornata"); setShowPwdModal(null); setNuovaPwd(""); }
     else { const e = await res.json(); toast.error(e.error ?? "Errore"); }
   };
 
-  const RUOLO_COLOR: Record<string, string> = { super_admin: "#d4a853", sede_manager: "#4a7ec8", operatore: "#8a7a65" };
+  const attivi = utenti.filter((u) => u.attivo).length;
 
   return (
     <div className="animate-in">
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>{utenti.length} utenti · {attivi} attivi</span>
         <button onClick={() => setShowModal(true)} style={{
-          background: "var(--terracotta)", color: "white", border: "none",
-          padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-sans)",
-        }}>+ Nuovo utente</button>
+          background: "var(--text)", color: "#fff", border: "none",
+          padding: "9px 18px", borderRadius: 9, fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)",
+        }}>Nuovo utente</button>
       </div>
 
-      <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
+      <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
-            <tr style={{ background: "var(--surface-high)" }}>
-              {["Nome", "Email", "Ruolo", "Sede", "Stato", "Azioni"].map((h) => (
-                <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, color: "var(--text-dim)", fontWeight: 600 }}>{h}</th>
+            <tr style={{ background: "var(--surface-muted)" }}>
+              {["Nome", "Ruolo", "Sede", "Stato", "Azioni"].map((h) => (
+                <th key={h} style={{ padding: "11px 14px", textAlign: "left", fontSize: 9.5, letterSpacing: 1.7, textTransform: "uppercase", color: "var(--text-muted)", fontWeight: 500 }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {utenti.map((u) => (
-              <tr key={u.id} style={{ borderTop: "1px solid var(--border)" }}>
-                <td style={{ padding: "11px 14px", fontSize: 13, fontWeight: 500, color: "var(--cream)" }}>
-                  {u.nome} {u.cognome}
-                </td>
-                <td style={{ padding: "11px 14px", fontSize: 12, color: "var(--text-dim)" }}>{u.email}</td>
-                <td style={{ padding: "11px 14px" }}>
-                  <span style={{
-                    background: `${RUOLO_COLOR[u.ruolo] ?? "#888"}20`, color: RUOLO_COLOR[u.ruolo] ?? "#888",
-                    padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, textTransform: "capitalize",
-                  }}>{u.ruolo.replace("_", " ")}</span>
-                </td>
-                <td style={{ padding: "11px 14px", fontSize: 12, color: "var(--text-dim)" }}>
-                  {u.sede?.nome?.replace("Don Basilico ", "") ?? "—"}
-                </td>
-                <td style={{ padding: "11px 14px" }}>
-                  <span style={{
-                    fontSize: 11, padding: "3px 8px", borderRadius: 20,
-                    background: u.attivo ? "rgba(74,158,107,0.15)" : "rgba(200,64,64,0.15)",
-                    color: u.attivo ? "#4a9e6b" : "#c84040",
-                  }}>
-                    {u.attivo ? "● Attivo" : "● Disattivo"}
-                  </span>
-                </td>
-                <td style={{ padding: "11px 14px" }}>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={() => { setShowPwdModal(u); setNuovaPwd(""); }} style={{
-                      background: "var(--surface-high)", border: "1px solid var(--border)",
-                      color: "var(--text-dim)", padding: "5px 10px", borderRadius: 8, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-sans)",
-                    }}>🔑 Password</button>
-                    <button onClick={() => toggleAttivo(u)} style={{
-                      background: u.attivo ? "rgba(200,64,64,0.1)" : "rgba(74,158,107,0.1)",
-                      border: `1px solid ${u.attivo ? "rgba(200,64,64,0.3)" : "rgba(74,158,107,0.3)"}`,
-                      color: u.attivo ? "#c84040" : "#4a9e6b",
-                      padding: "5px 10px", borderRadius: 8, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-sans)",
-                    }}>{u.attivo ? "🚫 Disattiva" : "✓ Riattiva"}</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {utenti.map((u) => {
+              const isAdmin = u.ruolo === "super_admin";
+              return (
+                <tr key={u.id} style={{ borderTop: "1px solid var(--border-soft)", opacity: u.attivo ? 1 : 0.55 }}>
+                  <td style={{ padding: "12px 14px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{
+                        width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+                        background: isAdmin ? "var(--text)" : "var(--accent-bg-2)",
+                        color: isAdmin ? "#fff" : "var(--accent-ink)",
+                        display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700,
+                      }}>{iniziali(u)}</div>
+                      <div>
+                        <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>{u.nome} {u.cognome}</div>
+                        <div style={{ fontSize: 11.5, color: "var(--text-muted)" }}>{u.email}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td style={{ padding: "12px 14px" }}>
+                    <span style={{
+                      padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 500,
+                      background: isAdmin ? "var(--text)" : "var(--surface-muted)",
+                      color: isAdmin ? "#fff" : "var(--text-3)",
+                    }}>{RUOLO_LABEL[u.ruolo] ?? u.ruolo}</span>
+                  </td>
+                  <td style={{ padding: "12px 14px", fontSize: 12.5, color: "var(--text-3)" }}>{u.sede?.nome?.replace("Don Basilico ", "") ?? "—"}</td>
+                  <td style={{ padding: "12px 14px" }}>
+                    <span style={{
+                      fontSize: 11, fontWeight: 500, padding: "3px 10px", borderRadius: 20,
+                      background: u.attivo ? "var(--accent-bg)" : "var(--danger-bg)",
+                      color: u.attivo ? "var(--accent-ink)" : "var(--danger)",
+                    }}>{u.attivo ? "Attivo" : "Disattivo"}</span>
+                  </td>
+                  <td style={{ padding: "12px 14px" }}>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={() => { setShowPwdModal(u); setNuovaPwd(""); }} style={{
+                        background: "#fff", border: "1px solid var(--border)", color: "var(--text-2)",
+                        padding: "5px 12px", borderRadius: 8, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-ui)",
+                      }}>Password</button>
+                      <button onClick={() => toggleAttivo(u)} style={{
+                        background: u.attivo ? "var(--danger-bg)" : "var(--accent-bg-2)",
+                        border: `1px solid ${u.attivo ? "var(--danger-border)" : "var(--accent-border)"}`,
+                        color: u.attivo ? "var(--danger)" : "var(--accent-ink)",
+                        padding: "5px 12px", borderRadius: 8, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-ui)",
+                      }}>{u.attivo ? "Disattiva" : "Riattiva"}</button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
-      {/* MODAL CREA UTENTE */}
       {showModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }}
+        <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
           onClick={() => setShowModal(false)}>
-          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, padding: 28, width: 460, maxWidth: "90vw" }}
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 26, width: 460, maxWidth: "90vw" }}
             onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 700, color: "var(--cream)", marginBottom: 20 }}>Nuovo utente</h2>
+            <h2 style={{ fontFamily: "var(--font-display)", fontSize: 19, color: "var(--text)", marginBottom: 18 }}>Nuovo utente</h2>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
               {[{ label: "Nome *", key: "nome" }, { label: "Cognome *", key: "cognome" }].map((f) => (
                 <div key={f.key}>
-                  <label style={S.label}>{f.label}</label>
-                  <input style={S.input} value={(form as any)[f.key]} onChange={(e) => setForm((p) => ({ ...p, [f.key]: e.target.value }))} />
+                  <label style={labelSt}>{f.label}</label>
+                  <input style={fieldSt} value={(form as any)[f.key]} onChange={(e) => setForm((p) => ({ ...p, [f.key]: e.target.value }))} />
                 </div>
               ))}
             </div>
@@ -151,23 +154,23 @@ export default function UtentiPage() {
               { label: "Password * (min 8 caratteri)", key: "password", type: "password" },
             ].map((f) => (
               <div key={f.key} style={{ marginBottom: 12 }}>
-                <label style={S.label}>{f.label}</label>
-                <input style={S.input} type={f.type} value={(form as any)[f.key]} onChange={(e) => setForm((p) => ({ ...p, [f.key]: e.target.value }))} />
+                <label style={labelSt}>{f.label}</label>
+                <input style={fieldSt} type={f.type} value={(form as any)[f.key]} onChange={(e) => setForm((p) => ({ ...p, [f.key]: e.target.value }))} />
               </div>
             ))}
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 18 }}>
               <div>
-                <label style={S.label}>Ruolo *</label>
-                <select style={{ ...S.input }} value={form.ruolo} onChange={(e) => setForm((p) => ({ ...p, ruolo: e.target.value }))}>
+                <label style={labelSt}>Ruolo *</label>
+                <select style={fieldSt} value={form.ruolo} onChange={(e) => setForm((p) => ({ ...p, ruolo: e.target.value }))}>
                   <option value="operatore">Operatore</option>
-                  <option value="sede_manager">Sede Manager</option>
-                  <option value="super_admin">Super Admin</option>
+                  <option value="sede_manager">Sede manager</option>
+                  <option value="super_admin">Super admin</option>
                 </select>
               </div>
               <div>
-                <label style={S.label}>Sede</label>
-                <select style={{ ...S.input }} value={form.sedeId} onChange={(e) => setForm((p) => ({ ...p, sedeId: e.target.value }))}>
+                <label style={labelSt}>Sede</label>
+                <select style={fieldSt} value={form.sedeId} onChange={(e) => setForm((p) => ({ ...p, sedeId: e.target.value }))}>
                   <option value="">Nessuna (admin)</option>
                   {sedi.map((s) => <option key={s.id} value={s.id}>{s.nome.replace("Don Basilico ", "")}</option>)}
                 </select>
@@ -175,33 +178,32 @@ export default function UtentiPage() {
             </div>
 
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button onClick={() => setShowModal(false)} style={{ background: "var(--surface-high)", border: "1px solid var(--border)", color: "var(--text)", padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontFamily: "var(--font-sans)", fontSize: 13 }}>Annulla</button>
-              <button onClick={crea} disabled={loading} style={{ background: "var(--terracotta)", color: "white", border: "none", padding: "8px 20px", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-sans)", fontSize: 13 }}>
-                {loading ? "Creazione..." : "Crea utente"}
+              <button onClick={() => setShowModal(false)} style={{ background: "#fff", border: "1px solid var(--border)", color: "var(--text-2)", padding: "9px 16px", borderRadius: 9, cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 12.5 }}>Annulla</button>
+              <button onClick={crea} disabled={loading} style={{ background: "var(--text)", color: "#fff", border: "none", padding: "9px 18px", borderRadius: 9, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 12.5 }}>
+                {loading ? "Creazione…" : "Crea utente"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL CAMBIO PASSWORD */}
       {showPwdModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }}
+        <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
           onClick={() => setShowPwdModal(null)}>
-          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, padding: 28, width: 380, maxWidth: "90vw" }}
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 26, width: 380, maxWidth: "90vw" }}
             onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 700, color: "var(--cream)", marginBottom: 6 }}>Cambia password</h2>
-            <p style={{ fontSize: 13, color: "var(--text-dim)", marginBottom: 20 }}>{showPwdModal.email}</p>
+            <h2 style={{ fontFamily: "var(--font-display)", fontSize: 19, color: "var(--text)", marginBottom: 6 }}>Cambia password</h2>
+            <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginBottom: 18 }}>{showPwdModal.email}</p>
 
             <div style={{ marginBottom: 16 }}>
-              <label style={S.label}>Nuova password (min 8 caratteri)</label>
-              <input style={S.input} type="password" value={nuovaPwd} onChange={(e) => setNuovaPwd(e.target.value)}
+              <label style={labelSt}>Nuova password (min 8 caratteri)</label>
+              <input style={fieldSt} type="password" value={nuovaPwd} onChange={(e) => setNuovaPwd(e.target.value)}
                 placeholder="••••••••" onKeyDown={(e) => e.key === "Enter" && cambiaPwd()} />
             </div>
 
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button onClick={() => setShowPwdModal(null)} style={{ background: "var(--surface-high)", border: "1px solid var(--border)", color: "var(--text)", padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontFamily: "var(--font-sans)", fontSize: 13 }}>Annulla</button>
-              <button onClick={cambiaPwd} style={{ background: "var(--terracotta)", color: "white", border: "none", padding: "8px 20px", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-sans)", fontSize: 13 }}>Aggiorna</button>
+              <button onClick={() => setShowPwdModal(null)} style={{ background: "#fff", border: "1px solid var(--border)", color: "var(--text-2)", padding: "9px 16px", borderRadius: 9, cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 12.5 }}>Annulla</button>
+              <button onClick={cambiaPwd} style={{ background: "var(--text)", color: "#fff", border: "none", padding: "9px 18px", borderRadius: 9, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 12.5 }}>Aggiorna</button>
             </div>
           </div>
         </div>

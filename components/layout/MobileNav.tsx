@@ -14,11 +14,11 @@ export function MobileNav({ session }: Props) {
   const isSuperAdmin = user?.ruolo === "super_admin";
 
   const navItems = [
-    { href: "/dashboard",     icon: "◈", label: "Home"    },
+    { href: "/dashboard",     icon: "◇", label: "Home"    },
     { href: "/ordini",        icon: "≡", label: "Ordini"  },
-    { href: "/nuovo-ordine",  icon: "＋", label: "Ordine"  },
-    { href: "/kds",           icon: "⊞", label: "Cucina"  },
-    { href: "/menu",          icon: "♦", label: "Menù"    },
+    { href: "/nuovo-ordine",  icon: "+", label: "Ordine"  },
+    { href: "/kds",           icon: "◉", label: "Cucina"  },
+    { href: "/menu",          icon: "◆", label: "Menù"    },
   ];
 
   return (
@@ -41,25 +41,25 @@ export function MobileNav({ session }: Props) {
               borderRadius: 10,
               textDecoration: "none",
               background: isNew
-                ? "var(--terracotta)"
+                ? "var(--text)"
                 : active
-                ? "rgba(200,90,46,0.15)"
+                ? "var(--accent-bg-2)"
                 : "transparent",
-              border: isNew ? "none" : "none",
-              transition: "all 0.15s",
+              border: "none",
+              transition: "background .15s, color .15s",
             }}
           >
             <span style={{
-              fontSize: isNew ? 22 : 18,
-              color: isNew ? "white" : active ? "var(--terracotta)" : "var(--text-dim)",
+              fontSize: isNew ? 20 : 16,
+              color: isNew ? "#fff" : active ? "var(--text)" : "var(--text-3)",
             }}>
               {item.icon}
             </span>
             <span style={{
               fontSize: 10,
-              fontWeight: 600,
-              color: isNew ? "white" : active ? "var(--terracotta)" : "var(--text-dim)",
-              fontFamily: "var(--font-sans)",
+              fontWeight: 500,
+              color: isNew ? "#fff" : active ? "var(--text)" : "var(--text-3)",
+              fontFamily: "var(--font-ui)",
             }}>
               {item.label}
             </span>
