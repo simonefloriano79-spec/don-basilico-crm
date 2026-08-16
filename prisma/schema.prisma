@@ -230,6 +230,7 @@ model Ordine {
   oraEffettivaPronte DateTime? @map("ora_effettiva_pronto")
 
   totale          Decimal @default(0) @db.Decimal(10, 2)
+  costoConsegna   Decimal @default(0) @db.Decimal(10, 2) @map("costo_consegna")
   pagato          Boolean @default(false)
   metodoPagamento String? @map("metodo_pagamento")
   stripePaymentId String? @map("stripe_payment_id")

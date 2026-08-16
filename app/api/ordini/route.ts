@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
     clienteIndirizzo,
     clienteId,
     note,
+    costoConsegna,
     items, // Array<{ menuItemId?, sedeExtraId?, nomeSnapshot, quantita, noteItem?, ingredientiRimossi?, ingredientiAggiuntiIds? }>
   } = body;
 
@@ -126,6 +127,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message ?? "Prodotto non valido" }, { status: 400 });
   }
 
+  const costoConsegnaFinale = tipo === "domicilio" ? Math.max(0, parseFloat(costoConsegna) || 0) : 0;
+  totale += costoConsegnaFinale;
+
   const ordine = await prisma.ordine.create({
     data: {
       sedeId,
@@ -139,6 +143,7 @@ export async function POST(req: NextRequest) {
       clienteIndirizzo,
       note,
       totale,
+      costoConsegna: costoConsegnaFinale,
       items: { create: itemsData },
     },
     include: {

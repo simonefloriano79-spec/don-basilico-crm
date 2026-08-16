@@ -164,8 +164,10 @@ function PizzaModal({ item, tuttiIngredienti, onConferma, onChiudi }: {
 }
 
 // ── Contenuto carrello (condiviso desktop/mobile) ──────────────
-function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, note, setNote, onConferma, loading, justSent }: any) {
-  const totale = cart.reduce((a: number, c: CartItem) => a + c.prezzoTotaleItem * c.qty, 0);
+function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, note, setNote, costoConsegna, setCostoConsegna, onConferma, loading, justSent }: any) {
+  const subtotale = cart.reduce((a: number, c: CartItem) => a + c.prezzoTotaleItem * c.qty, 0);
+  const consegna = tipo === "domicilio" ? (parseFloat(costoConsegna) || 0) : 0;
+  const totale = subtotale + consegna;
   return (
     <>
       <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10, borderBottom: "1px solid var(--border-soft)" }}>
@@ -193,7 +195,23 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, cliente
         </div>
         <input style={fieldSt} placeholder="Nome cliente" value={clienteNome} onChange={(e: any) => setClienteNome(e.target.value)} />
         <input style={fieldSt} placeholder="Telefono" value={clienteTel} onChange={(e: any) => setClienteTel(e.target.value)} />
-        {tipo === "domicilio" && <input style={fieldSt} placeholder="Indirizzo *" value={clienteIndirizzo} onChange={(e: any) => setClienteIndirizzo(e.target.value)} />}
+        {tipo === "domicilio" && (
+          <>
+            <input style={fieldSt} placeholder="Indirizzo *" value={clienteIndirizzo} onChange={(e: any) => setClienteIndirizzo(e.target.value)} />
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 12.5, color: "var(--text-2)", flex: 1 }}>Costo consegna</span>
+              <div style={{ position: "relative", width: 90 }}>
+                <span style={{ position: "absolute", left: 10, top: 9, color: "var(--text-muted)", fontSize: 12.5 }}>€</span>
+                <input
+                  type="number" step="0.10" min="0"
+                  style={{ ...fieldSt, paddingLeft: 22, textAlign: "right" }}
+                  value={costoConsegna}
+                  onChange={(e: any) => setCostoConsegna(e.target.value)}
+                />
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "14px 20px" }}>
@@ -227,8 +245,14 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, cliente
       </div>
 
       <div style={{ padding: "16px 20px", borderTop: "1px solid var(--border-soft)", paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
+        {consegna > 0 && (
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+            <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>Consegna</span>
+            <span className="num" style={{ fontSize: 12.5, color: "var(--text-2)" }}>{euro(consegna)}</span>
+          </div>
+        )}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
-          <span style={{ fontSize: 13, color: "var(--text-muted)" }}>Consegna incl.</span>
+          <span style={{ fontSize: 13, color: "var(--text-muted)" }}>Totale</span>
           <span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 28, color: "var(--text)" }}>{euro(totale)}</span>
         </div>
         <button onClick={onConferma} disabled={loading || cart.length === 0} style={{
@@ -261,6 +285,7 @@ export default function NuovoOrdinePage() {
   const [clienteNome, setClienteNome] = useState("");
   const [clienteTel, setClienteTel] = useState("");
   const [clienteIndirizzo, setAddr] = useState("");
+  const [costoConsegna, setCostoConsegna] = useState("1.50");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [justSent, setJustSent] = useState(false);
@@ -286,7 +311,9 @@ export default function NuovoOrdinePage() {
   const catsPresenti = cats.filter((c) => menuItems.some((m) => m.categoria === c));
   const itemsFiltrati = menuItems.filter((m) => m.categoria === catFiltro);
   const cartQty = cart.reduce((a, c) => a + c.qty, 0);
-  const totale = cart.reduce((a, c) => a + c.prezzoTotaleItem * c.qty, 0);
+  const subtotale = cart.reduce((a, c) => a + c.prezzoTotaleItem * c.qty, 0);
+  const deliveryFee = tipo === "domicilio" ? (parseFloat(costoConsegna) || 0) : 0;
+  const totale = subtotale + deliveryFee;
   const nomeSede = sedi.find((s) => s.id === sedeSelezionata)?.nome ?? "";
 
   const handleClick = (item: any) => {
@@ -312,6 +339,7 @@ export default function NuovoOrdinePage() {
         clienteTelefono: clienteTel || null,
         clienteIndirizzo: tipo === "domicilio" ? clienteIndirizzo : null,
         note: note || null,
+        costoConsegna: deliveryFee,
         items: cart.map((c) => ({
           menuItemId: c.menuItemId,
           nomeSnapshot: c.nome + (c.ingredientiAggiunti.length ? ` +${c.ingredientiAggiunti.map((i) => i.nome).join("+")}` : "") + (c.ingredientiRimossi.length ? ` -${c.ingredientiRimossi.map((i) => i.nome).join("-")}` : ""),
@@ -326,14 +354,14 @@ export default function NuovoOrdinePage() {
     if (res.ok) {
       const ordine = await res.json();
       toast.success(`Ordine #${ordine.numeroOrdine} creato`);
-      stampaBrowser({ numero: ordine.numeroOrdine, sede: nomeSede, canale, tipo, cliente: clienteNome || "Cliente anonimo", telefono: clienteTel, indirizzo: clienteIndirizzo, items: cart.map((c) => ({ nome: c.nome, qty: c.qty, prezzo: c.prezzoTotaleItem })), totale, note, ora: new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) });
+      stampaBrowser({ numero: ordine.numeroOrdine, sede: nomeSede, canale, tipo, cliente: clienteNome || "Cliente anonimo", telefono: clienteTel, indirizzo: clienteIndirizzo, items: cart.map((c) => ({ nome: c.nome, qty: c.qty, prezzo: c.prezzoTotaleItem })), totale, costoConsegna: deliveryFee, note, ora: new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) });
       setJustSent(true);
       setTimeout(() => setJustSent(false), 1800);
-      setCart([]); setClienteNome(""); setClienteTel(""); setAddr(""); setNote(""); setShowCart(false);
+      setCart([]); setClienteNome(""); setClienteTel(""); setAddr(""); setCostoConsegna("1.50"); setNote(""); setShowCart(false);
     } else { toast.error("Errore nella creazione dell'ordine"); }
   };
 
-  const cartProps = { cart, setCart, canale, setCanale, tipo, setTipo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo: setAddr, note, setNote, onConferma: confermaOrdine, loading, justSent };
+  const cartProps = { cart, setCart, canale, setCanale, tipo, setTipo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo: setAddr, note, setNote, costoConsegna, setCostoConsegna, onConferma: confermaOrdine, loading, justSent };
 
   return (
     <div className="animate-in" style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>

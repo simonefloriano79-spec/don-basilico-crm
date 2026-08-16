@@ -235,6 +235,12 @@ export default function OrdiniPage() {
               </div>
             ))}
             {selezionato.note && <div style={{ fontSize: 12, color: "var(--danger)", marginTop: 6 }}>Nota: {selezionato.note}</div>}
+            {parseFloat(selezionato.costoConsegna ?? 0) > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
+                <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>Consegna</span>
+                <span className="num" style={{ fontSize: 12.5, color: "var(--text-2)" }}>{euro(parseFloat(selezionato.costoConsegna))}</span>
+              </div>
+            )}
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border-soft)" }}>
               <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-2)" }}>Totale</span>
               <span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--text)" }}>{euro(parseFloat(selezionato.totale))}</span>
