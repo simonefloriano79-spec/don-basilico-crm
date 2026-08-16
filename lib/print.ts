@@ -11,6 +11,7 @@ export interface PrintOrdine {
   indirizzo?: string;
   items: Array<{ nome: string; qty: number; prezzo: number; note?: string }>;
   totale: number;
+  costoConsegna?: number;
   note?: string;
   ora: string;
 }
@@ -74,6 +75,7 @@ export function generaTicketHTML(ordine: PrintOrdine): string {
       <table>
         <tbody>${itemsHtml}</tbody>
       </table>
+      ${ordine.costoConsegna ? `<div class="info-row" style="margin-top:6px;border-top:1px dashed #000;padding-top:4px"><span>Consegna:</span><span>€${ordine.costoConsegna.toFixed(2)}</span></div>` : ""}
       ${ordine.note ? `<div style="margin-top:6px;font-size:12px;border-top:1px dashed #000;padding-top:4px"><strong>NOTE:</strong> ${ordine.note}</div>` : ""}
       <div class="totale">TOTALE: €${ordine.totale.toFixed(2)}</div>
       <div class="footer">

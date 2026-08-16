@@ -84,6 +84,16 @@ export async function GET(req: NextRequest) {
     {} as Record<string, number>
   );
 
+  // Incasso per sede (rilevante solo quando si guardano tutte le sedi)
+  const incassoPerSedeMap: Record<string, number> = {};
+  ordini.forEach((o) => {
+    const nome = o.sede?.nome?.replace("Don Basilico ", "") ?? "—";
+    incassoPerSedeMap[nome] = (incassoPerSedeMap[nome] ?? 0) + parseFloat(o.totale.toString());
+  });
+  const incassoPerSede = Object.entries(incassoPerSedeMap)
+    .map(([nome, incasso]) => ({ nome, incasso }))
+    .sort((a, b) => b.incasso - a.incasso);
+
   return NextResponse.json({
     periodo: {
       giorni,
@@ -95,6 +105,7 @@ export async function GET(req: NextRequest) {
       nome: p.nomeSnapshot,
       quantita: p._sum.quantita ?? 0,
     })),
+    incassoPerSede,
     riepilogo: {
       totaleOrdini: ordini.length,
       incassoTotale: totPeriodo,

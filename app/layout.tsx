@@ -1,24 +1,18 @@
 import type { Metadata } from "next";
-import { Playfair_Display, DM_Sans, DM_Mono } from "next/font/google";
+import { Bodoni_Moda, Jost } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 
-const playfair = Playfair_Display({
+const bodoniModa = Bodoni_Moda({
   subsets: ["latin"],
-  variable: "--font-playfair",
-  weight: ["700", "900"],
+  variable: "--font-bodoni",
+  weight: ["400", "500", "700"],
 });
 
-const dmSans = DM_Sans({
+const jost = Jost({
   subsets: ["latin"],
-  variable: "--font-dm-sans",
+  variable: "--font-jost",
   weight: ["300", "400", "500", "600"],
-});
-
-const dmMono = DM_Mono({
-  subsets: ["latin"],
-  variable: "--font-dm-mono",
-  weight: ["400", "500"],
 });
 
 export const metadata: Metadata = {
@@ -33,8 +27,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="it">
-      <body className={`${playfair.variable} ${dmSans.variable} ${dmMono.variable}`}>
+    <html lang="it" className={`${bodoniModa.variable} ${jost.variable}`}>
+      <body>
         <Providers>{children}</Providers>
       </body>
     </html>

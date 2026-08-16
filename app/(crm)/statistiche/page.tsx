@@ -2,17 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import {
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend,
-} from "recharts";
-
-const COLORS_CANALE = ["#4a7ec8", "#d4a853", "#c85a2e"];
+import toast from "react-hot-toast";
 
 interface StatsData {
   periodo: { giorni: number; dataInizio: string; dataFine: string };
   graficoDati: Array<{ data: string; ordini: number; incasso: number; online: number; telefono: number; walk_in: number }>;
   topProdotti: Array<{ nome: string; quantita: number }>;
+  incassoPerSede: Array<{ nome: string; incasso: number }>;
   riepilogo: {
     totaleOrdini: number;
     incassoTotale: number;
@@ -21,14 +17,9 @@ interface StatsData {
   };
 }
 
-const tooltipStyle = {
-  contentStyle: {
-    background: "#2e2820", border: "1px solid #3d3428",
-    borderRadius: 8, color: "#f0e6d3", fontSize: 12,
-    fontFamily: "var(--font-sans)",
-  },
-  labelStyle: { color: "#c9b99a" },
-};
+function euro(n: number) {
+  return `€ ${n.toFixed(2).replace(".", ",")}`;
+}
 
 export default function StatistichePage() {
   const { data: session } = useSession();
@@ -40,186 +31,117 @@ export default function StatistichePage() {
   const isSuperAdmin = user?.ruolo === "super_admin";
 
   useEffect(() => {
-    if (isSuperAdmin) {
-      fetch("/api/sedi").then((r) => r.json()).then(setSedi);
-    }
+    if (isSuperAdmin) fetch("/api/sedi").then((r) => r.json()).then(setSedi);
   }, [isSuperAdmin]);
 
   useEffect(() => {
     const sedeParam = sedeId ? `&sedeId=${sedeId}` : (isSuperAdmin ? "" : `&sedeId=${user?.sedeId}`);
-    fetch(`/api/statistiche?giorni=${giorni}${sedeParam}`)
-      .then((r) => r.json())
-      .then(setData);
+    fetch(`/api/statistiche?giorni=${giorni}${sedeParam}`).then((r) => r.json()).then(setData);
   }, [giorni, sedeId, isSuperAdmin, user?.sedeId]);
 
-  const canaliPie = data ? [
-    { name: "Online", value: data.riepilogo.canali.online ?? 0 },
-    { name: "Telefono", value: data.riepilogo.canali.telefono ?? 0 },
-    { name: "Walk-in", value: data.riepilogo.canali.walk_in ?? 0 },
-  ] : [];
+  const barre = data?.graficoDati ?? [];
+  const maxIncasso = Math.max(1, ...barre.map((b) => b.incasso));
+  const idxMax = barre.reduce((best, b, i) => (b.incasso > (barre[best]?.incasso ?? -1) ? i : best), 0);
+
+  const topProdotti = data?.topProdotti ?? [];
+  const maxQty = topProdotti[0]?.quantita ?? 1;
+
+  const mostraIncassoSede = isSuperAdmin && !sedeId && (data?.incassoPerSede?.length ?? 0) > 1;
+  const maxIncassoSede = Math.max(1, ...(data?.incassoPerSede ?? []).map((s) => s.incasso));
 
   return (
-    <div className="animate-in">
+    <div className="animate-in" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* FILTRI */}
-      <div style={{ display: "flex", gap: 12, marginBottom: 20, alignItems: "center", flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
         <div style={{ display: "flex", gap: 6 }}>
           {[7, 14, 30].map((g) => (
             <button key={g} onClick={() => setGiorni(g)} style={{
-              padding: "6px 16px", borderRadius: 20, fontSize: 12, cursor: "pointer",
-              border: `1px solid ${giorni === g ? "var(--terracotta)" : "var(--border)"}`,
-              background: giorni === g ? "rgba(200,90,46,0.15)" : "transparent",
-              color: giorni === g ? "var(--terracotta)" : "var(--text-dim)",
-              fontFamily: "var(--font-sans)",
-            }}>
-              Ultimi {g} giorni
-            </button>
+              padding: "8px 15px", borderRadius: 20, fontSize: 12.5, cursor: "pointer",
+              border: `1px solid ${giorni === g ? "var(--text)" : "var(--border)"}`,
+              background: giorni === g ? "var(--text)" : "#fff",
+              color: giorni === g ? "#fff" : "var(--text-3)",
+              fontFamily: "var(--font-ui)",
+            }}>Ultimi {g} giorni</button>
           ))}
         </div>
         {isSuperAdmin && (
-          <select
-            value={sedeId}
-            onChange={(e) => setSedeId(e.target.value)}
-            style={{
-              background: "var(--surface-high)", border: "1px solid var(--border)",
-              color: "var(--text)", padding: "6px 12px", borderRadius: 8, fontSize: 13,
-              fontFamily: "var(--font-sans)",
-            }}
-          >
+          <select value={sedeId} onChange={(e) => setSedeId(e.target.value)} style={{
+            background: "#fff", border: "1px solid var(--border)", color: "var(--text-2)",
+            padding: "8px 12px", borderRadius: 9, fontSize: 12.5, fontFamily: "var(--font-ui)",
+          }}>
             <option value="">Tutte le sedi</option>
             {sedi.map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
           </select>
         )}
-        {data && (
-          <span style={{ fontSize: 12, color: "var(--text-dim)", marginLeft: "auto" }}>
-            {data.periodo.dataInizio} → {data.periodo.dataFine}
+        <button
+          onClick={() => toast("Esportazione PDF non ancora configurata")}
+          style={{
+            marginLeft: "auto", background: "#fff", border: "1px solid var(--border)", color: "var(--text-2)",
+            padding: "8px 15px", borderRadius: 9, fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-ui)",
+          }}
+        >Esporta PDF</button>
+      </div>
+
+      {/* ISTOGRAMMA INCASSI */}
+      <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14 }}>
+        <div style={{ padding: "18px 22px 14px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+          <h2 style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 500, color: "var(--text)" }}>Incasso giornaliero</h2>
+          <span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 26, color: "var(--text)" }}>
+            {data ? euro(data.riepilogo.incassoTotale) : "—"}
           </span>
-        )}
-      </div>
-
-      {/* KPI */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 24 }}>
-        {[
-          { label: "Ordini periodo", value: data?.riepilogo.totaleOrdini ?? "—", accent: "#c85a2e" },
-          { label: "Incasso totale", value: data ? `€${data.riepilogo.incassoTotale.toFixed(2)}` : "—", accent: "#d4a853" },
-          { label: "Media giornaliera", value: data ? `€${data.riepilogo.mediaGiornaliera.toFixed(2)}` : "—", accent: "#4a9e6b" },
-        ].map((s) => (
-          <div key={s.label} style={{
-            background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12,
-            padding: 20, position: "relative", overflow: "hidden",
-          }}>
-            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: s.accent }} />
-            <div style={{ fontSize: 11, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>{s.label}</div>
-            <div style={{ fontSize: 28, fontWeight: 600, fontFamily: "var(--font-mono)", color: "var(--cream)" }}>{s.value}</div>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-        {/* GRAFICO INCASSO */}
-        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 20 }}>
-          <h3 style={{ fontFamily: "var(--font-serif)", fontSize: 15, fontWeight: 700, color: "var(--cream)", marginBottom: 16 }}>
-            Incasso giornaliero
-          </h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={data?.graficoDati ?? []} margin={{ top: 0, right: 0, bottom: 0, left: -10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#3d3428" />
-              <XAxis dataKey="data" tick={{ fill: "#8a7a65", fontSize: 10 }} />
-              <YAxis tick={{ fill: "#8a7a65", fontSize: 10 }} tickFormatter={(v) => `€${v}`} />
-              <Tooltip {...tooltipStyle} formatter={(v: any) => [`€${Number(v).toFixed(2)}`, "Incasso"]} />
-              <Bar dataKey="incasso" fill="#d4a853" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
         </div>
-
-        {/* GRAFICO ORDINI */}
-        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 20 }}>
-          <h3 style={{ fontFamily: "var(--font-serif)", fontSize: 15, fontWeight: 700, color: "var(--cream)", marginBottom: 16 }}>
-            Ordini per canale
-          </h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={data?.graficoDati ?? []} margin={{ top: 0, right: 0, bottom: 0, left: -10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#3d3428" />
-              <XAxis dataKey="data" tick={{ fill: "#8a7a65", fontSize: 10 }} />
-              <YAxis tick={{ fill: "#8a7a65", fontSize: 10 }} />
-              <Tooltip {...tooltipStyle} />
-              <Legend wrapperStyle={{ fontSize: 11, color: "#8a7a65" }} />
-              <Line type="monotone" dataKey="online"   name="Online"   stroke="#4a7ec8" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="telefono" name="Telefono" stroke="#d4a853" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="walk_in"  name="Walk-in"  stroke="#c85a2e" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-        {/* TOP PRODOTTI */}
-        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 20 }}>
-          <h3 style={{ fontFamily: "var(--font-serif)", fontSize: 15, fontWeight: 700, color: "var(--cream)", marginBottom: 16 }}>
-            🏆 Top 10 prodotti
-          </h3>
-          {(data?.topProdotti ?? []).length === 0 ? (
-            <div style={{ textAlign: "center", padding: 32, color: "var(--text-dim)", fontSize: 13 }}>Nessun dato</div>
-          ) : (data?.topProdotti ?? []).map((p, i) => {
-            const max = data?.topProdotti[0]?.quantita ?? 1;
-            const pct = Math.round((p.quantita / max) * 100);
+        <div style={{ padding: "0 22px 22px", display: "flex", alignItems: "flex-end", gap: 8, height: 190 }}>
+          {barre.length === 0 ? (
+            <div style={{ flex: 1, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>Nessun dato</div>
+          ) : barre.map((b, i) => {
+            const h = Math.max(3, Math.round((b.incasso / maxIncasso) * 150));
             return (
-              <div key={p.nome} style={{ marginBottom: 10 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ fontSize: 13, color: "var(--text)", display: "flex", gap: 8, alignItems: "center" }}>
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)", minWidth: 18 }}>{i + 1}.</span>
-                    {p.nome}
-                  </span>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--cream)", fontWeight: 600 }}>{p.quantita}</span>
-                </div>
-                <div style={{ height: 4, background: "var(--surface-high)", borderRadius: 2, overflow: "hidden" }}>
-                  <div style={{
-                    height: "100%", width: `${pct}%`,
-                    background: i === 0 ? "#d4a853" : i < 3 ? "#c85a2e" : "#4a7ec8",
-                    borderRadius: 2, transition: "width 0.4s ease",
-                  }} />
-                </div>
+              <div key={b.data} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                <span className="num" style={{ fontSize: 10.5, color: "var(--text-muted)" }}>{b.incasso > 0 ? Math.round(b.incasso) : ""}</span>
+                <div style={{
+                  width: "100%", maxWidth: 34, height: h, borderRadius: "5px 5px 2px 2px",
+                  background: i === idxMax && b.incasso > 0 ? "var(--accent)" : "var(--text)",
+                }} />
+                <span style={{ fontSize: 10.5, color: "var(--text-muted)" }}>{b.data}</span>
               </div>
             );
           })}
         </div>
+      </div>
 
-        {/* PIE CANALI */}
-        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 20 }}>
-          <h3 style={{ fontFamily: "var(--font-serif)", fontSize: 15, fontWeight: 700, color: "var(--cream)", marginBottom: 16 }}>
-            Mix canali
-          </h3>
-          {canaliPie.every((c) => c.value === 0) ? (
-            <div style={{ textAlign: "center", padding: 32, color: "var(--text-dim)", fontSize: 13 }}>Nessun dato</div>
-          ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie
-                  data={canaliPie}
-                  cx="50%" cy="50%"
-                  innerRadius={55} outerRadius={85}
-                  paddingAngle={3}
-                  dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  labelLine={false}
-                >
-                  {canaliPie.map((_, i) => (
-                    <Cell key={i} fill={COLORS_CANALE[i]} />
-                  ))}
-                </Pie>
-                <Tooltip {...tooltipStyle} />
-              </PieChart>
-            </ResponsiveContainer>
-          )}
-          <div style={{ display: "flex", justifyContent: "center", gap: 16, marginTop: 8 }}>
-            {canaliPie.map((c, i) => (
-              <div key={c.name} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
-                <div style={{ width: 10, height: 10, borderRadius: 2, background: COLORS_CANALE[i] }} />
-                <span style={{ color: "var(--text-dim)" }}>{c.name}: </span>
-                <span style={{ fontFamily: "var(--font-mono)", color: "var(--cream)" }}>{c.value}</span>
+      <div style={{ display: "grid", gridTemplateColumns: mostraIncassoSede ? "1fr 1fr" : "1fr", gap: 16 }}>
+        {/* TOP PRODOTTI */}
+        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: "18px 22px 22px" }}>
+          <h3 style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 500, color: "var(--text)", marginBottom: 16 }}>Più venduti</h3>
+          {topProdotti.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 32, color: "var(--text-muted)", fontSize: 13 }}>Nessun dato</div>
+          ) : topProdotti.map((p, i) => (
+            <div key={p.nome} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              <span className="num" style={{ fontSize: 11.5, color: "var(--text-muted)", width: 16, flexShrink: 0 }}>{i + 1}</span>
+              <span style={{ fontSize: 13, color: "var(--text)", width: 150, flexShrink: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.nome}</span>
+              <div style={{ flex: 1, height: 6, background: "var(--border-soft)", borderRadius: 3, overflow: "hidden", maxWidth: 110 }}>
+                <div style={{ height: "100%", width: `${Math.round((p.quantita / maxQty) * 100)}%`, background: i === 0 ? "var(--accent)" : "var(--text)", borderRadius: 3 }} />
+              </div>
+              <span className="num" style={{ fontSize: 12.5, color: "var(--text-2)", marginLeft: "auto", flexShrink: 0 }}>{p.quantita}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* INCASSO PER SEDE */}
+        {mostraIncassoSede && (
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: "18px 22px 22px" }}>
+            <h3 style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 500, color: "var(--text)", marginBottom: 16 }}>Incasso per sede</h3>
+            {(data?.incassoPerSede ?? []).map((s) => (
+              <div key={s.nome} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                <span style={{ fontSize: 13, color: "var(--text)", width: 120, flexShrink: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.nome}</span>
+                <div style={{ flex: 1, height: 6, background: "var(--border-soft)", borderRadius: 3, overflow: "hidden", maxWidth: 130 }}>
+                  <div style={{ height: "100%", width: `${Math.round((s.incasso / maxIncassoSede) * 100)}%`, background: "var(--text)", borderRadius: 3 }} />
+                </div>
+                <span className="num" style={{ fontSize: 12.5, color: "var(--text-2)", marginLeft: "auto", flexShrink: 0 }}>{euro(s.incasso)}</span>
               </div>
             ))}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

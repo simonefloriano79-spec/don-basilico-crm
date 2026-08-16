@@ -52,7 +52,7 @@ export function IngredientSelector({ ingredientiPizza, tuttiIngredienti, onCambi
       {/* INGREDIENTI BASE — rimuovibili */}
       {ingredientiPizza.length > 0 && (
         <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 11, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+          <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
             Ingredienti inclusi (tocca per rimuovere)
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -68,7 +68,7 @@ export function IngredientSelector({ ingredientiPizza, tuttiIngredienti, onCambi
                     padding: "4px 10px",
                     borderRadius: 20,
                     fontSize: 12,
-                    fontFamily: "var(--font-sans)",
+                    fontFamily: "var(--font-ui)",
                     cursor: esaurito ? "not-allowed" : "pointer",
                     border: "1px solid",
                     transition: "all 0.15s",
@@ -78,7 +78,7 @@ export function IngredientSelector({ ingredientiPizza, tuttiIngredienti, onCambi
                       ? "rgba(138,122,101,0.1)"
                       : "rgba(74,158,107,0.15)",
                     borderColor: rimosso ? "#c84040" : esaurito ? "var(--border)" : "#4a9e6b",
-                    color: rimosso ? "#c84040" : esaurito ? "var(--text-dim)" : "#4a9e6b",
+                    color: rimosso ? "#c84040" : esaurito ? "var(--text-muted)" : "#4a9e6b",
                     textDecoration: rimosso ? "line-through" : "none",
                   }}
                 >
@@ -97,22 +97,22 @@ export function IngredientSelector({ ingredientiPizza, tuttiIngredienti, onCambi
           onClick={() => setShowExtra(!showExtra)}
           style={{
             background: "transparent", border: "1px dashed var(--border)",
-            color: "var(--text-dim)", padding: "5px 12px", borderRadius: 8,
-            fontSize: 12, cursor: "pointer", fontFamily: "var(--font-sans)",
+            color: "var(--text-muted)", padding: "5px 12px", borderRadius: 8,
+            fontSize: 12, cursor: "pointer", fontFamily: "var(--font-ui)",
             display: "flex", alignItems: "center", gap: 6,
           }}
         >
           <span style={{ fontSize: 14 }}>+</span>
           Aggiungi ingredienti extra
           {aggiunti.size > 0 && (
-            <span style={{ background: "var(--terracotta)", color: "white", padding: "1px 6px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
+            <span style={{ background: "var(--text)", color: "white", padding: "1px 6px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
               {aggiunti.size}
             </span>
           )}
         </button>
 
         {showExtra && (
-          <div style={{ marginTop: 8, padding: 12, background: "var(--surface-high)", borderRadius: 10, border: "1px solid var(--border)" }}>
+          <div style={{ marginTop: 8, padding: 12, background: "var(--surface-muted)", borderRadius: 10, border: "1px solid var(--border)" }}>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {extraDisponibili.map(ing => {
                 const aggiunto = aggiunti.has(ing.id);
@@ -125,18 +125,18 @@ export function IngredientSelector({ ingredientiPizza, tuttiIngredienti, onCambi
                       padding: "4px 10px",
                       borderRadius: 20,
                       fontSize: 12,
-                      fontFamily: "var(--font-sans)",
+                      fontFamily: "var(--font-ui)",
                       cursor: "pointer",
                       border: "1px solid",
                       transition: "all 0.15s",
                       background: aggiunto ? "rgba(200,90,46,0.15)" : "var(--surface)",
-                      borderColor: aggiunto ? "var(--terracotta)" : "var(--border)",
-                      color: aggiunto ? "var(--terracotta)" : "var(--text-dim)",
+                      borderColor: aggiunto ? "var(--text)" : "var(--border)",
+                      color: aggiunto ? "var(--text)" : "var(--text-muted)",
                     }}
                   >
                     {aggiunto ? "✓ " : "+ "}{ing.nome}
                     {prezzo > 0 && (
-                      <span style={{ marginLeft: 4, fontFamily: "var(--font-mono)", fontSize: 11, opacity: 0.8 }}>
+                      <span style={{ marginLeft: 4, fontFamily: "var(--font-ui)", fontSize: 11, opacity: 0.8 }}>
                         +€{prezzo.toFixed(2)}
                       </span>
                     )}
@@ -158,12 +158,12 @@ export function IngredientSelector({ ingredientiPizza, tuttiIngredienti, onCambi
             </div>
           )}
           {aggiunti.size > 0 && (
-            <div style={{ color: "var(--terracotta)" }}>
+            <div style={{ color: "var(--text)" }}>
               + Aggiunti: {Array.from(aggiunti.values()).map(i => i.nome).join(", ")}
             </div>
           )}
           {prezzoExtra > 0 && (
-            <div style={{ color: "#d4a853", fontFamily: "var(--font-mono)", marginTop: 4, fontWeight: 600 }}>
+            <div style={{ color: "#d4a853", fontFamily: "var(--font-ui)", marginTop: 4, fontWeight: 600 }}>
               Extra: +€{prezzoExtra.toFixed(2)}
             </div>
           )}

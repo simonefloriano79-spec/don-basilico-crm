@@ -12,18 +12,24 @@ enum UserRole {
   super_admin
   sede_manager
   operatore
+
+  @@map("user_role")
 }
 
 enum OrdineCanale {
   online
   walk_in
   telefono
+
+  @@map("ordine_canale")
 }
 
 enum OrdineTipo {
   asporto
   domicilio
   tavolo
+
+  @@map("ordine_tipo")
 }
 
 enum OrdineStato {
@@ -33,6 +39,8 @@ enum OrdineStato {
   pronto
   consegnato
   annullato
+
+  @@map("ordine_stato")
 }
 
 enum CategoriaMenu {
@@ -45,28 +53,35 @@ enum CategoriaMenu {
   dolci
   extra
   menu_speciale
+
+  @@map("categoria_menu")
 }
 
 model Sede {
-  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nome             String
-  indirizzo        String
-  citta            String
-  telefono         String?
-  email            String?
-  slug             String   @unique
-  attiva           Boolean  @default(true)
-  orarioApertura   String   @default("11:30") @map("orario_apertura")
-  orarioChiusura   String   @default("23:00") @map("orario_chiusura")
-  note             String?
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome           String
+  indirizzo      String
+  citta          String
+  telefono       String?
+  email          String?
+  slug           String   @unique
+  attiva         Boolean  @default(true)
+  orarioApertura String   @default("11:30") @map("orario_apertura")
+  orarioChiusura String   @default("23:00") @map("orario_chiusura")
+  note           String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
-  utenti           Utente[]
-  ordini           Ordine[]
-  menuOverride     SedeMenuOverride[]
-  menuExtra        SedeMenuExtra[]
-  ingredientiDis   SedeIngredienteDisabilitato[]
+  utenti         Utente[]
+  ordini         Ordine[]
+  menuOverride   SedeMenuOverride[]
+  menuExtra      SedeMenuExtra[]
+  ingredientiDis SedeIngredienteDisabilitato[]
+  copertura      SedeCopertura?
+  pizzaMaxi      SedePizzaMaxi?
+  slotCucina     SlotCucina[]
+  interazioni    InterazioneLog[]
+  ordiniVocali   OrdineVocale[]
 
   @@map("sedi")
 }
@@ -77,32 +92,33 @@ model Utente {
   nome         String
   cognome      String
   ruolo        UserRole @default(operatore)
-  sedeId       String?  @db.Uuid @map("sede_id")
+  sedeId       String?  @map("sede_id") @db.Uuid
   passwordHash String?  @map("password_hash")
   attivo       Boolean  @default(true)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  sede                    Sede?  @relation(fields: [sedeId], references: [id])
-  ordiniGestiti           Ordine[] @relation("OperatoreOrdini")
-  ingredientiDisabilitati SedeIngredienteDisabilitato[]
-  statiLog                OrdineStatoLog[]
+  sede                      Sede?                         @relation(fields: [sedeId], references: [id])
+  ordiniGestiti             Ordine[]                      @relation("OperatoreOrdini")
+  ingredientiDisabilitati   SedeIngredienteDisabilitato[]
+  statiLog                  OrdineStatoLog[]
+  ordiniVocaliPresiInCarico OrdineVocale[]
 
   @@map("utenti")
 }
 
 model MenuItem {
-  id                   String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nome                 String
-  descrizione          String?
-  categoria            CategoriaMenu
-  prezzoBase           Decimal       @db.Decimal(10, 2) @map("prezzo_base")
-  immagineUrl          String?       @map("immagine_url")
-  disponibileDefault   Boolean       @default(true) @map("disponibile_default")
-  ordineVisualizzazione Int          @default(0) @map("ordine_visualizzazione")
-  isAttivo             Boolean       @default(true) @map("is_attivo")
-  createdAt            DateTime      @default(now()) @map("created_at")
-  updatedAt            DateTime      @updatedAt @map("updated_at")
+  id                    String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome                  String
+  descrizione           String?
+  categoria             CategoriaMenu
+  prezzoBase            Decimal       @map("prezzo_base") @db.Decimal(10, 2)
+  immagineUrl           String?       @map("immagine_url")
+  disponibileDefault    Boolean       @default(true) @map("disponibile_default")
+  ordineVisualizzazione Int           @default(0) @map("ordine_visualizzazione")
+  isAttivo              Boolean       @default(true) @map("is_attivo")
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
 
   ingredienti  MenuItemIngrediente[]
   sedeOverride SedeMenuOverride[]
@@ -112,13 +128,13 @@ model MenuItem {
 }
 
 model Ingrediente {
-  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nome             String   @unique
-  isAllergene      Boolean  @default(false) @map("is_allergene")
-  prezzoAggiunta   Decimal  @default(0.00) @db.Decimal(10,2) @map("prezzo_aggiunta")
-  disponibileDefault Boolean @default(true) @map("disponibile_default")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome               String   @unique
+  isAllergene        Boolean  @default(false) @map("is_allergene")
+  prezzoAggiunta     Decimal  @default(0.00) @map("prezzo_aggiunta") @db.Decimal(10, 2)
+  disponibileDefault Boolean  @default(true) @map("disponibile_default")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
 
   menuItems    MenuItemIngrediente[]
   disabilitati SedeIngredienteDisabilitato[]
@@ -127,8 +143,8 @@ model Ingrediente {
 }
 
 model MenuItemIngrediente {
-  menuItemId    String @db.Uuid @map("menu_item_id")
-  ingredienteId String @db.Uuid @map("ingrediente_id")
+  menuItemId    String @map("menu_item_id") @db.Uuid
+  ingredienteId String @map("ingrediente_id") @db.Uuid
 
   menuItem    MenuItem    @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
   ingrediente Ingrediente @relation(fields: [ingredienteId], references: [id], onDelete: Cascade)
@@ -138,13 +154,13 @@ model MenuItemIngrediente {
 }
 
 model SedeMenuOverride {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  sedeId      String   @db.Uuid @map("sede_id")
-  menuItemId  String   @db.Uuid @map("menu_item_id")
-  disponibile Boolean  @default(true)
-  prezzoCustom Decimal? @db.Decimal(10, 2) @map("prezzo_custom")
-  noteSede    String?  @map("note_sede")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sedeId       String   @map("sede_id") @db.Uuid
+  menuItemId   String   @map("menu_item_id") @db.Uuid
+  disponibile  Boolean  @default(true)
+  prezzoCustom Decimal? @map("prezzo_custom") @db.Decimal(10, 2)
+  noteSede     String?  @map("note_sede")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   sede     Sede     @relation(fields: [sedeId], references: [id], onDelete: Cascade)
   menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
@@ -154,12 +170,12 @@ model SedeMenuOverride {
 }
 
 model SedeIngredienteDisabilitato {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  sedeId          String   @db.Uuid @map("sede_id")
-  ingredienteId   String   @db.Uuid @map("ingrediente_id")
-  disabilitatoDa  String?  @db.Uuid @map("disabilitato_da")
-  note            String?
-  createdAt       DateTime @default(now()) @map("created_at")
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sedeId         String   @map("sede_id") @db.Uuid
+  ingredienteId  String   @map("ingrediente_id") @db.Uuid
+  disabilitatoDa String?  @map("disabilitato_da") @db.Uuid
+  note           String?
+  createdAt      DateTime @default(now()) @map("created_at")
 
   sede        Sede        @relation(fields: [sedeId], references: [id], onDelete: Cascade)
   ingrediente Ingrediente @relation(fields: [ingredienteId], references: [id], onDelete: Cascade)
@@ -170,16 +186,16 @@ model SedeIngredienteDisabilitato {
 }
 
 model SedeMenuExtra {
-  id                   String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  sedeId               String        @db.Uuid @map("sede_id")
-  nome                 String
-  descrizione          String?
-  categoria            CategoriaMenu
-  prezzo               Decimal       @db.Decimal(10, 2)
-  disponibile          Boolean       @default(true)
-  ordineVisualizzazione Int          @default(0) @map("ordine_visualizzazione")
-  createdAt            DateTime      @default(now()) @map("created_at")
-  updatedAt            DateTime      @updatedAt @map("updated_at")
+  id                    String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sedeId                String        @map("sede_id") @db.Uuid
+  nome                  String
+  descrizione           String?
+  categoria             CategoriaMenu
+  prezzo                Decimal       @db.Decimal(10, 2)
+  disponibile           Boolean       @default(true)
+  ordineVisualizzazione Int           @default(0) @map("ordine_visualizzazione")
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
 
   sede        Sede         @relation(fields: [sedeId], references: [id], onDelete: Cascade)
   ordineItems OrdineItem[]
@@ -196,7 +212,7 @@ model Cliente {
   indirizzoDefault String?  @map("indirizzo_default")
   note             String?
   puntiFedelta     Int      @default(0) @map("punti_fedelta")
-  sedePreferita    String?  @db.Uuid @map("sede_preferita")
+  sedePreferita    String?  @map("sede_preferita") @db.Uuid
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
@@ -206,53 +222,55 @@ model Cliente {
 }
 
 model Ordine {
-  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  numeroOrdine    Int         @default(autoincrement()) @map("numero_ordine")
-  sedeId          String      @db.Uuid @map("sede_id")
-  canale          OrdineCanale
-  tipo            OrdineTipo  @default(asporto)
-  stato           OrdineStato @default(nuovo)
-  clienteId       String?     @db.Uuid @map("cliente_id")
-  operatoreId     String?     @db.Uuid @map("operatore_id")
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  numeroOrdine Int          @default(autoincrement()) @map("numero_ordine")
+  sedeId       String       @map("sede_id") @db.Uuid
+  canale       OrdineCanale
+  tipo         OrdineTipo   @default(asporto)
+  stato        OrdineStato  @default(nuovo)
+  clienteId    String?      @map("cliente_id") @db.Uuid
+  operatoreId  String?      @map("operatore_id") @db.Uuid
 
-  clienteNome     String?  @map("cliente_nome")
-  clienteTelefono String?  @map("cliente_telefono")
+  clienteNome      String? @map("cliente_nome")
+  clienteTelefono  String? @map("cliente_telefono")
   clienteIndirizzo String? @map("cliente_indirizzo")
 
   oraRichiesta       DateTime  @default(now()) @map("ora_richiesta")
   oraStimataPronte   DateTime? @map("ora_stimata_pronto")
   oraEffettivaPronte DateTime? @map("ora_effettiva_pronto")
 
-  totale           Decimal  @db.Decimal(10, 2) @default(0)
-  pagato           Boolean  @default(false)
-  metodoPagamento  String?  @map("metodo_pagamento")
-  stripePaymentId  String?  @map("stripe_payment_id")
+  totale          Decimal @default(0) @db.Decimal(10, 2)
+  costoConsegna   Decimal @default(0) @db.Decimal(10, 2) @map("costo_consegna")
+  pagato          Boolean @default(false)
+  metodoPagamento String? @map("metodo_pagamento")
+  stripePaymentId String? @map("stripe_payment_id")
 
   note      String?
   stampato  Boolean  @default(false)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  sede      Sede      @relation(fields: [sedeId], references: [id])
-  cliente   Cliente?  @relation(fields: [clienteId], references: [id])
-  operatore Utente?   @relation("OperatoreOrdini", fields: [operatoreId], references: [id])
-  items     OrdineItem[]
-  statiLog  OrdineStatoLog[]
+  sede         Sede             @relation(fields: [sedeId], references: [id])
+  cliente      Cliente?         @relation(fields: [clienteId], references: [id])
+  operatore    Utente?          @relation("OperatoreOrdini", fields: [operatoreId], references: [id])
+  items        OrdineItem[]
+  statiLog     OrdineStatoLog[]
+  ordiniVocali OrdineVocale[]
 
   @@map("ordini")
 }
 
 model OrdineItem {
-  id           String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ordineId     String  @db.Uuid @map("ordine_id")
-  menuItemId   String? @db.Uuid @map("menu_item_id")
-  sedeExtraId  String? @db.Uuid @map("sede_extra_id")
-  nomeSnapshot String  @map("nome_snapshot")
-  prezzoSnapshot Decimal @db.Decimal(10, 2) @map("prezzo_snapshot")
-  quantita     Int     @default(1)
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ordineId           String   @map("ordine_id") @db.Uuid
+  menuItemId         String?  @map("menu_item_id") @db.Uuid
+  sedeExtraId        String?  @map("sede_extra_id") @db.Uuid
+  nomeSnapshot       String   @map("nome_snapshot")
+  prezzoSnapshot     Decimal  @map("prezzo_snapshot") @db.Decimal(10, 2)
+  quantita           Int      @default(1)
   ingredientiRimossi String[] @map("ingredienti_rimossi")
-  noteItem     String? @map("note_item")
-  createdAt    DateTime @default(now()) @map("created_at")
+  noteItem           String?  @map("note_item")
+  createdAt          DateTime @default(now()) @map("created_at")
 
   ordine    Ordine         @relation(fields: [ordineId], references: [id], onDelete: Cascade)
   menuItem  MenuItem?      @relation(fields: [menuItemId], references: [id])
@@ -263,14 +281,14 @@ model OrdineItem {
 
 model OrdineStatoLog {
   id        String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ordineId  String      @db.Uuid @map("ordine_id")
+  ordineId  String      @map("ordine_id") @db.Uuid
   stato     OrdineStato
-  utenteId  String?     @db.Uuid @map("utente_id")
+  utenteId  String?     @map("utente_id") @db.Uuid
   note      String?
   createdAt DateTime    @default(now()) @map("created_at")
 
-  ordine  Ordine  @relation(fields: [ordineId], references: [id], onDelete: Cascade)
-  utente  Utente? @relation(fields: [utenteId], references: [id])
+  ordine Ordine  @relation(fields: [ordineId], references: [id], onDelete: Cascade)
+  utente Utente? @relation(fields: [utenteId], references: [id])
 
   @@map("ordine_stati_log")
 }
@@ -278,9 +296,139 @@ model OrdineStatoLog {
 model FarineSpeciali {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   nome        String
-  prezzoExtra Decimal  @default(1.00) @db.Decimal(10,2) @map("prezzo_extra")
+  prezzoExtra Decimal  @default(1.00) @map("prezzo_extra") @db.Decimal(10, 2)
   disponibile Boolean  @default(true)
   createdAt   DateTime @default(now()) @map("created_at")
 
   @@map("farine_speciali")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Sistema ordini vocali/omnicanale — tabelle isolate dal CRM
+// ─────────────────────────────────────────────────────────────
+
+enum OrdineVocaleStato {
+  nuovo
+  preso_in_carico
+  annullato
+
+  @@map("ordine_vocale_stato")
+}
+
+enum OrdineVocaleTipo {
+  domicilio
+  asporto
+
+  @@map("ordine_vocale_tipo")
+}
+
+enum InterazioneCanale {
+  voce
+  whatsapp
+
+  @@map("interazione_canale")
+}
+
+enum InterazioneEsito {
+  confermato
+  fuori_zona
+  cucina_piena
+  chiuso
+  errore
+
+  @@map("interazione_esito")
+}
+
+model SedeCopertura {
+  id        String                                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sedeId    String                                  @unique @map("sede_id") @db.Uuid
+  lat       Decimal                                 @db.Decimal(9, 6)
+  lng       Decimal                                 @db.Decimal(9, 6)
+  zona      Unsupported("geography(Polygon,4326)")?
+  raggioKm  Decimal?                                @default(5.00) @map("raggio_km") @db.Decimal(5, 2)
+  attiva    Boolean                                 @default(true)
+  createdAt DateTime                                @default(now()) @map("created_at")
+  updatedAt DateTime                                @default(now()) @updatedAt @map("updated_at")
+
+  sede Sede @relation(fields: [sedeId], references: [id], onDelete: Cascade)
+
+  @@map("sedi_copertura")
+}
+
+model SedePizzaMaxi {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sedeId         String   @unique @map("sede_id") @db.Uuid
+  moltiplicatore Decimal  @default(2.00) @db.Decimal(3, 2)
+  attiva         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  sede Sede @relation(fields: [sedeId], references: [id], onDelete: Cascade)
+
+  @@map("sedi_pizza_maxi")
+}
+
+model SlotCucina {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sedeId           String   @map("sede_id") @db.Uuid
+  giornoSettimana  Int?     @map("giorno_settimana")
+  oraInizio        DateTime @map("ora_inizio") @db.Time
+  oraFine          DateTime @map("ora_fine") @db.Time
+  durataSlotMinuti Int      @default(15) @map("durata_slot_minuti")
+  capacitaMax      Int      @map("capacita_max")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+
+  sede Sede @relation(fields: [sedeId], references: [id], onDelete: Cascade)
+
+  @@map("slot_cucina")
+}
+
+model InterazioneLog {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  canale            InterazioneCanale @default(voce)
+  provider          String
+  providerRefId     String            @map("provider_ref_id")
+  telefonoChiamante String?           @map("telefono_chiamante")
+  trascrizione      Json?
+  esito             InterazioneEsito
+  sedeId            String?           @map("sede_id") @db.Uuid
+  ordineVocaleId    String?           @map("ordine_vocale_id") @db.Uuid
+  payloadRaw        Json              @map("payload_raw")
+  createdAt         DateTime          @default(now()) @map("created_at")
+
+  sede           Sede?          @relation(fields: [sedeId], references: [id])
+  ordiniGenerati OrdineVocale[] @relation("InterazioneOrdine")
+
+  @@unique([provider, providerRefId])
+  @@map("interazioni_log")
+}
+
+model OrdineVocale {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  numeroOrdine     Int               @default(autoincrement()) @map("numero_ordine")
+  interazioneId    String?           @map("interazione_id") @db.Uuid
+  ordineId         String?           @map("ordine_id") @db.Uuid
+  sedeId           String            @map("sede_id") @db.Uuid
+  clienteNome      String            @map("cliente_nome")
+  clienteTelefono  String            @map("cliente_telefono")
+  tipo             OrdineVocaleTipo
+  clienteIndirizzo String?           @map("cliente_indirizzo")
+  indirizzoLat     Decimal?          @map("indirizzo_lat") @db.Decimal(9, 6)
+  indirizzoLng     Decimal?          @map("indirizzo_lng") @db.Decimal(9, 6)
+  articoli         Json
+  totale           Decimal           @db.Decimal(10, 2)
+  note             String?
+  oraRichiesta     DateTime          @default(now()) @map("ora_richiesta")
+  stato            OrdineVocaleStato @default(nuovo)
+  presoInCaricoDa  String?           @map("preso_in_carico_da") @db.Uuid
+  presoInCaricoAt  DateTime?         @map("preso_in_carico_at")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at")
+
+  sede          Sede            @relation(fields: [sedeId], references: [id])
+  interazione   InterazioneLog? @relation("InterazioneOrdine", fields: [interazioneId], references: [id])
+  presoInCarico Utente?         @relation(fields: [presoInCaricoDa], references: [id])
+  ordine        Ordine?         @relation(fields: [ordineId], references: [id])
+
+  @@map("ordini_vocali")
 }

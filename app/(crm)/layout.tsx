@@ -19,7 +19,7 @@ export default async function CRMLayout({ children }: { children: React.ReactNod
       {/* Main */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
         <Topbar session={session} />
-        <main className="main-content" style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
+        <main className="main-content" style={{ flex: 1, overflowY: "auto", padding: "26px 26px 60px" }}>
           {children}
         </main>
       </div>

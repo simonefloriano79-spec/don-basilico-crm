@@ -1,23 +1,64 @@
 :root {
-  --bg: #1a1612;
-  --surface: #242018;
-  --surface-high: #2e2820;
-  --border: #3d3428;
-  --terracotta: #c85a2e;
-  --terracotta-light: #e06b3a;
-  --gold: #d4a853;
-  --gold-light: #e8c070;
-  --cream: #f5ede0;
-  --cream-dim: #c9b99a;
-  --green: #4a9e6b;
-  --red: #c84040;
-  --blue: #4a7ec8;
-  --text: #f0e6d3;
-  --text-dim: #8a7a65;
+  /* --- Superfici -----------------------------------------------------
+     Tema chiaro: carta avorio + inchiostro nero, come il logo Don Basilico. */
+  --bg:            #f7f6f1;   /* sfondo applicazione (carta avorio) */
+  --surface:       #ffffff;   /* card, tabelle, sidebar, topbar */
+  --surface-muted: #faf9f5;   /* header tabella, righe selezionate, input */
 
-  --font-sans: var(--font-dm-sans), sans-serif;
-  --font-serif: var(--font-playfair), serif;
-  --font-mono: var(--font-dm-mono), monospace;
+  /* --- Bordi --- */
+  --border:        #e6e3da;   /* bordo standard di card e input */
+  --border-soft:   #eeece4;   /* divisori interni, righe di tabella */
+  --border-faint:  #f4f2ec;   /* divisori dentro le card */
+
+  /* --- Testo --- */
+  --text:          #1c1d18;   /* testo principale (nero caldo) */
+  --text-2:        #4a4c43;   /* testo secondario, label pulsanti chiari */
+  --text-3:        #6f7166;   /* testo terziario, celle non prioritarie */
+  --text-muted:    #9a9c90;   /* didascalie, intestazioni tabella */
+  --text-faint:    #b0b2a5;   /* placeholder, testo disabilitato */
+
+  /* --- Verde basilico (accento) ---------------------------------------
+     Usato con parsimonia: stati positivi, elemento attivo, una sola barra
+     evidenziata per grafico. Mai come fondo di grandi superfici. */
+  --accent:        #7ac143;   /* verde del logo — pallini, barre, evidenza */
+  --accent-ink:    #4d7c1c;   /* verde scuro — testo su fondo verde chiaro */
+  --accent-bg:     #eef7e3;   /* fondo pill positive */
+  --accent-bg-2:   #f2f7ea;   /* fondo voce di menu attiva, avatar */
+  --accent-border: #dceac6;   /* bordo pill positive */
+
+  /* --- Stati di allerta --- */
+  --danger:        #a8452f;
+  --danger-bg:     #fdf6f3;
+  --danger-border: #f0d9d0;
+
+  /* --- Colori degli stati ordine ---------------------------------------
+     Un colore per stato: 100% per il testo, 8% (suffisso 14 esadecimale)
+     come fondo della pill. */
+  --stato-nuovo:            #4a6fa5;
+  --stato-confermato:       #b4762a;
+  --stato-in-preparazione:  #a05a28;
+  --stato-pronto:           #4d7c1c;
+  --stato-consegnato:       #8a8c80;
+  --stato-annullato:        #a8452f;
+
+  /* --- Tipografia -------------------------------------------------------
+     Bodoni Moda = il Didone del logo. Solo per titoli e numeri grandi.
+     Jost = geometrica sobria, tutto il resto dell'interfaccia.
+     NON usare Bodoni sotto i 16px: si sfilaccia. */
+  --font-display: var(--font-bodoni), Didot, "Times New Roman", serif;
+  --font-ui: var(--font-jost), system-ui, -apple-system, sans-serif;
+
+  /* --- Raggi --- */
+  --r-pill: 20px;   /* pill di stato */
+  --r-sm: 8px;      /* pulsanti piccoli, input della topbar */
+  --r-md: 9px;      /* pulsanti, campi, chip */
+  --r-lg: 12px;     /* card piccole */
+  --r-xl: 14px;     /* card grandi, pannelli */
+
+  /* --- Ombre -------------------------------------------------------------
+     Il tema non usa ombre. La gerarchia è data da bordo + colore di fondo.
+     Se serve un livello sopra (modale, dropdown), usare solo questa. */
+  --shadow-overlay: 0 12px 32px rgba(28, 29, 24, .12);
 }
 
 * {
@@ -33,21 +74,28 @@ html, body {
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
 }
 
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+a { color: var(--accent-ink); text-decoration: none; }
+a:hover { color: var(--text); }
 
-a { color: inherit; text-decoration: none; }
-
-button { cursor: pointer; font-family: var(--font-sans); }
+button { cursor: pointer; font-family: var(--font-ui); }
 
 input, textarea, select {
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
 }
+
+/* Numeri sempre in cifre tabulari: importi, quantità, orari, contatori. */
+.num, td .num, [data-num] { font-variant-numeric: tabular-nums; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #dcd9cd; border-radius: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+@keyframes db-fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes db-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }
@@ -72,6 +120,7 @@ html { overflow-x: hidden; }
 
 @media (max-width: 768px) {
   .sidebar-desktop { display: none !important; }
+  .cart-desktop { display: none !important; }
   .mobile-nav {
     display: flex !important;
     position: fixed;
@@ -94,4 +143,5 @@ html { overflow-x: hidden; }
 @media (min-width: 769px) {
   .mobile-nav { display: none !important; }
   .sidebar-desktop { display: flex !important; }
+  .cart-mobile-fab { display: none !important; }
 }
