@@ -213,6 +213,7 @@ model Cliente {
   note             String?
   puntiFedelta     Int      @default(0) @map("punti_fedelta")
   sedePreferita    String?  @map("sede_preferita") @db.Uuid
+  telefonoVerificatoAt DateTime? @map("telefono_verificato_at")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
