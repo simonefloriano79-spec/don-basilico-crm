@@ -40,11 +40,22 @@ export default function IngredientiPage() {
 
   const toggleDisabilitatoSede = async (ing: any) => {
     const disabilita = !ing.disabilitatoInSede;
+    if (disabilita && !confirm(`Segnare "${ing.nome}" come esaurito in questa sede? Le pizze che lo usano risulteranno automaticamente esaurite qui.`)) return;
     const res = await fetch(`/api/ingredienti/${ing.id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sedeId, disabilita }),
     });
     if (res.ok) { toast.success(disabilita ? `"${ing.nome}" segnato come esaurito` : `"${ing.nome}" ripristinato`); carica(); }
+  };
+
+  const toggleDisponibileGlobale = async (ing: any) => {
+    const nuovoValore = !ing.disponibileDefault;
+    if (!nuovoValore && !confirm(`Disattivare "${ing.nome}" in tutta la catena? Le pizze che lo usano verranno disattivate automaticamente ovunque.`)) return;
+    const res = await fetch(`/api/ingredienti/${ing.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ disponibileDefault: nuovoValore }),
+    });
+    if (res.ok) { toast.success(nuovoValore ? `"${ing.nome}" riabilitato` : `"${ing.nome}" disattivato`); carica(); }
   };
 
   const aggiungiIngrediente = async () => {
@@ -93,24 +104,27 @@ export default function IngredientiPage() {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "var(--surface-muted)" }}>
-              {["Ingrediente", "Prezzo aggiunta", "Allergene", ...(!isSuperAdmin ? ["Disponibile in sede"] : ["Azioni"])].map((h) => (
+              {["Ingrediente", "Prezzo aggiunta", "Allergene", ...(isSuperAdmin ? ["Disponibile", "Azioni"] : ["Disponibile in sede"])].map((h) => (
                 <th key={h} style={{ padding: "11px 14px", textAlign: "left", fontSize: 9.5, letterSpacing: 1.7, textTransform: "uppercase", color: "var(--text-muted)", fontWeight: 500 }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {filtrati.map((ing) => (
-              <tr key={ing.id} style={{ borderTop: "1px solid var(--border-soft)", opacity: ing.disabilitatoInSede ? 0.6 : 1 }}>
+              <tr key={ing.id} style={{ borderTop: "1px solid var(--border-soft)", opacity: (ing.disabilitatoInSede || !ing.disponibileDefault) ? 0.55 : 1 }}>
                 <td style={{ padding: "12px 14px" }}>
                   {editingId === ing.id ? (
                     <input style={editInputSt} value={editForm.nome} onChange={(e) => setEditForm((p) => ({ ...p, nome: e.target.value }))} />
                   ) : (
-                    <span style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>
-                      {ing.nome}
-                      {ing.disabilitatoInSede && (
-                        <span style={{ marginLeft: 8, fontSize: 10, background: "var(--danger-bg)", color: "var(--danger)", padding: "2px 7px", borderRadius: 20 }}>esaurito</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>{ing.nome}</span>
+                      {!ing.disponibileDefault && (
+                        <span style={{ opacity: 1, fontSize: 10, fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase", padding: "2px 8px", borderRadius: 20, background: "var(--danger)", color: "#fff", flexShrink: 0 }}>Disattivato</span>
                       )}
-                    </span>
+                      {ing.disponibileDefault && ing.disabilitatoInSede && (
+                        <span style={{ opacity: 1, fontSize: 10, fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase", padding: "2px 8px", borderRadius: 20, background: "var(--danger-bg)", color: "var(--danger)", flexShrink: 0 }}>Esaurito</span>
+                      )}
+                    </div>
                   )}
                 </td>
                 <td style={{ padding: "12px 14px" }}>
@@ -146,6 +160,17 @@ export default function IngredientiPage() {
                       background: ing.disabilitatoInSede ? "var(--danger-bg)" : "var(--accent-bg-2)",
                       color: ing.disabilitatoInSede ? "var(--danger)" : "var(--accent-ink)",
                     }}>{ing.disabilitatoInSede ? "Esaurito" : "Disponibile"}</button>
+                  </td>
+                )}
+
+                {isSuperAdmin && (
+                  <td style={{ padding: "12px 14px" }}>
+                    <button onClick={() => toggleDisponibileGlobale(ing)} style={{
+                      padding: "5px 13px", borderRadius: 20, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)",
+                      border: `1px solid ${ing.disponibileDefault ? "var(--accent-border)" : "var(--danger-border)"}`,
+                      background: ing.disponibileDefault ? "var(--accent-bg-2)" : "var(--danger-bg)",
+                      color: ing.disponibileDefault ? "var(--accent-ink)" : "var(--danger)",
+                    }}>{ing.disponibileDefault ? "Attivo" : "Disattivo"}</button>
                   </td>
                 )}
 

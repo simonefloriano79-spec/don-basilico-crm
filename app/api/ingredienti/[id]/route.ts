@@ -30,6 +30,23 @@ export async function PATCH(
       },
     });
 
+    // Cascata: un ingrediente disattivato globalmente (non più in gamma)
+    // disattiva anche i prodotti che lo usano come ingrediente base — e
+    // viceversa alla riattivazione. Es. disattivi le Alici -> la Napoletana
+    // (che le contiene) si disattiva automaticamente.
+    if (disponibileDefault !== undefined) {
+      const collegati = await prisma.menuItemIngrediente.findMany({
+        where: { ingredienteId: params.id },
+        select: { menuItemId: true },
+      });
+      if (collegati.length) {
+        await prisma.menuItem.updateMany({
+          where: { id: { in: collegati.map((c) => c.menuItemId) } },
+          data: { isAttivo: disponibileDefault },
+        });
+      }
+    }
+
     return NextResponse.json(updated);
   }
 
@@ -44,6 +61,14 @@ export async function PATCH(
     return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
   }
 
+  // Prodotti che usano questo ingrediente come base: la disponibilità in
+  // questa sede segue automaticamente quella dell'ingrediente (es. finiscono
+  // le Alici in questa sede -> la Napoletana risulta esaurita solo qui).
+  const collegati = await prisma.menuItemIngrediente.findMany({
+    where: { ingredienteId: params.id },
+    select: { menuItemId: true },
+  });
+
   if (disabilita) {
     const record = await prisma.sedeIngredienteDisabilitato.upsert({
       where: {
@@ -57,11 +82,29 @@ export async function PATCH(
         disabilitatoDa: user.id,
       },
     });
+
+    for (const { menuItemId } of collegati) {
+      await prisma.sedeMenuOverride.upsert({
+        where: { sedeId_menuItemId: { sedeId, menuItemId } },
+        update: { disponibile: false },
+        create: { sedeId, menuItemId, disponibile: false },
+      });
+    }
+
     return NextResponse.json(record);
   } else {
     await prisma.sedeIngredienteDisabilitato.deleteMany({
       where: { sedeId, ingredienteId: params.id },
     });
+
+    for (const { menuItemId } of collegati) {
+      await prisma.sedeMenuOverride.upsert({
+        where: { sedeId_menuItemId: { sedeId, menuItemId } },
+        update: { disponibile: true },
+        create: { sedeId, menuItemId, disponibile: true },
+      });
+    }
+
     return NextResponse.json({ ok: true });
   }
 }
