@@ -34,7 +34,7 @@ export default function MenuPage() {
   const sedeId = user?.sedeId;
 
   const caricaMenu = async () => {
-    const url = sedeId ? `/api/menu?sedeId=${sedeId}` : "/api/menu";
+    const url = sedeId ? `/api/menu?sedeId=${sedeId}&tutti=1` : "/api/menu?tutti=1";
     const res = await fetch(url);
     const data = await res.json();
     setItems(data.items ?? []);
