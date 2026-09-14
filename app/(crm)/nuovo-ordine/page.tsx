@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import { stampaBrowser } from "@/lib/print";
@@ -44,7 +45,7 @@ function PizzaModal({ item, tuttiIngredienti, onConferma, onChiudi }: {
   const [qty, setQty] = useState(1);
   const [search, setSearch] = useState("");
 
-  const extra = tuttiIngredienti.filter((i) => !baseIds.has(i.id) && !i.disabilitatoInSede
+  const extra = tuttiIngredienti.filter((i) => !rimossi.has(i.id) && !i.disabilitatoInSede
     && i.nome.toLowerCase().includes(search.toLowerCase()));
   const prezzoBase = parseFloat(item.prezzoEffettivo ?? item.prezzoBase);
   const prezzoExtra = Array.from(aggiunti.values()).reduce((a, i) => a + parseFloat(i.prezzoAggiunta?.toString() ?? "0"), 0);
@@ -60,10 +61,10 @@ function PizzaModal({ item, tuttiIngredienti, onConferma, onChiudi }: {
     });
   };
 
-  return (
+  return createPortal(
     <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}
       onClick={onChiudi}>
-      <div style={{ background: "var(--surface)", borderRadius: "20px 20px 0 0", maxHeight: "92vh", display: "flex", flexDirection: "column", overflow: "hidden", margin: "0 auto", width: "100%", maxWidth: 480 }}
+      <div style={{ background: "var(--surface)", borderRadius: "20px 20px 0 0", maxHeight: "92vh", display: "flex", flexDirection: "column", overflow: "hidden", margin: "0 auto", width: "100%", maxWidth: 720 }}
         onClick={(e) => e.stopPropagation()}>
 
         <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0" }}>
@@ -159,7 +160,8 @@ function PizzaModal({ item, tuttiIngredienti, onConferma, onChiudi }: {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
