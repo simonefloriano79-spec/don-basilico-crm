@@ -4,7 +4,7 @@
   align-items: center;
   justify-content: center;
   background: var(--bg);
-  background-image: radial-gradient(ellipse at 50% 0%, rgba(200, 90, 46, 0.12) 0%, transparent 60%);
+  background-image: radial-gradient(ellipse at 50% 0%, rgba(122, 193, 67, 0.12) 0%, transparent 60%);
 }
 
 .card {
@@ -21,17 +21,10 @@
   margin-bottom: 32px;
 }
 
-.logoIcon {
-  font-size: 40px;
-  margin-bottom: 8px;
-}
-
-.logoTitle {
-  font-family: var(--font-display);
-  font-size: 28px;
-  font-weight: 900;
-  color: var(--text);
-  letter-spacing: -0.5px;
+.logoImg {
+  width: 200px;
+  max-width: 100%;
+  margin-bottom: 4px;
 }
 
 .logoSub {

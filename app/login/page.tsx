@@ -34,8 +34,7 @@ export default function LoginPage() {
     <div className={styles.wrapper}>
       <div className={styles.card}>
         <div className={styles.logo}>
-          <div className={styles.logoIcon}>🍕</div>
-          <div className={styles.logoTitle}>Don Basilico</div>
+          <img src="/brand/don-basilico-logo.png" alt="Don Basilico" className={styles.logoImg} />
           <div className={styles.logoSub}>Sistema Ordini</div>
         </div>
 
