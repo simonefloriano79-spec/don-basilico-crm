@@ -50,6 +50,10 @@ export default function OrdiniPage() {
   }, [isSuperAdmin, sedeParam]);
 
   useEffect(() => { caricaOrdini(); }, [caricaOrdini]);
+  useEffect(() => {
+    const iv = setInterval(caricaOrdini, 15000);
+    return () => clearInterval(iv);
+  }, [caricaOrdini]);
 
   const caricaDettaglio = useCallback(async (id: string) => {
     const res = await fetch(`/api/ordini/${id}`);
@@ -137,15 +141,15 @@ export default function OrdiniPage() {
     <div className="animate-in" style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         {/* Filtri */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center" }}>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
             <button onClick={() => setFiltroStato("tutti")} style={chipStyle(filtroStato === "tutti")}>Tutti</button>
             <button onClick={() => setFiltroStato("attivi")} style={chipStyle(filtroStato === "attivi")}>Attivi</button>
             {STATI_FLOW.map((s) => (
               <button key={s} onClick={() => setFiltroStato(s)} style={chipStyle(filtroStato === s)}>{STATO_LABEL[s]}</button>
             ))}
           </div>
-          <div style={{ position: "relative", marginLeft: "auto", width: 300, flexShrink: 0 }}>
+          <div style={{ position: "relative", marginLeft: "auto", flex: "1 1 160px", maxWidth: 300, minWidth: 0 }}>
             <span style={{ position: "absolute", left: 12, top: 9, color: "var(--text-faint)", fontSize: 13 }}>⌕</span>
             <input
               value={ricerca}
@@ -159,7 +163,7 @@ export default function OrdiniPage() {
           </div>
         </div>
 
-        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
+        <div className="ordini-table-desktop" style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "var(--surface-muted)" }}>
@@ -201,13 +205,49 @@ export default function OrdiniPage() {
             </tbody>
           </table>
         </div>
+
+        <div className="ordini-cards-mobile" style={{ display: "none" }}>
+          {visibili.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 44, color: "var(--text-muted)", fontSize: 13, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14 }}>Nessun ordine con questi filtri</div>
+          ) : visibili.map((o) => (
+            <div
+              key={o.id}
+              onClick={() => caricaDettaglio(o.id)}
+              style={{
+                background: selezionato?.id === o.id ? "var(--surface-muted)" : "var(--surface)",
+                border: "1px solid var(--border)", borderRadius: 12, padding: "12px 14px", cursor: "pointer",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                <div>
+                  <span className="num" style={{ fontSize: 14, fontWeight: 500, color: "var(--text)" }}>#{o.numeroOrdine}</span>
+                  <span className="num" style={{ fontSize: 12, color: "var(--text-muted)", marginLeft: 8 }}>{ora(o.createdAt)}</span>
+                </div>
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px",
+                  borderRadius: 20, fontSize: 11, fontWeight: 500, flexShrink: 0,
+                  background: `${STATO_HEX[o.stato]}14`, color: STATO_HEX[o.stato],
+                }}>{STATO_LABEL[o.stato]}</span>
+              </div>
+              <div style={{ marginTop: 6, fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>{o.clienteNome || "Anonimo"}</div>
+              {o.clienteTelefono && <div className="num" style={{ fontSize: 11.5, color: "var(--text-muted)" }}>{o.clienteTelefono}</div>}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
+                <span style={{ fontSize: 12, color: "var(--text-3)" }}>
+                  {CANALE_LABEL[o.canale]}{isSuperAdmin && o.sede?.nome ? ` · ${o.sede.nome.replace("Don Basilico ", "")}` : ""}
+                </span>
+                <span className="num" style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>{euro(parseFloat(o.totale))}</span>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* PANNELLO DETTAGLIO */}
       {selezionato && (
-        <div style={{
+        <div className="ordini-detail-panel" style={{
           width: 352, flexShrink: 0, position: "sticky", top: 0,
           background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14,
+          overflowY: "auto",
         }}>
           <div style={{ padding: "18px 22px", borderBottom: "1px solid var(--border-soft)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>

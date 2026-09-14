@@ -94,7 +94,7 @@ export default function KDSPage() {
           <div style={{ fontSize: 15 }}>Nessun ordine in lavorazione</div>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(270px, 1fr))", gap: 14 }}>
+        <div className="kds-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(270px, 1fr))", gap: 14 }}>
           {ordini.map((ordine) => {
             const min = minutiTrascorsi(ordine.createdAt);
             const inRitardo = min > 15;

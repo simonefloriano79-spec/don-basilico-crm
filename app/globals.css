@@ -112,13 +112,13 @@ input, textarea, select {
   50%       { opacity: 0.5; }
 }
 
-.animate-in { animation: fadeIn 0.25s ease forwards; }
-.slide-in   { animation: slideIn 0.2s ease forwards; }
+.animate-in { animation: fadeIn 0.25s ease; }
+.slide-in   { animation: slideIn 0.2s ease; }
 
 /* ── MOBILE RESPONSIVE ── */
 html { overflow-x: hidden; }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
   .sidebar-desktop { display: none !important; }
   .cart-desktop { display: none !important; }
   .mobile-nav {
@@ -135,13 +135,22 @@ html { overflow-x: hidden; }
     padding-bottom: env(safe-area-inset-bottom);
   }
   .main-content { padding-bottom: 80px !important; }
+  .cart-mobile-fab { display: block !important; }
   .dashboard-stats { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
   .dashboard-bottom { grid-template-columns: 1fr !important; }
   .kds-grid { grid-template-columns: 1fr !important; }
+  .ordini-table-desktop { display: none !important; }
+  .ordini-cards-mobile { display: flex !important; flex-direction: column; gap: 8px; }
+  .ordini-detail-panel {
+    position: fixed !important; inset: 0 !important;
+    width: 100% !important; height: 100% !important; max-height: 100% !important;
+    border-radius: 0 !important; z-index: 200 !important; top: 0 !important;
+  }
 }
 
-@media (min-width: 769px) {
+@media (min-width: 901px) {
   .mobile-nav { display: none !important; }
   .sidebar-desktop { display: flex !important; }
   .cart-mobile-fab { display: none !important; }
+  .ordini-cards-mobile { display: none !important; }
 }
