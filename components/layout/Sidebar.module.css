@@ -11,12 +11,12 @@
 }
 
 .logo {
-  padding: 26px 22px 20px;
+  padding: 16px 22px 12px;
   border-bottom: 1px solid var(--border-soft);
 }
 
 .logoImg {
-  width: 150px;
+  width: 122px;
   display: block;
 }
 
@@ -25,11 +25,11 @@
   color: var(--text-muted);
   letter-spacing: 2.4px;
   text-transform: uppercase;
-  margin-top: 14px;
+  margin-top: 8px;
 }
 
 .nav {
-  padding: 0 12px 16px;
+  padding: 0 12px 12px;
   flex: 1;
   overflow-y: auto;
 }
@@ -39,7 +39,7 @@
   letter-spacing: 2.2px;
   text-transform: uppercase;
   color: var(--text-faint);
-  padding: 20px 10px 8px;
+  padding: 12px 10px 5px;
 }
 
 .nav > div:first-child .sectionLabel {
@@ -50,14 +50,14 @@
   display: flex;
   align-items: center;
   gap: 11px;
-  padding: 9px 11px;
+  padding: 6px 11px;
   border-radius: 9px;
   font-size: 13.5px;
   font-weight: 400;
   color: var(--text-3);
   transition: background .15s, color .15s;
   text-decoration: none;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
 }
 
 .navItem:hover {
@@ -84,7 +84,7 @@
 }
 
 .footer {
-  padding: 14px;
+  padding: 10px 14px;
   border-top: 1px solid var(--border-soft);
 }
 
@@ -92,15 +92,15 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 10px;
+  padding: 7px 10px;
   border-radius: 10px;
   background: var(--bg);
   text-decoration: none;
 }
 
 .avatar {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: var(--text);
   display: flex;
