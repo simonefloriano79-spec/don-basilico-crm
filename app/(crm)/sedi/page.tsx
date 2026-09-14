@@ -141,6 +141,9 @@ export default function SediPage() {
                   Menù sede
                 </Link>
               </div>
+              <Link href={`/sedi/${s.id}/zona`} style={{ textAlign: "center", textDecoration: "none", background: "#fff", border: "1px solid var(--border)", color: "var(--text-2)", padding: "9px 12px", borderRadius: 9, fontSize: 12.5, fontFamily: "var(--font-ui)" }}>
+                Zona di consegna
+              </Link>
             </div>
           );
         })}

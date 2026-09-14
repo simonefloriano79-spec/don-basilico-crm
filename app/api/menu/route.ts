@@ -3,14 +3,18 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-// GET /api/menu?sedeId=xxx
+// GET /api/menu?sedeId=xxx&tutti=1
+// tutti=1 include anche i prodotti disattivati globalmente — usato dalla
+// pagina di gestione Menù (serve poterli rivedere per riattivarli). Il menù
+// pubblico/cliente non deve mai passarlo, altrimenti mostrerebbe prodotti
+// disattivati.
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const sedeId = searchParams.get("sedeId");
+  const includiDisattivi = searchParams.get("tutti") === "1";
 
-  // Items base attivi
   const items = await prisma.menuItem.findMany({
-    where: { isAttivo: true },
+    where: { ...(includiDisattivi ? {} : { isAttivo: true }) },
     include: {
       ingredienti: { include: { ingrediente: true } },
       ...(sedeId && {
