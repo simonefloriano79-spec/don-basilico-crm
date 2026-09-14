@@ -56,6 +56,7 @@ export default function MenuPage() {
   };
 
   const toggleGlobale = async (item: any) => {
+    if (item.isAttivo && !confirm(`Vuoi disattivare "${item.nome}"? Non sarà più ordinabile in nessuna sede finché non lo riattivi.`)) return;
     const res = await fetch(`/api/menu/${item.id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isAttivo: !item.isAttivo }),
@@ -122,7 +123,15 @@ export default function MenuPage() {
               return (
                 <tr key={item.id} style={{ borderTop: "1px solid var(--border-soft)", opacity: item.isAttivo ? 1 : 0.55 }}>
                   <td style={{ padding: "13px 14px" }}>
-                    <div style={{ fontFamily: "var(--font-display)", fontSize: 17, color: "var(--text)" }}>{item.nome}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontFamily: "var(--font-display)", fontSize: 17, color: "var(--text)" }}>{item.nome}</span>
+                      {!item.isAttivo && (
+                        <span style={{
+                          opacity: 1, fontSize: 10, fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase",
+                          padding: "2px 8px", borderRadius: 20, background: "var(--danger)", color: "#fff", flexShrink: 0,
+                        }}>Disattivato</span>
+                      )}
+                    </div>
                     {item.descrizione && <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 2 }}>{item.descrizione}</div>}
                   </td>
                   <td style={{ padding: "13px 14px" }}>
