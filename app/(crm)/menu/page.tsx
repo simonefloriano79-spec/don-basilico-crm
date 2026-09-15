@@ -53,6 +53,7 @@ export default function MenuPage() {
       body: JSON.stringify({ sedeId, disponibile: nuovaDisp }),
     });
     if (res.ok) { toast.success(nuovaDisp ? "Prodotto riabilitato" : "Prodotto disabilitato in questa sede"); caricaMenu(); }
+    else toast.error("Operazione non riuscita");
   };
 
   const toggleGlobale = async (item: any) => {
@@ -62,6 +63,7 @@ export default function MenuPage() {
       body: JSON.stringify({ isAttivo: !item.isAttivo }),
     });
     if (res.ok) { toast.success(!item.isAttivo ? "Abilitato globalmente" : "Disabilitato globalmente"); caricaMenu(); }
+    else toast.error("Operazione non riuscita");
   };
 
   const salva = async () => {
@@ -108,7 +110,7 @@ export default function MenuPage() {
         </div>
       )}
 
-      <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
+      <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "var(--surface-muted)" }}>
@@ -147,7 +149,7 @@ export default function MenuPage() {
                         border: `1px solid ${item.isAttivo ? "var(--accent-border)" : "var(--danger-border)"}`,
                         background: item.isAttivo ? "var(--accent-bg-2)" : "var(--danger-bg)",
                         color: item.isAttivo ? "var(--accent-ink)" : "var(--danger)",
-                        fontFamily: "var(--font-ui)",
+                        fontFamily: "var(--font-ui)", whiteSpace: "nowrap",
                       }}
                     >{item.isAttivo ? "Attivo" : "Disattivo"}</button>
                   </td>
@@ -158,7 +160,7 @@ export default function MenuPage() {
                         border: `1px solid ${item.disponibileInSede ? "var(--accent-border)" : "var(--danger-border)"}`,
                         background: item.disponibileInSede ? "var(--accent-bg-2)" : "var(--danger-bg)",
                         color: item.disponibileInSede ? "var(--accent-ink)" : "var(--danger)",
-                        fontFamily: "var(--font-ui)",
+                        fontFamily: "var(--font-ui)", whiteSpace: "nowrap",
                       }}>{item.disponibileInSede ? "Disponibile" : "Esaurito"}</button>
                     </td>
                   )}
