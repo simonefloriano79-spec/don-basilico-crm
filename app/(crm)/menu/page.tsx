@@ -25,13 +25,19 @@ function euro(n: number) {
 export default function MenuPage() {
   const { data: session } = useSession();
   const [items, setItems] = useState<any[]>([]);
+  const [sedi, setSedi] = useState<any[]>([]);
+  const [sedeVista, setSedeVista] = useState("");
   const [catFiltro, setCatFiltro] = useState("tutti");
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
   const [form, setForm] = useState({ nome: "", descrizione: "", categoria: "pizze_rosse", prezzoBase: "" });
   const user = session?.user as any;
   const isSuperAdmin = user?.ruolo === "super_admin";
-  const sedeId = user?.sedeId;
+  const sedeId = isSuperAdmin ? sedeVista : user?.sedeId;
+
+  useEffect(() => {
+    if (isSuperAdmin) fetch("/api/sedi").then((r) => r.json()).then((d) => setSedi(Array.isArray(d) ? d : []));
+  }, [isSuperAdmin]);
 
   const caricaMenu = async () => {
     const url = sedeId ? `/api/menu?sedeId=${sedeId}&tutti=1` : "/api/menu?tutti=1";
@@ -84,6 +90,20 @@ export default function MenuPage() {
 
   return (
     <div className="animate-in">
+      {isSuperAdmin && (
+        <div style={{ marginBottom: 14 }}>
+          <select value={sedeVista} onChange={(e) => setSedeVista(e.target.value)} style={{ ...fieldSt, background: "#fff", width: 260 }}>
+            <option value="">Tutte le sedi (vista globale)</option>
+            {sedi.map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
+          </select>
+          {sedeVista && (
+            <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 6 }}>
+              Stai gestendo la disponibilità solo per questa sede. Per disattivare un prodotto ovunque usa "Attivo globale".
+            </div>
+          )}
+        </div>
+      )}
+
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {cats.map((c) => (
@@ -114,7 +134,7 @@ export default function MenuPage() {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "var(--surface-muted)" }}>
-              {["Prodotto", "Categoria", "Prezzo base", "Attivo globale", ...(!isSuperAdmin ? ["In questa sede"] : []), ...(isSuperAdmin ? [""] : [])].map((h, i) => (
+              {["Prodotto", "Categoria", "Prezzo base", "Attivo globale", ...(sedeId ? ["In questa sede"] : []), ...(isSuperAdmin ? [""] : [])].map((h, i) => (
                 <th key={i} style={{ padding: "11px 14px", textAlign: "left", fontSize: 9.5, letterSpacing: 1.7, textTransform: "uppercase", color: "var(--text-muted)", fontWeight: 500, whiteSpace: "nowrap" }}>{h}</th>
               ))}
             </tr>
@@ -153,7 +173,7 @@ export default function MenuPage() {
                       }}
                     >{item.isAttivo ? "Attivo" : "Disattivo"}</button>
                   </td>
-                  {!isSuperAdmin && (
+                  {sedeId && (
                     <td style={{ padding: "13px 14px" }}>
                       <button onClick={() => toggleDisponibilitaSede(item)} style={{
                         padding: "5px 13px", borderRadius: 20, fontSize: 11.5, fontWeight: 500, cursor: "pointer",
