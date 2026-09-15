@@ -72,7 +72,7 @@ export default function DashboardPage() {
     <div className="animate-in" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
       {/* KPI */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
+      <div className="dashboard-stats" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
         <KpiCard label="Ordini attivi" value={stats ? String(ordiniAttivi) : "—"} sub="In corso ora" />
         <KpiCard label="Incasso oggi" value={stats ? euro(incasso) : "—"} sub="Tutti i canali" />
         <KpiCard label="Pronti al banco" value={stats ? String(pronti) : "—"} sub="Da ritirare/consegnare" />
@@ -150,7 +150,7 @@ export default function DashboardPage() {
       )}
 
       {/* RIGA FINALE */}
-      <div style={{ display: "grid", gridTemplateColumns: isSuperAdmin ? "1.45fr 1fr" : "1fr", gap: 16 }}>
+      <div className="dashboard-bottom" style={{ display: "grid", gridTemplateColumns: isSuperAdmin ? "1.45fr 1fr" : "1fr", gap: 16 }}>
 
         {/* ULTIMI ORDINI */}
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14 }}>

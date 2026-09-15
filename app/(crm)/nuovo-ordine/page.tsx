@@ -293,6 +293,7 @@ export default function NuovoOrdinePage() {
   const [justSent, setJustSent] = useState(false);
   const [pizzaModal, setPizzaModal] = useState<any>(null);
   const [showCart, setShowCart] = useState(false);
+  const [cercaPizza, setCercaPizza] = useState("");
 
   useEffect(() => {
     fetch("/api/sedi").then((r) => r.json()).then((d) => {
@@ -311,7 +312,9 @@ export default function NuovoOrdinePage() {
 
   const cats = ["pizze_rosse", "pizze_bianche", "calzoni", "fritti", "bevande", "dolci", "extra"];
   const catsPresenti = cats.filter((c) => menuItems.some((m) => m.categoria === c));
-  const itemsFiltrati = menuItems.filter((m) => m.categoria === catFiltro);
+  const isSezionePizze = catFiltro === "pizze_rosse" || catFiltro === "pizze_bianche";
+  const itemsFiltrati = menuItems.filter((m) => m.categoria === catFiltro
+    && (!isSezionePizze || m.nome.toLowerCase().includes(cercaPizza.toLowerCase())));
   const cartQty = cart.reduce((a, c) => a + c.qty, 0);
   const subtotale = cart.reduce((a, c) => a + c.prezzoTotaleItem * c.qty, 0);
   const deliveryFee = tipo === "domicilio" ? (parseFloat(costoConsegna) || 0) : 0;
@@ -376,7 +379,7 @@ export default function NuovoOrdinePage() {
 
         <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8, marginBottom: 12 }}>
           {catsPresenti.map((c) => (
-            <button key={c} onClick={() => setCatFiltro(c)} style={{
+            <button key={c} onClick={() => { setCatFiltro(c); setCercaPizza(""); }} style={{
               flexShrink: 0, padding: "8px 15px", borderRadius: 20, fontSize: 12.5, cursor: "pointer",
               border: "1px solid", fontFamily: "var(--font-ui)", whiteSpace: "nowrap",
               background: catFiltro === c ? "var(--text)" : "#fff",
@@ -385,6 +388,17 @@ export default function NuovoOrdinePage() {
             }}>{CAT_LABEL[c] ?? c}</button>
           ))}
         </div>
+
+        {isSezionePizze && (
+          <div style={{ position: "relative", marginBottom: 12 }}>
+            <span style={{ position: "absolute", left: 12, top: 10, color: "var(--text-faint)", fontSize: 13 }}>⌕</span>
+            <input
+              style={{ ...fieldSt, paddingLeft: 34, background: "#fff" }}
+              placeholder="Cerca pizza…"
+              value={cercaPizza} onChange={(e) => setCercaPizza(e.target.value)}
+            />
+          </div>
+        )}
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 12 }}>
           {itemsFiltrati.map((item) => {
@@ -440,7 +454,7 @@ export default function NuovoOrdinePage() {
           onConferma={(c) => { setCart((p) => [...p, c]); setPizzaModal(null); toast.success(`${c.nome} aggiunto`, { duration: 1000 }); }}
           onChiudi={() => setPizzaModal(null)} />
       )}
-      {showCart && (
+      {showCart && createPortal(
         <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}
           onClick={() => setShowCart(false)}>
           <div style={{ background: "var(--surface)", borderRadius: "20px 20px 0 0", maxHeight: "92vh", display: "flex", flexDirection: "column" }}
@@ -454,7 +468,8 @@ export default function NuovoOrdinePage() {
             </div>
             <CartContents {...cartProps} />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
