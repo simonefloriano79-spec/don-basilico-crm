@@ -148,10 +148,14 @@ export default function MenuPage() {
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ fontFamily: "var(--font-display)", fontSize: 17, color: "var(--text)" }}>{item.nome}</span>
                       {!item.isAttivo && (
-                        <span style={{
-                          opacity: 1, fontSize: 10, fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase",
-                          padding: "2px 8px", borderRadius: 20, background: "var(--danger)", color: "#fff", flexShrink: 0,
-                        }}>Disattivato</span>
+                        <span
+                          onClick={() => isSuperAdmin && toggleGlobale(item)}
+                          title={isSuperAdmin ? "Tocca per riattivare" : undefined}
+                          style={{
+                            opacity: 1, fontSize: 10, fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase",
+                            padding: "2px 8px", borderRadius: 20, background: "var(--danger)", color: "#fff", flexShrink: 0,
+                            cursor: isSuperAdmin ? "pointer" : "default",
+                          }}>Disattivato</span>
                       )}
                     </div>
                     {item.descrizione && <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 2 }}>{item.descrizione}</div>}
