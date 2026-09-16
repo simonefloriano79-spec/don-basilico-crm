@@ -359,7 +359,18 @@ export default function NuovoOrdinePage() {
     if (res.ok) {
       const ordine = await res.json();
       toast.success(`Ordine #${ordine.numeroOrdine} creato`);
-      stampaBrowser({ numero: ordine.numeroOrdine, sede: nomeSede, canale, tipo, cliente: clienteNome || "Cliente anonimo", telefono: clienteTel, indirizzo: clienteIndirizzo, items: cart.map((c) => ({ nome: c.nome, qty: c.qty, prezzo: c.prezzoTotaleItem })), totale, costoConsegna: deliveryFee, note, ora: new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) });
+      stampaBrowser({
+        numero: ordine.numeroOrdine, sede: nomeSede, canale, tipo, cliente: clienteNome || "Cliente anonimo", telefono: clienteTel, indirizzo: clienteIndirizzo,
+        items: cart.map((c) => ({
+          nome: c.nome, qty: c.qty, prezzo: c.prezzoTotaleItem,
+          note: [
+            c.ingredientiRimossi.length ? `Senza: ${c.ingredientiRimossi.map((i) => i.nome).join(", ")}` : "",
+            c.ingredientiAggiunti.length ? `Con: ${c.ingredientiAggiunti.map((i) => i.nome).join(", ")}` : "",
+            c.noteItem,
+          ].filter(Boolean).join(" | ") || undefined,
+        })),
+        totale, costoConsegna: deliveryFee, note, ora: new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }),
+      });
       setJustSent(true);
       setTimeout(() => setJustSent(false), 1800);
       setCart([]); setClienteNome(""); setClienteTel(""); setAddr(""); setCostoConsegna("1.50"); setNote(""); setShowCart(false);

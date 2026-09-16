@@ -24,7 +24,7 @@ export function generaTicketHTML(ordine: PrintOrdine): string {
       (i) => `
       <tr>
         <td style="width:24px;font-weight:bold">${i.qty}x</td>
-        <td>${i.nome}${i.note ? `<br><small style="color:#666">${i.note}</small>` : ""}</td>
+        <td>${i.nome}${i.note ? `<br><small>${i.note}</small>` : ""}</td>
         <td style="text-align:right">€${(i.prezzo * i.qty).toFixed(2)}</td>
       </tr>`
     )
@@ -51,7 +51,7 @@ export function generaTicketHTML(ordine: PrintOrdine): string {
         table { width: 100%; border-collapse: collapse; }
         td { padding: 3px 2px; font-size: 13px; }
         .totale { border-top: 1px dashed #000; margin-top: 6px; padding-top: 6px; text-align: right; font-weight: bold; font-size: 16px; }
-        .footer { text-align: center; margin-top: 10px; font-size: 11px; color: #666; }
+        .footer { text-align: center; margin-top: 10px; font-size: 11px; }
         .ordine-num { font-size: 28px; font-weight: bold; text-align: center; margin: 6px 0; }
         .badge { display: inline-block; border: 1px solid #000; padding: 2px 8px; font-size: 12px; }
       </style>
