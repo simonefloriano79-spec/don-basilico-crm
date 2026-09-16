@@ -263,7 +263,7 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, cliente
           background: justSent ? "var(--accent)" : cart.length === 0 ? "var(--border)" : "var(--text)",
           color: cart.length === 0 ? "var(--text-faint)" : "#fff",
         }}>
-          {loading ? "Invio…" : justSent ? "✓ Ordine inviato in cucina" : "Invia in cucina"}
+          {loading ? "Invio…" : justSent ? "✓ Ordine stampato" : "Stampa ordine"}
         </button>
       </div>
     </>
