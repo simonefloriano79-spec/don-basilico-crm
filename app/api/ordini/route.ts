@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { prossimoNumeroOrdine } from "@/lib/numero-ordine";
 
 // GET /api/ordini
 export async function GET(req: NextRequest) {
@@ -146,35 +147,42 @@ export async function POST(req: NextRequest) {
         })).id;
   }
 
-  const ordine = await prisma.ordine.create({
-    data: {
-      sedeId,
-      canale,
-      tipo,
-      stato: "nuovo",
-      clienteId: clienteIdFinale,
-      operatoreId: canale !== "online" ? user.id : null,
-      clienteNome,
-      clienteTelefono,
-      clienteIndirizzo,
-      note,
-      totale,
-      costoConsegna: costoConsegnaFinale,
-      items: { create: itemsData },
-    },
-    include: {
-      items: true,
-      sede: { select: { nome: true } },
-    },
-  });
+  const ordine = await prisma.$transaction(async (tx) => {
+    const numeroOrdine = await prossimoNumeroOrdine(tx, sedeId);
 
-  // Log stato iniziale
-  await prisma.ordineStatoLog.create({
-    data: {
-      ordineId: ordine.id,
-      stato: "nuovo",
-      utenteId: user.id,
-    },
+    const nuovo = await tx.ordine.create({
+      data: {
+        sedeId,
+        numeroOrdine,
+        canale,
+        tipo,
+        stato: "nuovo",
+        clienteId: clienteIdFinale,
+        operatoreId: canale !== "online" ? user.id : null,
+        clienteNome,
+        clienteTelefono,
+        clienteIndirizzo,
+        note,
+        totale,
+        costoConsegna: costoConsegnaFinale,
+        items: { create: itemsData },
+      },
+      include: {
+        items: true,
+        sede: { select: { nome: true } },
+      },
+    });
+
+    // Log stato iniziale
+    await tx.ordineStatoLog.create({
+      data: {
+        ordineId: nuovo.id,
+        stato: "nuovo",
+        utenteId: user.id,
+      },
+    });
+
+    return nuovo;
   });
 
   return NextResponse.json(ordine, { status: 201 });

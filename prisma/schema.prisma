@@ -82,6 +82,7 @@ model Sede {
   slotCucina     SlotCucina[]
   interazioni    InterazioneLog[]
   ordiniVocali   OrdineVocale[]
+  contatoriOrdini OrdineContatoreGiornaliero[]
 
   @@map("sedi")
 }
@@ -221,9 +222,23 @@ model Cliente {
   @@map("clienti")
 }
 
+// Contatore ordini giornaliero per sede: si azzera ogni giorno (una riga
+// per sede+giorno), invece di un numero ordine che cresce all'infinito.
+// Vedi lib/numero-ordine.ts per l'upsert atomico che lo incrementa.
+model OrdineContatoreGiornaliero {
+  sedeId    String   @map("sede_id") @db.Uuid
+  giorno    DateTime @db.Date
+  contatore Int      @default(0)
+
+  sede Sede @relation(fields: [sedeId], references: [id], onDelete: Cascade)
+
+  @@id([sedeId, giorno])
+  @@map("ordini_contatori_giornalieri")
+}
+
 model Ordine {
   id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  numeroOrdine Int          @default(autoincrement()) @map("numero_ordine")
+  numeroOrdine Int          @map("numero_ordine")
   sedeId       String       @map("sede_id") @db.Uuid
   canale       OrdineCanale
   tipo         OrdineTipo   @default(asporto)
