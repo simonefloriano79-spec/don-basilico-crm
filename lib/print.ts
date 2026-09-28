@@ -24,7 +24,7 @@ export function generaTicketHTML(ordine: PrintOrdine): string {
       (i) => `
       <tr>
         <td style="width:24px;font-weight:bold">${i.qty}x</td>
-        <td>${i.nome}${i.note ? `<br><small>${i.note}</small>` : ""}</td>
+        <td>${i.nome}${i.note ? `<br><span style="font-size:11px">${i.note}</span>` : ""}</td>
         <td style="text-align:right">€${(i.prezzo * i.qty).toFixed(2)}</td>
       </tr>`
     )
@@ -40,6 +40,7 @@ export function generaTicketHTML(ordine: PrintOrdine): string {
         body {
           font-family: 'Courier New', monospace;
           font-size: 13px;
+          font-weight: bold;
           width: 76mm;
           margin: 4px;
           color: #000;
@@ -58,7 +59,7 @@ export function generaTicketHTML(ordine: PrintOrdine): string {
     </head>
     <body>
       <div class="header">
-        <div class="logo">🍕 DON BASILICO</div>
+        <div class="logo">DON BASILICO</div>
         <div class="sub">${ordine.sede}</div>
       </div>
       <div class="ordine-num">#${ordine.numero}</div>
