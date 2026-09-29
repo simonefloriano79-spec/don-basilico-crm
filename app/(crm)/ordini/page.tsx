@@ -113,6 +113,7 @@ export default function OrdiniPage() {
       noteDomicilio: ordine.noteDomicilio,
       oraConsegnaComunicata: ordine.oraConsegnaComunicata ? ora(ordine.oraConsegnaComunicata) : undefined,
       modalitaConsegna: ordine.modalitaConsegna,
+      metodoPagamento: ordine.metodoPagamento,
       ora: ora(ordine.createdAt),
     });
     await fetch(`/api/ordini/${ordine.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stampato: true }) });
@@ -295,6 +296,12 @@ export default function OrdiniPage() {
               <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-2)" }}>Totale</span>
               <span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--text)" }}>{euro(parseFloat(selezionato.totale))}</span>
             </div>
+            {selezionato.metodoPagamento && (
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+                <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Pagamento</span>
+                <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-2)" }}>{selezionato.metodoPagamento === "pos" ? "POS" : "Contanti"}</span>
+              </div>
+            )}
           </div>
 
           {selezionato.stato !== "annullato" && (

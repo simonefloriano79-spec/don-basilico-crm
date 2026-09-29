@@ -225,7 +225,7 @@ function OrarioConsegnaModal({ oraConsegna, modConsegna, onSalva, onRimuovi, onC
 // ── Contenuto carrello (condiviso desktop/mobile) ──────────────
 const MESSAGGI_DOMICILIO = ["Resto a 50 euro", "Citofono rotto, chiamare", "Chiamare all'arrivo"];
 
-function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, note, setNote, costoConsegna, setCostoConsegna, oraConsegna, modConsegna, onApriOrario, noteDomicilio, setNoteDomicilio, onConferma, loading, justSent }: any) {
+function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, note, setNote, costoConsegna, setCostoConsegna, oraConsegna, modConsegna, onApriOrario, noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma, loading, justSent }: any) {
   const subtotale = cart.reduce((a: number, c: CartItem) => a + c.prezzoTotaleItem * c.qty, 0);
   const consegna = tipo === "domicilio" ? (parseFloat(costoConsegna) || 0) : 0;
   const totale = subtotale + consegna;
@@ -328,6 +328,17 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, cliente
       </div>
 
       <div style={{ padding: "16px 20px", borderTop: "1px solid var(--border-soft)", paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          {(["contanti", "pos"] as const).map((m) => (
+            <button key={m} onClick={() => setMetodoPagamento(m)} style={{
+              flex: 1, padding: "9px", borderRadius: 9, border: "1px solid",
+              fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-ui)",
+              background: metodoPagamento === m ? "var(--text)" : "#fff",
+              borderColor: metodoPagamento === m ? "var(--text)" : "var(--border)",
+              color: metodoPagamento === m ? "#fff" : "var(--text-3)",
+            }}>{m === "contanti" ? "Contanti" : "POS"}</button>
+          ))}
+        </div>
         {consegna > 0 && (
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
             <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>Consegna</span>
@@ -373,6 +384,7 @@ export default function NuovoOrdinePage() {
   const [noteDomicilio, setNoteDomicilio] = useState("");
   const [oraConsegna, setOraConsegna] = useState("");
   const [modConsegna, setModConsegna] = useState("");
+  const [metodoPagamento, setMetodoPagamento] = useState<"contanti" | "pos" | "">("");
   const [showOrarioModal, setShowOrarioModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [justSent, setJustSent] = useState(false);
@@ -439,6 +451,7 @@ export default function NuovoOrdinePage() {
         noteDomicilio: tipo === "domicilio" ? (noteDomicilio || null) : null,
         oraConsegnaComunicata: oraConsegnaISO,
         modalitaConsegna: tipo === "domicilio" ? (modConsegna || null) : null,
+        metodoPagamento: metodoPagamento || null,
         costoConsegna: deliveryFee,
         items: cart.map((c) => ({
           menuItemId: c.menuItemId,
@@ -468,11 +481,12 @@ export default function NuovoOrdinePage() {
         noteDomicilio: tipo === "domicilio" ? noteDomicilio : undefined,
         oraConsegnaComunicata: tipo === "domicilio" ? oraConsegna || undefined : undefined,
         modalitaConsegna: tipo === "domicilio" ? (modConsegna as any || undefined) : undefined,
+        metodoPagamento: metodoPagamento || undefined,
         ora: new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }),
       });
       setJustSent(true);
       setTimeout(() => setJustSent(false), 1800);
-      setCart([]); setClienteNome(""); setClienteTel(""); setAddr(""); setCostoConsegna("1.50"); setNote(""); setNoteDomicilio(""); setOraConsegna(""); setModConsegna(""); setShowCart(false);
+      setCart([]); setClienteNome(""); setClienteTel(""); setAddr(""); setCostoConsegna("1.50"); setNote(""); setNoteDomicilio(""); setOraConsegna(""); setModConsegna(""); setMetodoPagamento(""); setShowCart(false);
     } else { toast.error("Errore nella creazione dell'ordine"); }
   };
 
@@ -480,7 +494,7 @@ export default function NuovoOrdinePage() {
     cart, setCart, canale, setCanale, tipo, setTipo, clienteNome, setClienteNome, clienteTel, setClienteTel,
     clienteIndirizzo, setClienteIndirizzo: setAddr, note, setNote, costoConsegna, setCostoConsegna,
     oraConsegna, modConsegna, onApriOrario: () => setShowOrarioModal(true),
-    noteDomicilio, setNoteDomicilio, onConferma: confermaOrdine, loading, justSent,
+    noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma: confermaOrdine, loading, justSent,
   };
 
   return (
