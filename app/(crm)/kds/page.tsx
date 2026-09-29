@@ -5,9 +5,6 @@ import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import { stampaBrowser } from "@/lib/print";
 
-const STATI_FLOW = ["nuovo", "confermato", "in_preparazione", "pronto", "consegnato"];
-const STATO_LABEL: Record<string, string> = { nuovo: "nuovo", confermato: "confermato", in_preparazione: "in preparazione" };
-const NEXT_LABEL: Record<string, string> = { nuovo: "Conferma", confermato: "Inizia preparazione", in_preparazione: "Segna pronto" };
 const CANALE_LABEL: Record<string, string> = { online: "online", telefono: "telefono", walk_in: "walk-in" };
 
 function minutiTrascorsi(createdAt: string) {
@@ -30,12 +27,12 @@ export default function KDSPage() {
   useEffect(() => { carica(); const iv = setInterval(carica, 15000); return () => clearInterval(iv); }, [carica]);
   useEffect(() => { const iv = setInterval(() => forceTick((t) => t + 1), 30000); return () => clearInterval(iv); }, []);
 
+  // Uso interno, nessuna notifica arriva al cliente sugli stati intermedi:
+  // un solo tocco porta l'ordine direttamente a "pronto", da qualunque
+  // stato di partenza si trovi (salta "confermato"/"in preparazione").
   const avanza = async (ordine: any) => {
-    const idx = STATI_FLOW.indexOf(ordine.stato);
-    if (idx >= STATI_FLOW.length - 1) return;
-    const newStato = STATI_FLOW[idx + 1];
-    const res = await fetch(`/api/ordini/${ordine.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stato: newStato }) });
-    if (res.ok) { if (newStato === "pronto") toast.success(`#${ordine.numeroOrdine} pronto`); carica(); }
+    const res = await fetch(`/api/ordini/${ordine.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stato: "pronto" }) });
+    if (res.ok) { toast.success(`#${ordine.numeroOrdine} pronto`); carica(); }
   };
 
   const annulla = async (ordine: any, e: React.MouseEvent) => {
@@ -151,7 +148,7 @@ export default function KDSPage() {
                     color: inPrep ? "#fff" : "var(--text-2)",
                   }}
                 >
-                  {NEXT_LABEL[ordine.stato]} →
+                  Pronto →
                 </div>
               </div>
             );
