@@ -23,7 +23,7 @@ function euro(n: number) {
 
 interface Ingrediente {
   id: string; nome: string; prezzoAggiunta: number;
-  isAllergene: boolean; disabilitatoInSede?: boolean;
+  isAllergene: boolean; disabilitatoInSede?: boolean; escludiCompensazione?: boolean;
 }
 interface CartItem {
   cartId: string; menuItemId: string; nome: string; prezzoBase: number; qty: number;
@@ -52,7 +52,7 @@ function PizzaModal({ item, tuttiIngredienti, onConferma, onChiudi }: {
   // Compensazione: rimuovere un ingrediente non genera mai uno sconto da solo, ma
   // "copre" fino al suo valore un ingrediente aggiunto al suo posto — es. tolgo
   // carciofi (1€) e aggiungo salsa tartufata (2€): pago solo 1€ di differenza.
-  const credito = baseIngs.filter((i) => rimossi.has(i.id)).reduce((a, i) => a + parseFloat(i.prezzoAggiunta?.toString() ?? "0"), 0);
+  const credito = baseIngs.filter((i) => rimossi.has(i.id) && !i.escludiCompensazione).reduce((a, i) => a + parseFloat(i.prezzoAggiunta?.toString() ?? "0"), 0);
   const prezzoExtra = Math.max(0, prezzoAggiuntiLordo - credito);
   const totale = (prezzoBase + prezzoExtra) * qty;
 

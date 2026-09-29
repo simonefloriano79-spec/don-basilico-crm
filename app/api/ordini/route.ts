@@ -105,11 +105,13 @@ export async function POST(req: NextRequest) {
           return acc + parseFloat(ing.prezzoAggiunta.toString());
         }, 0);
         // Compensazione: un ingrediente rimosso non genera mai uno sconto da solo,
-        // ma "copre" fino al suo valore un ingrediente aggiunto al suo posto.
+        // ma "copre" fino al suo valore un ingrediente aggiunto al suo posto —
+        // a meno che l'ingrediente non sia marcato "escluso dalla compensazione"
+        // (es. Mozzarella, Pomodoro: farne a meno non "vale" credito).
         const credito = (i.ingredientiRimossi ?? []).reduce((acc: number, id: string) => {
           const ing = ingredienteMap.get(id);
           if (!ing) throw new Error(`Ingrediente non trovato: ${id}`);
-          return acc + parseFloat(ing.prezzoAggiunta.toString());
+          return ing.escludiCompensazione ? acc : acc + parseFloat(ing.prezzoAggiunta.toString());
         }, 0);
         const extra = Math.max(0, extraLordo - credito);
         prezzoUnitario = base + extra;

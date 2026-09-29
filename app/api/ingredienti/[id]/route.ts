@@ -18,7 +18,7 @@ export async function PATCH(
 
   if (user.ruolo === "super_admin") {
     // Admin: modifica globale
-    const { nome, prezzoAggiunta, isAllergene, disponibileDefault } = body;
+    const { nome, prezzoAggiunta, isAllergene, disponibileDefault, escludiCompensazione } = body;
 
     const updated = await prisma.ingrediente.update({
       where: { id: params.id },
@@ -27,6 +27,7 @@ export async function PATCH(
         ...(prezzoAggiunta !== undefined && { prezzoAggiunta }),
         ...(isAllergene !== undefined && { isAllergene }),
         ...(disponibileDefault !== undefined && { disponibileDefault }),
+        ...(escludiCompensazione !== undefined && { escludiCompensazione }),
       },
     });
 
