@@ -68,8 +68,6 @@ export function generaTicketHTML(ordine: PrintOrdine): string {
       <div class="ordine-num">#${ordine.numero}</div>
       <div style="text-align:center;margin-bottom:6px">
         <span class="badge">${ordine.tipo.toUpperCase()}</span>
-        &nbsp;
-        <span class="badge">${ordine.canale.toUpperCase()}</span>
       </div>
       <div class="info-row"><span>Cliente:</span><strong>${ordine.cliente}</strong></div>
       ${ordine.telefono ? `<div class="info-row"><span>Tel:</span><span>${ordine.telefono}</span></div>` : ""}
@@ -96,7 +94,7 @@ export function generaTicketHTML(ordine: PrintOrdine): string {
 // Stampa via browser (window.print)
 export function stampaBrowser(ordine: PrintOrdine): void {
   const html = generaTicketHTML(ordine);
-  const win = window.open("", "_blank", "width=400,height=600");
+  const win = window.open("", "_blank", "width=420,height=800");
   if (!win) return;
   win.document.write(html);
   win.document.close();
