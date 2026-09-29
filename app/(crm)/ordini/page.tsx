@@ -110,6 +110,9 @@ export default function OrdiniPage() {
       items: (ordine.items ?? []).map((i: any) => ({ nome: i.nomeSnapshot, qty: i.quantita, prezzo: parseFloat(i.prezzoSnapshot), note: i.noteItem })),
       totale: parseFloat(ordine.totale),
       note: ordine.note,
+      noteDomicilio: ordine.noteDomicilio,
+      oraConsegnaComunicata: ordine.oraConsegnaComunicata ? ora(ordine.oraConsegnaComunicata) : undefined,
+      modalitaConsegna: ordine.modalitaConsegna,
       ora: ora(ordine.createdAt),
     });
     await fetch(`/api/ordini/${ordine.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stampato: true }) });
@@ -275,6 +278,13 @@ export default function OrdiniPage() {
               </div>
             ))}
             {selezionato.note && <div style={{ fontSize: 12, color: "var(--danger)", marginTop: 6 }}>Nota: {selezionato.note}</div>}
+            {selezionato.oraConsegnaComunicata && (
+              <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 6 }}>
+                {selezionato.modalitaConsegna === "non_prima" ? "Non prima delle " : "Appena possibile, entro le "}
+                <strong className="num">{ora(selezionato.oraConsegnaComunicata)}</strong>
+              </div>
+            )}
+            {selezionato.noteDomicilio && <div style={{ fontSize: 12, color: "var(--danger)", marginTop: 6 }}>Consegna: {selezionato.noteDomicilio}</div>}
             {parseFloat(selezionato.costoConsegna ?? 0) > 0 && (
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
                 <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>Consegna</span>

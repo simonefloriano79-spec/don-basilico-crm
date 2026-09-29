@@ -54,6 +54,9 @@ export async function POST(req: NextRequest) {
     clienteId,
     note,
     costoConsegna,
+    oraConsegnaComunicata,
+    modalitaConsegna,
+    noteDomicilio,
     items, // Array<{ menuItemId?, sedeExtraId?, nomeSnapshot, quantita, noteItem?, ingredientiRimossi?, ingredientiAggiuntiIds? }>
   } = body;
 
@@ -143,6 +146,11 @@ export async function POST(req: NextRequest) {
   const costoConsegnaFinale = tipo === "domicilio" ? Math.max(0, parseFloat(costoConsegna) || 0) : 0;
   totale += costoConsegnaFinale;
 
+  const modalitaConsegnaValida = ["appena_possibile", "non_prima"].includes(modalitaConsegna) ? modalitaConsegna : null;
+  const oraConsegnaComunicataFinale = tipo === "domicilio" && oraConsegnaComunicata ? new Date(oraConsegnaComunicata) : null;
+  const modalitaConsegnaFinale = tipo === "domicilio" ? modalitaConsegnaValida : null;
+  const noteDomicilioFinale = tipo === "domicilio" ? (noteDomicilio || null) : null;
+
   // Se non è stato selezionato un cliente esistente ma è stato inserito un telefono,
   // collega l'ordine all'anagrafica cliente corrispondente (creandola se non esiste).
   let clienteIdFinale = clienteId || null;
@@ -171,6 +179,9 @@ export async function POST(req: NextRequest) {
       clienteTelefono,
       clienteIndirizzo,
       note,
+      noteDomicilio: noteDomicilioFinale,
+      oraConsegnaComunicata: oraConsegnaComunicataFinale,
+      modalitaConsegna: modalitaConsegnaFinale,
       totale,
       costoConsegna: costoConsegnaFinale,
       items: { create: itemsData },

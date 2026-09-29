@@ -170,8 +170,62 @@ function PizzaModal({ item, tuttiIngredienti, onConferma, onChiudi }: {
   );
 }
 
+// ── Modale scelta orario di consegna ────────────────────────────
+function OrarioConsegnaModal({ oraConsegna, modConsegna, onSalva, onRimuovi, onChiudi }: {
+  oraConsegna: string; modConsegna: string;
+  onSalva: (ora: string, modalita: string) => void; onRimuovi: () => void; onChiudi: () => void;
+}) {
+  const [ora, setOra] = useState(oraConsegna);
+  const [modalita, setModalita] = useState(modConsegna || "appena_possibile");
+
+  return createPortal(
+    <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 210, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}
+      onClick={onChiudi}>
+      <div style={{ background: "var(--surface)", borderRadius: "20px 20px 0 0", display: "flex", flexDirection: "column", margin: "0 auto", width: "100%", maxWidth: 420 }}
+        onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0" }}>
+          <div style={{ width: 40, height: 4, borderRadius: 2, background: "var(--border)" }} />
+        </div>
+        <div style={{ padding: "16px 20px" }}>
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--text)", marginBottom: 14 }}>Orario di consegna</div>
+
+          <label style={{ display: "block", fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.6, marginBottom: 6 }}>Orario comunicato al cliente</label>
+          <input type="time" style={{ ...fieldSt, marginBottom: 14 }} value={ora} onChange={(e) => setOra(e.target.value)} />
+
+          <label style={{ display: "block", fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.6, marginBottom: 6 }}>Modalità</label>
+          <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+            {([["appena_possibile", "Appena possibile"], ["non_prima", "Non prima"]] as const).map(([val, label]) => (
+              <button key={val} onClick={() => setModalita(val)} style={{
+                flex: 1, padding: "10px", borderRadius: 9, border: "1px solid",
+                fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-ui)",
+                background: modalita === val ? "var(--accent-bg-2)" : "#fff",
+                borderColor: modalita === val ? "var(--accent-border)" : "var(--border)",
+                color: modalita === val ? "var(--accent-ink)" : "var(--text-3)",
+              }}>{label}</button>
+            ))}
+          </div>
+
+          <div style={{ display: "flex", gap: 10, paddingBottom: "max(4px, env(safe-area-inset-bottom))" }}>
+            {oraConsegna && (
+              <button onClick={onRimuovi} style={{ background: "#fff", border: "1px solid var(--danger-border)", color: "var(--danger)", padding: "11px 16px", borderRadius: 9, cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 12.5 }}>Rimuovi</button>
+            )}
+            <button onClick={() => ora && onSalva(ora, modalita)} disabled={!ora} style={{
+              flex: 1, background: ora ? "var(--text)" : "var(--border)", color: ora ? "#fff" : "var(--text-faint)",
+              border: "none", padding: "11px 16px", borderRadius: 9, fontSize: 13, fontWeight: 500,
+              cursor: ora ? "pointer" : "default", fontFamily: "var(--font-ui)",
+            }}>Salva</button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 // ── Contenuto carrello (condiviso desktop/mobile) ──────────────
-function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, note, setNote, costoConsegna, setCostoConsegna, onConferma, loading, justSent }: any) {
+const MESSAGGI_DOMICILIO = ["Resto a 50 euro", "Citofono rotto, chiamare", "Chiamare all'arrivo"];
+
+function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, note, setNote, costoConsegna, setCostoConsegna, oraConsegna, modConsegna, onApriOrario, noteDomicilio, setNoteDomicilio, onConferma, loading, justSent }: any) {
   const subtotale = cart.reduce((a: number, c: CartItem) => a + c.prezzoTotaleItem * c.qty, 0);
   const consegna = tipo === "domicilio" ? (parseFloat(costoConsegna) || 0) : 0;
   const totale = subtotale + consegna;
@@ -216,6 +270,28 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, cliente
                   onChange={(e: any) => setCostoConsegna(e.target.value)}
                 />
               </div>
+            </div>
+
+            <button onClick={onApriOrario} style={{
+              display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%",
+              background: "#fff", border: "1px solid var(--border)", color: "var(--text-2)",
+              padding: "9px 12px", borderRadius: 9, fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-ui)",
+            }}>
+              <span>Orario di consegna</span>
+              <span className="num" style={{ fontWeight: 500, color: oraConsegna ? "var(--text)" : "var(--text-faint)" }}>
+                {oraConsegna ? `${modConsegna === "non_prima" ? "Non prima " : ""}${oraConsegna}` : "Non impostato"}
+              </span>
+            </button>
+
+            <textarea style={{ ...fieldSt, resize: "none" } as any} rows={2} placeholder="Note per la consegna (es. citofono, piano...)"
+              value={noteDomicilio} onChange={(e: any) => setNoteDomicilio(e.target.value)} />
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {MESSAGGI_DOMICILIO.map((msg) => (
+                <button key={msg} onClick={() => setNoteDomicilio((p: string) => p.includes(msg) ? p : (p ? `${p}, ${msg}` : msg))} style={{
+                  padding: "5px 11px", borderRadius: 20, fontSize: 11.5, cursor: "pointer", fontFamily: "var(--font-ui)",
+                  border: "1px solid var(--border)", background: "var(--surface-muted)", color: "var(--text-3)",
+                }}>{msg}</button>
+              ))}
             </div>
           </>
         )}
@@ -294,6 +370,10 @@ export default function NuovoOrdinePage() {
   const [clienteIndirizzo, setAddr] = useState("");
   const [costoConsegna, setCostoConsegna] = useState("1.50");
   const [note, setNote] = useState("");
+  const [noteDomicilio, setNoteDomicilio] = useState("");
+  const [oraConsegna, setOraConsegna] = useState("");
+  const [modConsegna, setModConsegna] = useState("");
+  const [showOrarioModal, setShowOrarioModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [justSent, setJustSent] = useState(false);
   const [pizzaModal, setPizzaModal] = useState<any>(null);
@@ -341,6 +421,13 @@ export default function NuovoOrdinePage() {
   const confermaOrdine = async () => {
     if (!cart.length) return toast.error("Aggiungi almeno un prodotto");
     setLoading(true);
+    let oraConsegnaISO: string | null = null;
+    if (tipo === "domicilio" && oraConsegna) {
+      const [h, m] = oraConsegna.split(":").map(Number);
+      const d = new Date();
+      d.setHours(h, m, 0, 0);
+      oraConsegnaISO = d.toISOString();
+    }
     const res = await fetch("/api/ordini", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -349,6 +436,9 @@ export default function NuovoOrdinePage() {
         clienteTelefono: clienteTel || null,
         clienteIndirizzo: tipo === "domicilio" ? clienteIndirizzo : null,
         note: note || null,
+        noteDomicilio: tipo === "domicilio" ? (noteDomicilio || null) : null,
+        oraConsegnaComunicata: oraConsegnaISO,
+        modalitaConsegna: tipo === "domicilio" ? (modConsegna || null) : null,
         costoConsegna: deliveryFee,
         items: cart.map((c) => ({
           menuItemId: c.menuItemId,
@@ -364,14 +454,34 @@ export default function NuovoOrdinePage() {
     if (res.ok) {
       const ordine = await res.json();
       toast.success(`Ordine #${ordine.numeroOrdine} creato`);
-      stampaBrowser({ numero: ordine.numeroOrdine, sede: nomeSede, canale, tipo, cliente: clienteNome || "Cliente anonimo", telefono: clienteTel, indirizzo: clienteIndirizzo, items: cart.map((c) => ({ nome: c.nome, qty: c.qty, prezzo: c.prezzoTotaleItem })), totale, costoConsegna: deliveryFee, note, ora: new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) });
+      stampaBrowser({
+        numero: ordine.numeroOrdine, sede: nomeSede, canale, tipo, cliente: clienteNome || "Cliente anonimo", telefono: clienteTel, indirizzo: clienteIndirizzo,
+        items: cart.map((c) => ({
+          nome: c.nome, qty: c.qty, prezzo: c.prezzoTotaleItem,
+          note: [
+            c.ingredientiRimossi.length ? `Senza: ${c.ingredientiRimossi.map((i) => i.nome).join(", ")}` : "",
+            c.ingredientiAggiunti.length ? `Con: ${c.ingredientiAggiunti.map((i) => i.nome).join(", ")}` : "",
+            c.noteItem,
+          ].filter(Boolean).join(" | ") || undefined,
+        })),
+        totale, costoConsegna: deliveryFee, note,
+        noteDomicilio: tipo === "domicilio" ? noteDomicilio : undefined,
+        oraConsegnaComunicata: tipo === "domicilio" ? oraConsegna || undefined : undefined,
+        modalitaConsegna: tipo === "domicilio" ? (modConsegna as any || undefined) : undefined,
+        ora: new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }),
+      });
       setJustSent(true);
       setTimeout(() => setJustSent(false), 1800);
-      setCart([]); setClienteNome(""); setClienteTel(""); setAddr(""); setCostoConsegna("1.50"); setNote(""); setShowCart(false);
+      setCart([]); setClienteNome(""); setClienteTel(""); setAddr(""); setCostoConsegna("1.50"); setNote(""); setNoteDomicilio(""); setOraConsegna(""); setModConsegna(""); setShowCart(false);
     } else { toast.error("Errore nella creazione dell'ordine"); }
   };
 
-  const cartProps = { cart, setCart, canale, setCanale, tipo, setTipo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo: setAddr, note, setNote, costoConsegna, setCostoConsegna, onConferma: confermaOrdine, loading, justSent };
+  const cartProps = {
+    cart, setCart, canale, setCanale, tipo, setTipo, clienteNome, setClienteNome, clienteTel, setClienteTel,
+    clienteIndirizzo, setClienteIndirizzo: setAddr, note, setNote, costoConsegna, setCostoConsegna,
+    oraConsegna, modConsegna, onApriOrario: () => setShowOrarioModal(true),
+    noteDomicilio, setNoteDomicilio, onConferma: confermaOrdine, loading, justSent,
+  };
 
   return (
     <div className="animate-in" style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
@@ -475,6 +585,14 @@ export default function NuovoOrdinePage() {
           </div>
         </div>,
         document.body
+      )}
+      {showOrarioModal && (
+        <OrarioConsegnaModal
+          oraConsegna={oraConsegna} modConsegna={modConsegna}
+          onSalva={(ora, modalita) => { setOraConsegna(ora); setModConsegna(modalita); setShowOrarioModal(false); }}
+          onRimuovi={() => { setOraConsegna(""); setModConsegna(""); setShowOrarioModal(false); }}
+          onChiudi={() => setShowOrarioModal(false)}
+        />
       )}
     </div>
   );
