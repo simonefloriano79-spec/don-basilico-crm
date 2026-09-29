@@ -73,7 +73,7 @@ export function generaTicketHTML(ordine: PrintOrdine): string {
       ${ordine.telefono ? `<div class="info-row"><span>Tel:</span><span>${ordine.telefono}</span></div>` : ""}
       ${ordine.indirizzo ? `<div class="info-row"><span>Indirizzo:</span><span>${ordine.indirizzo}</span></div>` : ""}
       <div class="info-row"><span>Ora:</span><span>${ordine.ora}</span></div>
-      ${ordine.oraConsegnaComunicata ? `<div class="info-row"><span>${ordine.modalitaConsegna === "non_prima" ? "Non prima di:" : "Consegna entro:"}</span><strong>${ordine.oraConsegnaComunicata}</strong></div>` : ""}
+      ${ordine.oraConsegnaComunicata ? `<div class="info-row"><span>${ordine.modalitaConsegna === "non_prima" ? "Non prima delle:" : "Appena possibile, entro:"}</span><strong>${ordine.oraConsegnaComunicata}</strong></div>` : ""}
       <hr style="border:none;border-top:1px dashed #000;margin:8px 0">
       <table>
         <tbody>${itemsHtml}</tbody>

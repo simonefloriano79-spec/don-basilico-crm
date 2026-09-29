@@ -280,7 +280,7 @@ export default function OrdiniPage() {
             {selezionato.note && <div style={{ fontSize: 12, color: "var(--danger)", marginTop: 6 }}>Nota: {selezionato.note}</div>}
             {selezionato.oraConsegnaComunicata && (
               <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 6 }}>
-                {selezionato.modalitaConsegna === "non_prima" ? "Non prima delle " : "Consegna entro le "}
+                {selezionato.modalitaConsegna === "non_prima" ? "Non prima delle " : "Appena possibile, entro le "}
                 <strong className="num">{ora(selezionato.oraConsegnaComunicata)}</strong>
               </div>
             )}
