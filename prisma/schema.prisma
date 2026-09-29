@@ -240,14 +240,26 @@ model Ordine {
   oraStimataPronte   DateTime? @map("ora_stimata_pronto")
   oraEffettivaPronte DateTime? @map("ora_effettiva_pronto")
 
+  // Orario di consegna comunicato al cliente per il domicilio — distinto
+  // da oraRichiesta (quando è stato preso l'ordine). modalitaConsegna vale
+  // "appena_possibile" (obiettivo flessibile, va bene anche prima) o
+  // "non_prima" (il cliente ha chiesto esplicitamente di non arrivare
+  // prima di quell'orario). Stringa libera invece di un enum Postgres per
+  // evitare i problemi di mapping già visti con gli enum in questo schema.
+  oraConsegnaComunicata DateTime? @map("ora_consegna_comunicata")
+  modalitaConsegna      String?   @map("modalita_consegna")
+
   totale          Decimal @default(0) @db.Decimal(10, 2)
   costoConsegna   Decimal @default(0) @db.Decimal(10, 2) @map("costo_consegna")
   pagato          Boolean @default(false)
   metodoPagamento String? @map("metodo_pagamento")
   stripePaymentId String? @map("stripe_payment_id")
 
-  note      String?
-  stampato  Boolean  @default(false)
+  note          String?
+  // Note specifiche per la consegna a domicilio (es. "Citofono rotto,
+  // chiamare"), separate dalle note generali dell'ordine.
+  noteDomicilio String? @map("note_domicilio")
+  stampato      Boolean  @default(false)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
