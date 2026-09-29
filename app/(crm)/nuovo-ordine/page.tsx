@@ -48,7 +48,12 @@ function PizzaModal({ item, tuttiIngredienti, onConferma, onChiudi }: {
   const extra = tuttiIngredienti.filter((i) => !rimossi.has(i.id) && !i.disabilitatoInSede
     && i.nome.toLowerCase().includes(search.toLowerCase()));
   const prezzoBase = parseFloat(item.prezzoEffettivo ?? item.prezzoBase);
-  const prezzoExtra = Array.from(aggiunti.values()).reduce((a, i) => a + parseFloat(i.prezzoAggiunta?.toString() ?? "0"), 0);
+  const prezzoAggiuntiLordo = Array.from(aggiunti.values()).reduce((a, i) => a + parseFloat(i.prezzoAggiunta?.toString() ?? "0"), 0);
+  // Compensazione: rimuovere un ingrediente non genera mai uno sconto da solo, ma
+  // "copre" fino al suo valore un ingrediente aggiunto al suo posto — es. tolgo
+  // carciofi (1€) e aggiungo salsa tartufata (2€): pago solo 1€ di differenza.
+  const credito = baseIngs.filter((i) => rimossi.has(i.id)).reduce((a, i) => a + parseFloat(i.prezzoAggiunta?.toString() ?? "0"), 0);
+  const prezzoExtra = Math.max(0, prezzoAggiuntiLordo - credito);
   const totale = (prezzoBase + prezzoExtra) * qty;
 
   const conferma = () => {
