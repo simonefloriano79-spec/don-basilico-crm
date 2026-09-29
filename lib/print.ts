@@ -26,8 +26,8 @@ export function generaTicketHTML(ordine: PrintOrdine): string {
     .map(
       (i) => `
       <tr>
-        <td style="width:24px;font-weight:bold">${i.qty}x</td>
-        <td>${i.nome}${i.note ? `<br><span style="font-size:11px">${i.note.split("|").map((s) => s.trim()).filter(Boolean).join("<br>")}</span>` : ""}</td>
+        <td style="width:30px;font-weight:bold">${i.qty}x</td>
+        <td>${i.nome}${i.note ? `<br><span style="font-size:14px">${i.note.split("|").map((s) => s.trim()).filter(Boolean).join("<br>")}</span>` : ""}</td>
         <td style="text-align:right">€${(i.prezzo * i.qty).toFixed(2)}</td>
       </tr>`
     )
@@ -42,22 +42,22 @@ export function generaTicketHTML(ordine: PrintOrdine): string {
         @page { margin: 0; size: 80mm auto; }
         body {
           font-family: 'Courier New', monospace;
-          font-size: 13px;
+          font-size: 16px;
           font-weight: bold;
           width: 76mm;
           margin: 4px;
           color: #000;
         }
         .header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; }
-        .logo { font-size: 18px; font-weight: bold; }
-        .sub { font-size: 11px; }
-        .info-row { display: flex; justify-content: space-between; font-size: 12px; margin: 2px 0; }
+        .logo { font-size: 22px; font-weight: bold; }
+        .sub { font-size: 14px; }
+        .info-row { display: flex; justify-content: space-between; font-size: 15px; margin: 3px 0; }
         table { width: 100%; border-collapse: collapse; }
-        td { padding: 3px 2px; font-size: 13px; }
-        .totale { border-top: 1px dashed #000; margin-top: 6px; padding-top: 6px; text-align: right; font-weight: bold; font-size: 16px; }
-        .footer { text-align: center; margin-top: 10px; font-size: 11px; }
-        .ordine-num { font-size: 28px; font-weight: bold; text-align: center; margin: 6px 0; }
-        .badge { display: inline-block; border: 1px solid #000; padding: 2px 8px; font-size: 12px; }
+        td { padding: 4px 2px; font-size: 16px; }
+        .totale { border-top: 1px dashed #000; margin-top: 6px; padding-top: 6px; text-align: right; font-weight: bold; font-size: 20px; }
+        .footer { text-align: center; margin-top: 10px; font-size: 13px; }
+        .ordine-num { font-size: 32px; font-weight: bold; text-align: center; margin: 6px 0; }
+        .badge { display: inline-block; border: 1px solid #000; padding: 3px 10px; font-size: 15px; }
       </style>
     </head>
     <body>
@@ -79,8 +79,8 @@ export function generaTicketHTML(ordine: PrintOrdine): string {
         <tbody>${itemsHtml}</tbody>
       </table>
       ${ordine.costoConsegna ? `<div class="info-row" style="margin-top:6px;border-top:1px dashed #000;padding-top:4px"><span>Consegna:</span><span>€${ordine.costoConsegna.toFixed(2)}</span></div>` : ""}
-      ${ordine.note ? `<div style="margin-top:6px;font-size:12px;border-top:1px dashed #000;padding-top:4px"><strong>NOTE:</strong> ${ordine.note}</div>` : ""}
-      ${ordine.noteDomicilio ? `<div style="margin-top:6px;font-size:12px;border-top:1px dashed #000;padding-top:4px"><strong>NOTE CONSEGNA:</strong> ${ordine.noteDomicilio}</div>` : ""}
+      ${ordine.note ? `<div style="margin-top:6px;font-size:15px;border-top:1px dashed #000;padding-top:4px"><strong>NOTE:</strong> ${ordine.note}</div>` : ""}
+      ${ordine.noteDomicilio ? `<div style="margin-top:6px;font-size:15px;border-top:1px dashed #000;padding-top:4px"><strong>NOTE CONSEGNA:</strong> ${ordine.noteDomicilio}</div>` : ""}
       <div class="totale">TOTALE: €${ordine.totale.toFixed(2)}</div>
       <div class="footer">
         Grazie e buon appetito!<br>
