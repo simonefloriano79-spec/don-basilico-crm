@@ -69,7 +69,10 @@ export async function POST(req: NextRequest) {
   // Ricalcola sempre il prezzo lato server: non fidarsi mai del prezzo inviato dal client
   const menuItemIds = items.filter((i: any) => i.menuItemId).map((i: any) => i.menuItemId);
   const sedeExtraIds = items.filter((i: any) => i.sedeExtraId).map((i: any) => i.sedeExtraId);
-  const ingredienteIds = Array.from(new Set(items.flatMap((i: any) => i.ingredientiAggiuntiIds ?? [])));
+  const ingredienteIds = Array.from(new Set(items.flatMap((i: any) => [
+    ...(i.ingredientiAggiuntiIds ?? []),
+    ...(i.ingredientiRimossi ?? []),
+  ])));
 
   const [menuItemsDb, overrideDb, sedeExtraDb, ingredientiDb] = await Promise.all([
     menuItemIds.length ? prisma.menuItem.findMany({ where: { id: { in: menuItemIds } } }) : [],
@@ -96,11 +99,21 @@ export async function POST(req: NextRequest) {
         const base = override?.prezzoCustom != null
           ? parseFloat(override.prezzoCustom.toString())
           : parseFloat(menuItem.prezzoBase.toString());
-        const extra = (i.ingredientiAggiuntiIds ?? []).reduce((acc: number, id: string) => {
+        const extraLordo = (i.ingredientiAggiuntiIds ?? []).reduce((acc: number, id: string) => {
           const ing = ingredienteMap.get(id);
           if (!ing) throw new Error(`Ingrediente non trovato: ${id}`);
           return acc + parseFloat(ing.prezzoAggiunta.toString());
         }, 0);
+        // Compensazione: un ingrediente rimosso non genera mai uno sconto da solo,
+        // ma "copre" fino al suo valore un ingrediente aggiunto al suo posto —
+        // a meno che l'ingrediente non sia marcato "escluso dalla compensazione"
+        // (es. Mozzarella, Pomodoro: farne a meno non "vale" credito).
+        const credito = (i.ingredientiRimossi ?? []).reduce((acc: number, id: string) => {
+          const ing = ingredienteMap.get(id);
+          if (!ing) throw new Error(`Ingrediente non trovato: ${id}`);
+          return ing.escludiCompensazione ? acc : acc + parseFloat(ing.prezzoAggiunta.toString());
+        }, 0);
+        const extra = Math.max(0, extraLordo - credito);
         prezzoUnitario = base + extra;
       } else if (i.sedeExtraId) {
         const sedeExtra = sedeExtraMap.get(i.sedeExtraId);

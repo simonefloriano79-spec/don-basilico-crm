@@ -133,6 +133,7 @@ model Ingrediente {
   isAllergene        Boolean  @default(false) @map("is_allergene")
   prezzoAggiunta     Decimal  @default(0.00) @map("prezzo_aggiunta") @db.Decimal(10, 2)
   disponibileDefault Boolean  @default(true) @map("disponibile_default")
+  escludiCompensazione Boolean @default(false) @map("escludi_compensazione")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
 

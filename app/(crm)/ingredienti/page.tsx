@@ -13,9 +13,9 @@ export default function IngredientiPage() {
   const [ingredienti, setIngredienti] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ nome: "", prezzoAggiunta: "", isAllergene: false });
+  const [editForm, setEditForm] = useState({ nome: "", prezzoAggiunta: "", isAllergene: false, escludiCompensazione: false });
   const [showNuovo, setShowNuovo] = useState(false);
-  const [nuovoForm, setNuovoForm] = useState({ nome: "", prezzoAggiunta: "0.00", isAllergene: false });
+  const [nuovoForm, setNuovoForm] = useState({ nome: "", prezzoAggiunta: "0.00", isAllergene: false, escludiCompensazione: false });
   const user = session?.user as any;
   const isSuperAdmin = user?.ruolo === "super_admin";
   const sedeId = user?.sedeId;
@@ -32,7 +32,7 @@ export default function IngredientiPage() {
   const salvaPrezzoAdmin = async (id: string) => {
     const res = await fetch(`/api/ingredienti/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nome: editForm.nome, prezzoAggiunta: parseFloat(editForm.prezzoAggiunta), isAllergene: editForm.isAllergene }),
+      body: JSON.stringify({ nome: editForm.nome, prezzoAggiunta: parseFloat(editForm.prezzoAggiunta), isAllergene: editForm.isAllergene, escludiCompensazione: editForm.escludiCompensazione }),
     });
     if (res.ok) { toast.success("Ingrediente aggiornato"); setEditingId(null); carica(); }
     else toast.error("Errore nel salvataggio");
@@ -62,16 +62,16 @@ export default function IngredientiPage() {
     if (!nuovoForm.nome) return toast.error("Inserisci un nome");
     const res = await fetch("/api/ingredienti", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nome: nuovoForm.nome, prezzoAggiunta: parseFloat(nuovoForm.prezzoAggiunta), isAllergene: nuovoForm.isAllergene }),
+      body: JSON.stringify({ nome: nuovoForm.nome, prezzoAggiunta: parseFloat(nuovoForm.prezzoAggiunta), isAllergene: nuovoForm.isAllergene, escludiCompensazione: nuovoForm.escludiCompensazione }),
     });
-    if (res.ok) { toast.success("Ingrediente aggiunto"); setShowNuovo(false); setNuovoForm({ nome: "", prezzoAggiunta: "0.00", isAllergene: false }); carica(); }
+    if (res.ok) { toast.success("Ingrediente aggiunto"); setShowNuovo(false); setNuovoForm({ nome: "", prezzoAggiunta: "0.00", isAllergene: false, escludiCompensazione: false }); carica(); }
   };
 
   const filtrati = ingredienti.filter((i) => i.nome.toLowerCase().includes(search.toLowerCase()));
 
   const startEdit = (ing: any) => {
     setEditingId(ing.id);
-    setEditForm({ nome: ing.nome, prezzoAggiunta: ing.prezzoAggiunta?.toString() ?? "0.00", isAllergene: ing.isAllergene });
+    setEditForm({ nome: ing.nome, prezzoAggiunta: ing.prezzoAggiunta?.toString() ?? "0.00", isAllergene: ing.isAllergene, escludiCompensazione: ing.escludiCompensazione ?? false });
   };
 
   return (
@@ -104,7 +104,7 @@ export default function IngredientiPage() {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "var(--surface-muted)" }}>
-              {["Ingrediente", "Prezzo aggiunta", "Allergene", ...(isSuperAdmin ? ["Disponibile", "Azioni"] : ["Disponibile in sede"])].map((h) => (
+              {["Ingrediente", "Prezzo aggiunta", "Allergene", ...(isSuperAdmin ? ["Compensazione", "Disponibile", "Azioni"] : ["Disponibile in sede"])].map((h) => (
                 <th key={h} style={{ padding: "11px 14px", textAlign: "left", fontSize: 9.5, letterSpacing: 1.7, textTransform: "uppercase", color: "var(--text-muted)", fontWeight: 500 }}>{h}</th>
               ))}
             </tr>
@@ -151,6 +151,21 @@ export default function IngredientiPage() {
                     <span style={{ fontSize: 13, color: "var(--text-faint)" }}>—</span>
                   )}
                 </td>
+
+                {isSuperAdmin && (
+                  <td style={{ padding: "12px 14px" }}>
+                    {editingId === ing.id ? (
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12.5, color: "var(--text-2)" }}>
+                        <input type="checkbox" checked={editForm.escludiCompensazione} onChange={(e) => setEditForm((p) => ({ ...p, escludiCompensazione: e.target.checked }))} />
+                        Escluso
+                      </label>
+                    ) : ing.escludiCompensazione ? (
+                      <span style={{ fontSize: 11, fontWeight: 500, background: "var(--surface-muted)", color: "var(--text-2)", padding: "3px 10px", borderRadius: 20 }}>Escluso</span>
+                    ) : (
+                      <span style={{ fontSize: 13, color: "var(--text-faint)" }}>—</span>
+                    )}
+                  </td>
+                )}
 
                 {!isSuperAdmin && (
                   <td style={{ padding: "12px 14px" }}>
@@ -206,10 +221,16 @@ export default function IngredientiPage() {
               <label style={labelSt}>Prezzo aggiunta (€)</label>
               <input style={fieldSt} type="number" step="0.10" min="0" value={nuovoForm.prezzoAggiunta} onChange={(e) => setNuovoForm((p) => ({ ...p, prezzoAggiunta: e.target.value }))} />
             </div>
-            <div style={{ marginBottom: 20 }}>
+            <div style={{ marginBottom: 12 }}>
               <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 12.5, color: "var(--text-2)" }}>
                 <input type="checkbox" checked={nuovoForm.isAllergene} onChange={(e) => setNuovoForm((p) => ({ ...p, isAllergene: e.target.checked }))} />
                 È un allergene
+              </label>
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 12.5, color: "var(--text-2)" }}>
+                <input type="checkbox" checked={nuovoForm.escludiCompensazione} onChange={(e) => setNuovoForm((p) => ({ ...p, escludiCompensazione: e.target.checked }))} />
+                Escluso dalla compensazione se rimosso
               </label>
             </div>
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>

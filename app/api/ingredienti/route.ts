@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
   }
 
-  const { nome, prezzoAggiunta, isAllergene } = await req.json();
+  const { nome, prezzoAggiunta, isAllergene, escludiCompensazione } = await req.json();
 
   if (!nome) return NextResponse.json({ error: "Nome richiesto" }, { status: 400 });
 
@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
       nome,
       prezzoAggiunta: prezzoAggiunta ?? 0,
       isAllergene: isAllergene ?? false,
+      escludiCompensazione: escludiCompensazione ?? false,
     },
   });
 
