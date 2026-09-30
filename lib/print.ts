@@ -39,9 +39,15 @@ export async function generaTicketHTML(ordine: PrintOrdine): Promise<string> {
     )
     .join("");
 
+  // errorCorrectionLevel "H" (30%) e risoluzione alta per restare leggibile
+  // anche con la qualità di stampa termica (bassa nitidezza, possibili sbavature).
   const qrDataUrl =
     ordine.tipo === "domicilio" && ordine.ordineId
-      ? await QRCode.toDataURL(`${TRACKING_APP_URL}/rider?scan=${ordine.ordineId}`, { margin: 1, width: 160 })
+      ? await QRCode.toDataURL(`${TRACKING_APP_URL}/rider?scan=${ordine.ordineId}`, {
+          margin: 2,
+          width: 300,
+          errorCorrectionLevel: "H",
+        })
       : null;
 
   return `
@@ -94,7 +100,7 @@ export async function generaTicketHTML(ordine: PrintOrdine): Promise<string> {
       ${ordine.note ? `<div style="margin-top:6px;font-size:15px;border-top:1px dashed #000;padding-top:4px"><strong>NOTE:</strong> ${ordine.note}</div>` : ""}
       ${ordine.noteDomicilio ? `<div style="margin-top:6px;font-size:15px;border-top:1px dashed #000;padding-top:4px"><strong>NOTE CONSEGNA:</strong> ${ordine.noteDomicilio}</div>` : ""}
       <div class="totale">TOTALE: €${ordine.totale.toFixed(2)}</div>
-      ${qrDataUrl ? `<div style="text-align:center;margin-top:10px"><img src="${qrDataUrl}" style="width:120px;height:120px"><div style="font-size:11px;margin-top:2px">Scansiona per la consegna</div></div>` : ""}
+      ${qrDataUrl ? `<div style="text-align:center;margin-top:10px"><img src="${qrDataUrl}" style="width:150px;height:150px"><div style="font-size:11px;margin-top:2px">Scansiona per la consegna</div></div>` : ""}
       <div class="footer">
         Grazie e buon appetito!<br>
         www.donbasilico.it
