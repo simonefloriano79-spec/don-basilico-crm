@@ -16,10 +16,19 @@ const STATO_HEX: Record<string, string> = {
   pronto: "#4d7c1c", consegnato: "#8a8c80", annullato: "#a8452f",
 };
 const CANALE_LABEL: Record<string, string> = { online: "online", telefono: "telefono", walk_in: "walk-in" };
-const AZIONE_LABEL: Record<string, string> = {
-  nuovo: "Conferma ordine", confermato: "Inizia preparazione",
-  in_preparazione: "Segna pronto", pronto: "Segna consegnato",
-};
+
+// Uso interno, nessuna notifica arriva al cliente sugli stati intermedi:
+// un solo passaggio porta l'ordine da "in lavorazione" a "pronto", un
+// secondo (che segna anche il pagamento) lo porta a "consegnato".
+function prossimaAzione(stato: string): { label: string; patch: Record<string, any> } | null {
+  if (["nuovo", "confermato", "in_preparazione"].includes(stato)) {
+    return { label: "Pronto", patch: { stato: "pronto" } };
+  }
+  if (stato === "pronto") {
+    return { label: "Vai al pagamento", patch: { stato: "consegnato", pagato: true } };
+  }
+  return null;
+}
 
 function euro(n: number) {
   return `€ ${n.toFixed(2).replace(".", ",")}`;
@@ -67,16 +76,15 @@ export default function OrdiniPage() {
   }, [selezionato?.id, caricaDettaglio]);
 
   const avanzaStato = async (ordine: any) => {
-    const idx = STATI_FLOW.indexOf(ordine.stato);
-    if (idx >= STATI_FLOW.length - 1) return;
-    const newStato = STATI_FLOW[idx + 1];
+    const azione = prossimaAzione(ordine.stato);
+    if (!azione) return;
     const res = await fetch(`/api/ordini/${ordine.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stato: newStato }),
+      body: JSON.stringify(azione.patch),
     });
     if (res.ok) {
-      toast.success(`Stato → ${STATO_LABEL[newStato]}`);
+      toast.success(`Stato → ${STATO_LABEL[azione.patch.stato]}`);
       caricaOrdini();
       caricaDettaglio(ordine.id);
     }
@@ -324,11 +332,11 @@ export default function OrdiniPage() {
           )}
 
           <div style={{ padding: 22, display: "flex", flexDirection: "column", gap: 8 }}>
-            {AZIONE_LABEL[selezionato.stato] && (
+            {prossimaAzione(selezionato.stato) && (
               <button onClick={() => avanzaStato(selezionato)} style={{
                 background: "var(--text)", color: "#fff", border: "none", padding: "10px 18px",
                 borderRadius: 9, fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)",
-              }}>{AZIONE_LABEL[selezionato.stato]}</button>
+              }}>{prossimaAzione(selezionato.stato)!.label}</button>
             )}
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => gestisciStampa(selezionato)} style={{
