@@ -17,10 +17,11 @@ export async function GET(req: NextRequest) {
     where: {
       ...(q && {
         OR: [
-          { nome:     { contains: q, mode: "insensitive" } },
-          { cognome:  { contains: q, mode: "insensitive" } },
-          { telefono: { contains: q } },
-          { email:    { contains: q, mode: "insensitive" } },
+          { nome:             { contains: q, mode: "insensitive" } },
+          { cognome:          { contains: q, mode: "insensitive" } },
+          { telefono:         { contains: q } },
+          { email:            { contains: q, mode: "insensitive" } },
+          { indirizzoDefault: { contains: q, mode: "insensitive" } },
         ],
       }),
     },
