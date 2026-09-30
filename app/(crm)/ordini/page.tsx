@@ -107,8 +107,9 @@ export default function OrdiniPage() {
   };
 
   const gestisciStampa = async (ordine: any) => {
-    stampaBrowser({
+    await stampaBrowser({
       numero: ordine.numeroOrdine,
+      ordineId: ordine.id,
       sede: ordine.sede?.nome ?? "",
       canale: ordine.canale,
       tipo: ordine.tipo,

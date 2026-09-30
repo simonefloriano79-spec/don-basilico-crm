@@ -467,8 +467,8 @@ export default function NuovoOrdinePage() {
     if (res.ok) {
       const ordine = await res.json();
       toast.success(`Ordine #${ordine.numeroOrdine} creato`);
-      stampaBrowser({
-        numero: ordine.numeroOrdine, sede: nomeSede, canale, tipo, cliente: clienteNome || "Cliente anonimo", telefono: clienteTel, indirizzo: clienteIndirizzo,
+      await stampaBrowser({
+        numero: ordine.numeroOrdine, ordineId: ordine.id, sede: nomeSede, canale, tipo, cliente: clienteNome || "Cliente anonimo", telefono: clienteTel, indirizzo: clienteIndirizzo,
         items: cart.map((c) => ({
           nome: c.nome, qty: c.qty, prezzo: c.prezzoTotaleItem,
           note: [
