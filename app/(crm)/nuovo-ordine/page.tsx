@@ -222,12 +222,12 @@ function OrarioConsegnaModal({ oraConsegna, modConsegna, onSalva, onRimuovi, onC
 // ── Ricerca/creazione cliente (domicilio) ──────────────────────
 interface ClienteTrovato {
   id: string; nome: string; cognome?: string | null;
-  telefono?: string | null; indirizzoDefault?: string | null;
+  telefono?: string | null; indirizzoDefault?: string | null; note?: string | null;
   numeroOrdini?: number;
 }
 
 function CercaClienteModal({ onSeleziona, onChiudi }: {
-  onSeleziona: (c: { nome: string; telefono: string; indirizzo: string }) => void;
+  onSeleziona: (c: { nome: string; telefono: string; indirizzo: string; note: string }) => void;
   onChiudi: () => void;
 }) {
   const [query, setQuery] = useState("");
@@ -255,6 +255,7 @@ function CercaClienteModal({ onSeleziona, onChiudi }: {
       nome: [c.nome, c.cognome].filter(Boolean).join(" "),
       telefono: c.telefono ?? "",
       indirizzo: c.indirizzoDefault ?? "",
+      note: c.note ?? "",
     });
   }
 
@@ -309,7 +310,7 @@ function CercaClienteModal({ onSeleziona, onChiudi }: {
                 )}
               </div>
               <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
-                {[c.telefono, c.indirizzoDefault].filter(Boolean).join(" — ") || "—"}
+                {[c.telefono, c.indirizzoDefault, c.note].filter(Boolean).join(" — ") || "—"}
               </div>
             </button>
           ))}
@@ -736,7 +737,11 @@ export default function NuovoOrdinePage() {
       )}
       {showCercaCliente && (
         <CercaClienteModal
-          onSeleziona={(c) => { setClienteNome(c.nome); setClienteTel(c.telefono); setAddr(c.indirizzo); setShowCercaCliente(false); }}
+          onSeleziona={(c) => {
+            setClienteNome(c.nome); setClienteTel(c.telefono); setAddr(c.indirizzo);
+            if (c.note) setNoteDomicilio((p) => p.includes(c.note) ? p : (p ? `${p}, ${c.note}` : c.note));
+            setShowCercaCliente(false);
+          }}
           onChiudi={() => setShowCercaCliente(false)}
         />
       )}
