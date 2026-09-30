@@ -349,6 +349,11 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, cliente
   const totale = subtotale + consegna;
   return (
     <>
+      {/* Campi ordine + lista prodotti: un'unica area scrollabile, così quando
+          i campi del domicilio (orario, note, ecc.) si allungano non "spingono"
+          fuori vista i prodotti già aggiunti al carrello — solo il riepilogo/
+          conferma in fondo resta fisso. */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10, borderBottom: "1px solid var(--border-soft)" }}>
         <div style={{ display: "flex", gap: 8 }}>
           {(["walk_in", "telefono"] as const).map((c) => (
@@ -422,7 +427,7 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, cliente
         )}
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "14px 20px" }}>
+      <div style={{ padding: "14px 20px" }}>
         {cart.length === 0 ? (
           <div style={{ textAlign: "center", padding: "36px 0", color: "var(--text-faint)", fontSize: 13 }}>
             Tocca una pizza dal menù per iniziare l'ordine
@@ -450,6 +455,7 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, cliente
         {cart.length > 0 && (
           <textarea style={{ ...fieldSt, resize: "none", marginTop: 4 } as any} rows={2} placeholder="Note ordine…" value={note} onChange={(e: any) => setNote(e.target.value)} />
         )}
+      </div>
       </div>
 
       <div style={{ padding: "16px 20px", borderTop: "1px solid var(--border-soft)", paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
