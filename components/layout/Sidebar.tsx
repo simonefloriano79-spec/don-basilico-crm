@@ -12,6 +12,8 @@ export function Sidebar({ session }: Props) {
   const user = session.user as any;
   const isSuperAdmin = user.ruolo === "super_admin";
 
+  const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL ?? "https://don-basilico-tracking.vercel.app/admin";
+
   const sections = [
     {
       label: "Operatività",
@@ -21,6 +23,7 @@ export function Sidebar({ session }: Props) {
         { href: "/nuovo-ordine",  glyph: "+", label: "Nuovo ordine" },
         { href: "/kds",           glyph: "◉", label: "Cucina"       },
         { href: "/schermo-cassa", glyph: "☏", label: "Ordini vocali" },
+        { href: trackingUrl,     glyph: "🛵", label: "Rider", external: true },
       ],
     },
     {
@@ -61,16 +64,29 @@ export function Sidebar({ session }: Props) {
         {sections.map((section) => (
           <div key={section.label}>
             <div className={styles.sectionLabel}>{section.label}</div>
-            {section.items.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`${styles.navItem} ${pathname === item.href ? styles.active : ""}`}
-              >
-                <span className={styles.icon}>{item.glyph}</span>
-                {item.label}
-              </Link>
-            ))}
+            {section.items.map((item) =>
+              "external" in item && item.external ? (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={styles.navItem}
+                >
+                  <span className={styles.icon}>{item.glyph}</span>
+                  {item.label}
+                </a>
+              ) : (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`${styles.navItem} ${pathname === item.href ? styles.active : ""}`}
+                >
+                  <span className={styles.icon}>{item.glyph}</span>
+                  {item.label}
+                </Link>
+              )
+            )}
           </div>
         ))}
       </div>
