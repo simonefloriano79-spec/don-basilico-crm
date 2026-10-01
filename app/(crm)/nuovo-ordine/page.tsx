@@ -340,7 +340,7 @@ function CercaClienteModal({ onSeleziona, onChiudi }: {
 // ── Contenuto carrello (condiviso desktop/mobile) ──────────────
 const MESSAGGI_DOMICILIO = ["Resto a 50 euro", "Citofono rotto, chiamare", "Chiamare all'arrivo"];
 
-function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, note, setNote, costoConsegna, setCostoConsegna, oraConsegna, modConsegna, onApriOrario, onCercaCliente, noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma, loading, justSent }: any) {
+function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna, oraConsegna, modConsegna, onApriOrario, onCercaCliente, noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma, loading, justSent }: any) {
   const subtotale = cart.reduce((a: number, c: CartItem) => a + c.prezzoTotaleItem * c.qty, 0);
   const consegna = tipo === "domicilio" ? (parseFloat(costoConsegna) || 0) : 0;
   const totale = subtotale + consegna;
@@ -386,6 +386,7 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, cliente
         {tipo === "domicilio" && (
           <>
             <input style={fieldSt} placeholder="Indirizzo *" value={clienteIndirizzo} onChange={(e: any) => setClienteIndirizzo(e.target.value)} />
+            <input style={fieldSt} placeholder="Nome sul citofono" value={nomeCitofono} onChange={(e: any) => setNomeCitofono(e.target.value)} />
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 12.5, color: "var(--text-2)", flex: 1 }}>Costo consegna</span>
               <div style={{ position: "relative", width: 90 }}>
@@ -507,6 +508,7 @@ export default function NuovoOrdinePage() {
   const [clienteNome, setClienteNome] = useState("");
   const [clienteTel, setClienteTel] = useState("");
   const [clienteIndirizzo, setAddr] = useState("");
+  const [nomeCitofono, setNomeCitofono] = useState("");
   const [costoConsegna, setCostoConsegna] = useState("1.50");
   const [note, setNote] = useState("");
   const [noteDomicilio, setNoteDomicilio] = useState("");
@@ -576,6 +578,7 @@ export default function NuovoOrdinePage() {
         clienteNome: clienteNome || "Cliente anonimo",
         clienteTelefono: clienteTel || null,
         clienteIndirizzo: tipo === "domicilio" ? clienteIndirizzo : null,
+        nomeCitofono: tipo === "domicilio" ? (nomeCitofono || null) : null,
         note: note || null,
         noteDomicilio: tipo === "domicilio" ? (noteDomicilio || null) : null,
         oraConsegnaComunicata: oraConsegnaISO,
@@ -598,6 +601,7 @@ export default function NuovoOrdinePage() {
       toast.success(`Ordine #${ordine.numeroOrdine} creato`);
       await stampaBrowser({
         numero: ordine.numeroOrdine, ordineId: ordine.id, sede: nomeSede, canale, tipo, cliente: clienteNome || "Cliente anonimo", telefono: clienteTel, indirizzo: clienteIndirizzo,
+        nomeCitofono: tipo === "domicilio" ? (nomeCitofono || undefined) : undefined,
         items: cart.map((c) => ({
           nome: c.nome, qty: c.qty, prezzo: c.prezzoTotaleItem,
           note: [
@@ -615,13 +619,13 @@ export default function NuovoOrdinePage() {
       });
       setJustSent(true);
       setTimeout(() => setJustSent(false), 1800);
-      setCart([]); setClienteNome(""); setClienteTel(""); setAddr(""); setCostoConsegna("1.50"); setNote(""); setNoteDomicilio(""); setOraConsegna(""); setModConsegna(""); setMetodoPagamento(""); setShowCart(false);
+      setCart([]); setClienteNome(""); setClienteTel(""); setAddr(""); setNomeCitofono(""); setCostoConsegna("1.50"); setNote(""); setNoteDomicilio(""); setOraConsegna(""); setModConsegna(""); setMetodoPagamento(""); setShowCart(false);
     } else { toast.error("Errore nella creazione dell'ordine"); }
   };
 
   const cartProps = {
     cart, setCart, canale, setCanale, tipo, setTipo, clienteNome, setClienteNome, clienteTel, setClienteTel,
-    clienteIndirizzo, setClienteIndirizzo: setAddr, note, setNote, costoConsegna, setCostoConsegna,
+    clienteIndirizzo, setClienteIndirizzo: setAddr, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna,
     oraConsegna, modConsegna, onApriOrario: () => setShowOrarioModal(true),
     onCercaCliente: () => setShowCercaCliente(true),
     noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma: confermaOrdine, loading, justSent,

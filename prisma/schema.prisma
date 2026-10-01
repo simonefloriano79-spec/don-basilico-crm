@@ -235,6 +235,10 @@ model Ordine {
   clienteNome      String? @map("cliente_nome")
   clienteTelefono  String? @map("cliente_telefono")
   clienteIndirizzo String? @map("cliente_indirizzo")
+  // Nome sul citofono per il domicilio — spesso diverso dal nome del
+  // cliente (es. intestatario del citofono/famiglia), chiesto sempre
+  // insieme all'indirizzo quando si prende l'ordine per telefono.
+  nomeCitofono     String? @map("nome_citofono")
 
   oraRichiesta       DateTime  @default(now()) @map("ora_richiesta")
   oraStimataPronte   DateTime? @map("ora_stimata_pronto")

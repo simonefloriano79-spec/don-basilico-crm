@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
     oraConsegnaComunicata,
     modalitaConsegna,
     noteDomicilio,
+    nomeCitofono,
     metodoPagamento,
     items, // Array<{ menuItemId?, sedeExtraId?, nomeSnapshot, quantita, noteItem?, ingredientiRimossi?, ingredientiAggiuntiIds? }>
   } = body;
@@ -151,6 +152,7 @@ export async function POST(req: NextRequest) {
   const oraConsegnaComunicataFinale = tipo === "domicilio" && oraConsegnaComunicata ? new Date(oraConsegnaComunicata) : null;
   const modalitaConsegnaFinale = tipo === "domicilio" ? modalitaConsegnaValida : null;
   const noteDomicilioFinale = tipo === "domicilio" ? (noteDomicilio || null) : null;
+  const nomeCitofonoFinale = tipo === "domicilio" ? (nomeCitofono || null) : null;
   const metodoPagamentoFinale = ["contanti", "pos"].includes(metodoPagamento) ? metodoPagamento : null;
 
   // Se non è stato selezionato un cliente esistente ma è stato inserito un telefono,
@@ -180,6 +182,7 @@ export async function POST(req: NextRequest) {
       clienteNome,
       clienteTelefono,
       clienteIndirizzo,
+      nomeCitofono: nomeCitofonoFinale,
       note,
       noteDomicilio: noteDomicilioFinale,
       oraConsegnaComunicata: oraConsegnaComunicataFinale,
