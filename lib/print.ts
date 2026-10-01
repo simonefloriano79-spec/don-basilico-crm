@@ -19,6 +19,7 @@ export interface PrintOrdine {
   costoConsegna?: number;
   note?: string;
   noteDomicilio?: string;
+  nomeCitofono?: string;
   oraConsegnaComunicata?: string;
   modalitaConsegna?: "appena_possibile" | "non_prima" | null;
   metodoPagamento?: "contanti" | "pos" | null;
@@ -89,6 +90,7 @@ export async function generaTicketHTML(ordine: PrintOrdine): Promise<string> {
       <div class="info-row"><span>Cliente:</span><strong>${ordine.cliente}</strong></div>
       ${ordine.telefono ? `<div class="info-row"><span>Tel:</span><span>${ordine.telefono}</span></div>` : ""}
       ${ordine.indirizzo ? `<div class="info-row"><span>Indirizzo:</span><span>${ordine.indirizzo}</span></div>` : ""}
+      ${ordine.nomeCitofono ? `<div class="info-row"><span>Citofono:</span><strong>${ordine.nomeCitofono}</strong></div>` : ""}
       <div class="info-row"><span>Ora:</span><span>${ordine.ora}</span></div>
       ${ordine.oraConsegnaComunicata ? `<div class="info-row"><span>${ordine.modalitaConsegna === "non_prima" ? "Non prima delle:" : "Appena possibile, entro:"}</span><strong>${ordine.oraConsegnaComunicata}</strong></div>` : ""}
       <hr style="border:none;border-top:1px dashed #000;margin:8px 0">

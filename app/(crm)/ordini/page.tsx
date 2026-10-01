@@ -116,6 +116,7 @@ export default function OrdiniPage() {
       cliente: ordine.clienteNome ?? "Anonimo",
       telefono: ordine.clienteTelefono,
       indirizzo: ordine.clienteIndirizzo,
+      nomeCitofono: ordine.nomeCitofono,
       items: (ordine.items ?? []).map((i: any) => ({ nome: i.nomeSnapshot, qty: i.quantita, prezzo: parseFloat(i.prezzoSnapshot), note: i.noteItem })),
       totale: parseFloat(ordine.totale),
       note: ordine.note,
@@ -294,6 +295,7 @@ export default function OrdiniPage() {
                 <strong className="num">{ora(selezionato.oraConsegnaComunicata)}</strong>
               </div>
             )}
+            {selezionato.nomeCitofono && <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 6 }}>Citofono: <strong>{selezionato.nomeCitofono}</strong></div>}
             {selezionato.noteDomicilio && <div style={{ fontSize: 12, color: "var(--danger)", marginTop: 6 }}>Consegna: {selezionato.noteDomicilio}</div>}
             {parseFloat(selezionato.costoConsegna ?? 0) > 0 && (
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
