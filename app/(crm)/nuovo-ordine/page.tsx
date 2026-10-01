@@ -277,14 +277,11 @@ function CercaClienteModal({ onSeleziona, onChiudi }: {
   }
 
   return createPortal(
-    <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 210, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}
+    <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 210, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
       onClick={onChiudi}>
-      <div style={{ background: "var(--surface)", borderRadius: "20px 20px 0 0", maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden", margin: "0 auto", width: "100%", maxWidth: 480 }}
+      <div style={{ background: "var(--surface)", borderRadius: 20, maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "hidden", width: "100%", maxWidth: 480 }}
         onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0" }}>
-          <div style={{ width: 40, height: 4, borderRadius: 2, background: "var(--border)" }} />
-        </div>
-        <div style={{ padding: "16px 20px 10px" }}>
+        <div style={{ padding: "20px 20px 10px" }}>
           <div style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--text)", marginBottom: 14 }}>Cerca cliente</div>
           <input
             style={fieldSt} placeholder="Nome, telefono o via e civico…"
