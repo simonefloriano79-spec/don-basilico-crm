@@ -179,14 +179,11 @@ function OrarioConsegnaModal({ oraConsegna, modConsegna, onSalva, onRimuovi, onC
   const [modalita, setModalita] = useState(modConsegna || "appena_possibile");
 
   return createPortal(
-    <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 210, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}
+    <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 210, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
       onClick={onChiudi}>
-      <div style={{ background: "var(--surface)", borderRadius: "20px 20px 0 0", display: "flex", flexDirection: "column", margin: "0 auto", width: "100%", maxWidth: 420 }}
+      <div style={{ background: "var(--surface)", borderRadius: 20, display: "flex", flexDirection: "column", width: "100%", maxWidth: 420 }}
         onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0" }}>
-          <div style={{ width: 40, height: 4, borderRadius: 2, background: "var(--border)" }} />
-        </div>
-        <div style={{ padding: "16px 20px" }}>
+        <div style={{ padding: "20px 20px 16px" }}>
           <div style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--text)", marginBottom: 14 }}>Orario di consegna</div>
 
           <label style={{ display: "block", fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.6, marginBottom: 6 }}>Orario comunicato al cliente</label>
@@ -222,15 +219,141 @@ function OrarioConsegnaModal({ oraConsegna, modConsegna, onSalva, onRimuovi, onC
   );
 }
 
+// ── Ricerca/creazione cliente (domicilio) ──────────────────────
+interface ClienteTrovato {
+  id: string; nome: string; cognome?: string | null;
+  telefono?: string | null; indirizzoDefault?: string | null; note?: string | null;
+  numeroOrdini?: number;
+}
+
+function CercaClienteModal({ onSeleziona, onChiudi }: {
+  onSeleziona: (c: { nome: string; telefono: string; indirizzo: string; note: string }) => void;
+  onChiudi: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [risultati, setRisultati] = useState<ClienteTrovato[]>([]);
+  const [cercando, setCercando] = useState(false);
+  const [nuovoAperto, setNuovoAperto] = useState(false);
+  const [nuovoNome, setNuovoNome] = useState("");
+  const [nuovoTelefono, setNuovoTelefono] = useState("");
+  const [nuovoIndirizzo, setNuovoIndirizzo] = useState("");
+  const [salvando, setSalvando] = useState(false);
+
+  useEffect(() => {
+    if (query.trim().length < 2) { setRisultati([]); setCercando(false); return; }
+    setCercando(true);
+    const t = setTimeout(async () => {
+      const res = await fetch(`/api/clienti?q=${encodeURIComponent(query.trim())}&limit=8`);
+      setRisultati(res.ok ? await res.json() : []);
+      setCercando(false);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  function scegli(c: ClienteTrovato) {
+    onSeleziona({
+      nome: [c.nome, c.cognome].filter(Boolean).join(" "),
+      telefono: c.telefono ?? "",
+      indirizzo: c.indirizzoDefault ?? "",
+      note: c.note ?? "",
+    });
+  }
+
+  async function salvaNuovo() {
+    if (!nuovoNome.trim()) return;
+    setSalvando(true);
+    const res = await fetch("/api/clienti", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nome: nuovoNome.trim(), telefono: nuovoTelefono.trim() || null, indirizzoDefault: nuovoIndirizzo.trim() || null }),
+    });
+    setSalvando(false);
+    if (res.ok) {
+      scegli(await res.json());
+    } else if (res.status === 409) {
+      // Telefono già presente: usa comunque il cliente esistente invece di bloccare.
+      const data = await res.json();
+      scegli(data.cliente);
+    }
+  }
+
+  return createPortal(
+    <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 210, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}
+      onClick={onChiudi}>
+      <div style={{ background: "var(--surface)", borderRadius: "20px 20px 0 0", maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden", margin: "0 auto", width: "100%", maxWidth: 480 }}
+        onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0" }}>
+          <div style={{ width: 40, height: 4, borderRadius: 2, background: "var(--border)" }} />
+        </div>
+        <div style={{ padding: "16px 20px 10px" }}>
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--text)", marginBottom: 14 }}>Cerca cliente</div>
+          <input
+            style={fieldSt} placeholder="Nome, telefono o via e civico…"
+            value={query} onChange={(e) => setQuery(e.target.value)} autoFocus
+          />
+        </div>
+
+        <div style={{ flex: 1, overflowY: "auto", padding: "0 20px" }}>
+          {cercando && <div style={{ fontSize: 12.5, color: "var(--text-muted)", padding: "8px 0" }}>Cerco…</div>}
+          {!cercando && query.trim().length >= 2 && risultati.length === 0 && !nuovoAperto && (
+            <div style={{ fontSize: 12.5, color: "var(--text-muted)", padding: "8px 0" }}>Nessun cliente trovato.</div>
+          )}
+          {risultati.map((c) => (
+            <button key={c.id} onClick={() => scegli(c)} style={{
+              display: "block", width: "100%", textAlign: "left", background: "#fff",
+              border: "1px solid var(--border)", borderRadius: 10, padding: "10px 12px",
+              marginBottom: 8, cursor: "pointer", fontFamily: "var(--font-ui)",
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text)" }}>
+                {[c.nome, c.cognome].filter(Boolean).join(" ")}
+                {typeof c.numeroOrdini === "number" && c.numeroOrdini > 0 && (
+                  <span style={{ fontWeight: 400, color: "var(--text-muted)" }}> · {c.numeroOrdini} ordini</span>
+                )}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
+                {[c.telefono, c.indirizzoDefault, c.note].filter(Boolean).join(" — ") || "—"}
+              </div>
+            </button>
+          ))}
+
+          {!nuovoAperto ? (
+            <button onClick={() => { setNuovoAperto(true); setNuovoNome(query); }} style={{
+              display: "block", width: "100%", textAlign: "center", background: "var(--surface-muted)",
+              border: "1px dashed var(--border)", color: "var(--text-2)", borderRadius: 10, padding: "10px 12px",
+              marginBottom: 16, cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 12.5,
+            }}>+ Nuovo cliente</button>
+          ) : (
+            <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 12, marginBottom: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+              <input style={fieldSt} placeholder="Nome" value={nuovoNome} onChange={(e) => setNuovoNome(e.target.value)} />
+              <input style={fieldSt} placeholder="Telefono" value={nuovoTelefono} onChange={(e) => setNuovoTelefono(e.target.value)} />
+              <input style={fieldSt} placeholder="Via e civico" value={nuovoIndirizzo} onChange={(e) => setNuovoIndirizzo(e.target.value)} />
+              <button onClick={salvaNuovo} disabled={!nuovoNome.trim() || salvando} style={{
+                background: nuovoNome.trim() ? "var(--text)" : "var(--border)", color: nuovoNome.trim() ? "#fff" : "var(--text-faint)",
+                border: "none", padding: "10px 12px", borderRadius: 9, fontSize: 12.5, fontWeight: 500,
+                cursor: nuovoNome.trim() ? "pointer" : "default", fontFamily: "var(--font-ui)",
+              }}>{salvando ? "Salvo…" : "Salva e usa"}</button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 // ── Contenuto carrello (condiviso desktop/mobile) ──────────────
 const MESSAGGI_DOMICILIO = ["Resto a 50 euro", "Citofono rotto, chiamare", "Chiamare all'arrivo"];
 
-function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, note, setNote, costoConsegna, setCostoConsegna, oraConsegna, modConsegna, onApriOrario, noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma, loading, justSent }: any) {
+function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, note, setNote, costoConsegna, setCostoConsegna, oraConsegna, modConsegna, onApriOrario, onCercaCliente, noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma, loading, justSent }: any) {
   const subtotale = cart.reduce((a: number, c: CartItem) => a + c.prezzoTotaleItem * c.qty, 0);
   const consegna = tipo === "domicilio" ? (parseFloat(costoConsegna) || 0) : 0;
   const totale = subtotale + consegna;
   return (
     <>
+      {/* Campi ordine + lista prodotti: un'unica area scrollabile, così quando
+          i campi del domicilio (orario, note, ecc.) si allungano non "spingono"
+          fuori vista i prodotti già aggiunti al carrello — solo il riepilogo/
+          conferma in fondo resta fisso. */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10, borderBottom: "1px solid var(--border-soft)" }}>
         <div style={{ display: "flex", gap: 8 }}>
           {(["walk_in", "telefono"] as const).map((c) => (
@@ -254,6 +377,13 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, cliente
             }}>{t}</button>
           ))}
         </div>
+        {tipo === "domicilio" && (
+          <button onClick={onCercaCliente} style={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%",
+            background: "var(--accent-bg-2)", border: "1px solid var(--accent-border)", color: "var(--accent-ink)",
+            padding: "9px 12px", borderRadius: 9, fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-ui)",
+          }}>⌕ Cerca cliente</button>
+        )}
         <input style={fieldSt} placeholder="Nome cliente" value={clienteNome} onChange={(e: any) => setClienteNome(e.target.value)} />
         <input style={fieldSt} placeholder="Telefono" value={clienteTel} onChange={(e: any) => setClienteTel(e.target.value)} />
         {tipo === "domicilio" && (
@@ -297,7 +427,7 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, cliente
         )}
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "14px 20px" }}>
+      <div style={{ padding: "14px 20px" }}>
         {cart.length === 0 ? (
           <div style={{ textAlign: "center", padding: "36px 0", color: "var(--text-faint)", fontSize: 13 }}>
             Tocca una pizza dal menù per iniziare l'ordine
@@ -325,6 +455,7 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, cliente
         {cart.length > 0 && (
           <textarea style={{ ...fieldSt, resize: "none", marginTop: 4 } as any} rows={2} placeholder="Note ordine…" value={note} onChange={(e: any) => setNote(e.target.value)} />
         )}
+      </div>
       </div>
 
       <div style={{ padding: "16px 20px", borderTop: "1px solid var(--border-soft)", paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
@@ -386,6 +517,7 @@ export default function NuovoOrdinePage() {
   const [modConsegna, setModConsegna] = useState("");
   const [metodoPagamento, setMetodoPagamento] = useState<"contanti" | "pos" | "">("");
   const [showOrarioModal, setShowOrarioModal] = useState(false);
+  const [showCercaCliente, setShowCercaCliente] = useState(false);
   const [loading, setLoading] = useState(false);
   const [justSent, setJustSent] = useState(false);
   const [pizzaModal, setPizzaModal] = useState<any>(null);
@@ -467,8 +599,8 @@ export default function NuovoOrdinePage() {
     if (res.ok) {
       const ordine = await res.json();
       toast.success(`Ordine #${ordine.numeroOrdine} creato`);
-      stampaBrowser({
-        numero: ordine.numeroOrdine, sede: nomeSede, canale, tipo, cliente: clienteNome || "Cliente anonimo", telefono: clienteTel, indirizzo: clienteIndirizzo,
+      await stampaBrowser({
+        numero: ordine.numeroOrdine, ordineId: ordine.id, sede: nomeSede, canale, tipo, cliente: clienteNome || "Cliente anonimo", telefono: clienteTel, indirizzo: clienteIndirizzo,
         items: cart.map((c) => ({
           nome: c.nome, qty: c.qty, prezzo: c.prezzoTotaleItem,
           note: [
@@ -494,6 +626,7 @@ export default function NuovoOrdinePage() {
     cart, setCart, canale, setCanale, tipo, setTipo, clienteNome, setClienteNome, clienteTel, setClienteTel,
     clienteIndirizzo, setClienteIndirizzo: setAddr, note, setNote, costoConsegna, setCostoConsegna,
     oraConsegna, modConsegna, onApriOrario: () => setShowOrarioModal(true),
+    onCercaCliente: () => setShowCercaCliente(true),
     noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma: confermaOrdine, loading, justSent,
   };
 
@@ -606,6 +739,16 @@ export default function NuovoOrdinePage() {
           onSalva={(ora, modalita) => { setOraConsegna(ora); setModConsegna(modalita); setShowOrarioModal(false); }}
           onRimuovi={() => { setOraConsegna(""); setModConsegna(""); setShowOrarioModal(false); }}
           onChiudi={() => setShowOrarioModal(false)}
+        />
+      )}
+      {showCercaCliente && (
+        <CercaClienteModal
+          onSeleziona={(c) => {
+            setClienteNome(c.nome); setClienteTel(c.telefono); setAddr(c.indirizzo);
+            if (c.note) setNoteDomicilio((p) => p.includes(c.note) ? p : (p ? `${p}, ${c.note}` : c.note));
+            setShowCercaCliente(false);
+          }}
+          onChiudi={() => setShowCercaCliente(false)}
         />
       )}
     </div>

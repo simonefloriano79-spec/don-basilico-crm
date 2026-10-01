@@ -44,8 +44,8 @@ export default function KDSPage() {
 
   const stampa = async (ordine: any, e: React.MouseEvent) => {
     e.stopPropagation();
-    stampaBrowser({
-      numero: ordine.numeroOrdine, sede: ordine.sede?.nome ?? "", canale: ordine.canale, tipo: ordine.tipo,
+    await stampaBrowser({
+      numero: ordine.numeroOrdine, ordineId: ordine.id, sede: ordine.sede?.nome ?? "", canale: ordine.canale, tipo: ordine.tipo,
       cliente: ordine.clienteNome ?? "Anonimo", telefono: ordine.clienteTelefono, indirizzo: ordine.clienteIndirizzo,
       items: (ordine.items ?? []).map((i: any) => ({ nome: i.nomeSnapshot, qty: i.quantita, prezzo: parseFloat(i.prezzoSnapshot), note: i.noteItem })),
       totale: parseFloat(ordine.totale), note: ordine.note,

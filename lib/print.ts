@@ -1,8 +1,13 @@
 // Gestione stampa ordini
 // Supporta: Stampa browser (fase 1) + PrintNode (fase 2)
 
+import QRCode from "qrcode";
+
+const TRACKING_APP_URL = "https://don-basilico-tracking.vercel.app";
+
 export interface PrintOrdine {
   numero: number;
+  ordineId?: string;
   sede: string;
   canale: string;
   tipo: string;
@@ -21,7 +26,7 @@ export interface PrintOrdine {
 }
 
 // Genera HTML per la stampa termica (80mm)
-export function generaTicketHTML(ordine: PrintOrdine): string {
+export async function generaTicketHTML(ordine: PrintOrdine): Promise<string> {
   const linea = "─".repeat(32);
   const itemsHtml = ordine.items
     .map(
@@ -33,6 +38,17 @@ export function generaTicketHTML(ordine: PrintOrdine): string {
       </tr>`
     )
     .join("");
+
+  // errorCorrectionLevel "H" (30%) e risoluzione alta per restare leggibile
+  // anche con la qualità di stampa termica (bassa nitidezza, possibili sbavature).
+  const qrDataUrl =
+    ordine.tipo === "domicilio" && ordine.ordineId
+      ? await QRCode.toDataURL(`${TRACKING_APP_URL}/rider?scan=${ordine.ordineId}`, {
+          margin: 2,
+          width: 300,
+          errorCorrectionLevel: "H",
+        })
+      : null;
 
   return `
     <!DOCTYPE html>
@@ -84,6 +100,7 @@ export function generaTicketHTML(ordine: PrintOrdine): string {
       ${ordine.note ? `<div style="margin-top:6px;font-size:15px;border-top:1px dashed #000;padding-top:4px"><strong>NOTE:</strong> ${ordine.note}</div>` : ""}
       ${ordine.noteDomicilio ? `<div style="margin-top:6px;font-size:15px;border-top:1px dashed #000;padding-top:4px"><strong>NOTE CONSEGNA:</strong> ${ordine.noteDomicilio}</div>` : ""}
       <div class="totale">TOTALE: €${ordine.totale.toFixed(2)}</div>
+      ${qrDataUrl ? `<div style="text-align:center;margin-top:10px"><img src="${qrDataUrl}" style="width:150px;height:150px"><div style="font-size:11px;margin-top:2px">Scansiona per la consegna</div></div>` : ""}
       <div class="footer">
         Grazie e buon appetito!<br>
         www.donbasilico.it
@@ -93,11 +110,14 @@ export function generaTicketHTML(ordine: PrintOrdine): string {
   `;
 }
 
-// Stampa via browser (window.print)
-export function stampaBrowser(ordine: PrintOrdine): void {
-  const html = generaTicketHTML(ordine);
+// Stampa via browser (window.print). Apre subito il popup (per non farlo
+// bloccare dal browser come "non richiesto da un click utente") e ci
+// scrive dentro il ticket appena pronto, QR incluso.
+export async function stampaBrowser(ordine: PrintOrdine): Promise<void> {
   const win = window.open("", "_blank", "width=420,height=800");
   if (!win) return;
+  const html = await generaTicketHTML(ordine);
+  win.document.open();
   win.document.write(html);
   win.document.close();
   win.focus();
@@ -118,7 +138,7 @@ export async function stampaPrintNode(
     return false;
   }
 
-  const html = generaTicketHTML(ordine);
+  const html = await generaTicketHTML(ordine);
   const base64 = Buffer.from(html).toString("base64");
 
   const res = await fetch("https://api.printnode.com/printjobs", {
