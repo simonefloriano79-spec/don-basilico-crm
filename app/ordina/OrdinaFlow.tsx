@@ -403,7 +403,7 @@ export default function OrdinaFlow({ sedeSlugIniziale }: { sedeSlugIniziale?: st
   // ── Menù + carrello ──────────────────────────────────────────
   const catsPresenti = Array.from(new Set(menuItems.map((m) => m.categoria as string))).sort((a, b) => posCat(a) - posCat(b));
   const filtro = catFiltro || catsPresenti[0] || "";
-  const itemsFiltrati = menuItems.filter((m) => m.categoria === filtro);
+  const itemsFiltrati = menuItems.filter((m) => m.categoria === filtro).sort((a, b) => a.nome.localeCompare(b.nome, "it", { sensitivity: "base" }));
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 12 }}>
