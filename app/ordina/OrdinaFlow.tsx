@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { COSTO_CONSEGNA_DEFAULT } from "@/lib/consegna";
 
 const CAT_LABEL: Record<string, string> = {
@@ -168,6 +168,10 @@ export default function OrdinaFlow({ sedeSlugIniziale }: { sedeSlugIniziale?: st
   const [slotData, setSlotData] = useState<SlotData | null>(null);
   const [orario, setOrario] = useState<string>(""); // "asap" oppure ISO dello slot scelto
   const [giornoSlot, setGiornoSlot] = useState<"oggi" | "domani">("oggi");
+  // Il riepilogo (carrello + orario + pagamento) scorre insieme al menù, in fondo alla pagina;
+  // la barretta in basso serve solo a raggiungerlo e sparisce quando è già visibile.
+  const riepilogoRef = useRef<HTMLDivElement | null>(null);
+  const [riepilogoVisibile, setRiepilogoVisibile] = useState(false);
 
   useEffect(() => {
     fetch("/api/ordina/sessione").then((r) => r.json()).then((d) => { setCliente(d.cliente ?? null); setCaricamento(false); });
@@ -208,6 +212,14 @@ export default function OrdinaFlow({ sedeSlugIniziale }: { sedeSlugIniziale?: st
       .catch(() => {});
     return () => { annullato = true; };
   }, [sedeIdAttiva, pesoCarrello]);
+
+  useEffect(() => {
+    const el = riepilogoRef.current;
+    if (!el) { setRiepilogoVisibile(false); return; }
+    const obs = new IntersectionObserver(([e]) => setRiepilogoVisibile(e.isIntersecting), { threshold: 0.05 });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [cart.length, cliente, tipo, sedeSelezionata, statoIndirizzo, confermato]);
 
   const richiediOtp = async () => {
     setErroreGate("");
@@ -448,7 +460,7 @@ export default function OrdinaFlow({ sedeSlugIniziale }: { sedeSlugIniziale?: st
       </div>
 
       {cart.length > 0 && (
-        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 16, position: "sticky", bottom: 12 }}>
+        <div ref={riepilogoRef} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 16 }}>
           {cart.map((c) => (
             <div key={c.cartId} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -534,6 +546,18 @@ export default function OrdinaFlow({ sedeSlugIniziale }: { sedeSlugIniziale?: st
           </div>
           {erroreInvio && <div style={{ fontSize: 12.5, color: "var(--danger)", marginBottom: 10 }}>{erroreInvio}</div>}
           <button style={btnPrimarySt} onClick={inviaOrdine} disabled={invio}>{invio ? "Invio…" : "Invia ordine"}</button>
+        </div>
+      )}
+
+      {cart.length > 0 && !riepilogoVisibile && (
+        <div style={{ position: "sticky", bottom: 10, zIndex: 20 }}>
+          <button
+            onClick={() => riepilogoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            style={{ ...btnPrimarySt, display: "flex", justifyContent: "space-between", boxShadow: "0 4px 14px rgba(0,0,0,0.18)" }}
+          >
+            <span>{cart.reduce((a, c) => a + c.qty, 0)} {cart.reduce((a, c) => a + c.qty, 0) === 1 ? "prodotto" : "prodotti"}</span>
+            <span className="num">Vai al riepilogo · {euro(totale)}</span>
+          </button>
         </div>
       )}
 
