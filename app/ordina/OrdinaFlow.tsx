@@ -6,7 +6,7 @@ import { COSTO_CONSEGNA_DEFAULT } from "@/lib/consegna";
 const CAT_LABEL: Record<string, string> = {
   pizze: "Pizze", pizze_rosse: "Pizze rosse", pizze_bianche: "Pizze bianche",
   calzoni: "Calzoni", fritti: "Fritti", bevande: "Bevande", dolci: "Dolci",
-  extra: "Extra", menu_speciale: "Menù speciale",
+  extra: "Extra", menu_speciale: "Pizze speciali",
 };
 
 const fieldSt: React.CSSProperties = {
@@ -45,7 +45,10 @@ interface SlotData {
 }
 
 // Categorie che aprono la finestra di personalizzazione (e che pesano sulla capienza cucina).
-const CAT_PIZZA = ["pizze_rosse", "pizze_bianche", "calzoni"];
+const CAT_PIZZA = ["menu_speciale", "pizze_rosse", "pizze_bianche", "calzoni"];
+// Ordine delle sezioni del menù: speciali, rosse, bianche, calzoni, fritti, dolci, bevande.
+const ORDINE_CAT = ["menu_speciale", "pizze", "pizze_rosse", "pizze_bianche", "calzoni", "fritti", "dolci", "bevande", "extra"];
+const posCat = (c: string) => { const i = ORDINE_CAT.indexOf(c); return i < 0 ? ORDINE_CAT.length : i; };
 const num = (v: number | string | undefined) => parseFloat(String(v ?? 0)) || 0;
 
 // Finestra di personalizzazione pizza: toglie ingredienti base, aggiunge extra.
@@ -398,7 +401,7 @@ export default function OrdinaFlow({ sedeSlugIniziale }: { sedeSlugIniziale?: st
   }
 
   // ── Menù + carrello ──────────────────────────────────────────
-  const catsPresenti = Array.from(new Set(menuItems.map((m) => m.categoria)));
+  const catsPresenti = Array.from(new Set(menuItems.map((m) => m.categoria as string))).sort((a, b) => posCat(a) - posCat(b));
   const filtro = catFiltro || catsPresenti[0] || "";
   const itemsFiltrati = menuItems.filter((m) => m.categoria === filtro);
 

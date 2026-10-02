@@ -8,7 +8,7 @@ import { stampaBrowser } from "@/lib/print";
 
 const CAT_LABEL: Record<string, string> = {
   pizze_rosse: "Pizze rosse", pizze_bianche: "Pizze bianche", calzoni: "Calzoni",
-  fritti: "Fritti", bevande: "Bevande", dolci: "Dolci", extra: "Extra",
+  fritti: "Fritti", bevande: "Bevande", dolci: "Dolci", extra: "Extra", menu_speciale: "Pizze speciali",
 };
 
 const fieldSt: React.CSSProperties = {
@@ -538,7 +538,7 @@ export default function NuovoOrdinePage() {
       setIngredienti(Array.isArray(d) ? d : []));
   }, [sedeSelezionata]);
 
-  const cats = ["pizze_rosse", "pizze_bianche", "calzoni", "fritti", "bevande", "dolci", "extra"];
+  const cats = ["menu_speciale", "pizze_rosse", "pizze_bianche", "calzoni", "fritti", "dolci", "bevande", "extra"];
   const catsPresenti = cats.filter((c) => menuItems.some((m) => m.categoria === c));
   const isSezionePizze = catFiltro === "pizze_rosse" || catFiltro === "pizze_bianche";
   const itemsFiltrati = menuItems.filter((m) => m.categoria === catFiltro
@@ -551,7 +551,7 @@ export default function NuovoOrdinePage() {
 
   const handleClick = (item: any) => {
     if (item.disponibileInSede === false) return;
-    const isPizza = ["pizze_rosse", "pizze_bianche", "calzoni"].includes(item.categoria);
+    const isPizza = ["menu_speciale", "pizze_rosse", "pizze_bianche", "calzoni"].includes(item.categoria);
     if (isPizza) { setPizzaModal(item); return; }
     const prezzo = parseFloat(item.prezzoEffettivo ?? item.prezzoBase);
     setCart((prev) => {

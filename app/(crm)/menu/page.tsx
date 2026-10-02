@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 const CAT_LABEL: Record<string, string> = {
   pizze: "Pizze", pizze_rosse: "Pizze rosse", pizze_bianche: "Pizze bianche",
   calzoni: "Calzoni", fritti: "Fritti", bevande: "Bevande", dolci: "Dolci",
-  extra: "Extra", menu_speciale: "Menù speciale",
+  extra: "Extra", menu_speciale: "Pizze speciali",
 };
 
 const fieldSt: React.CSSProperties = {

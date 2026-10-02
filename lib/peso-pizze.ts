@@ -2,6 +2,7 @@
 // Pizze rosse/bianche e calzoni = 1 per pezzo, maxi = doppio (riconosciuto dal nome);
 // fritti, bevande, dolci, extra = 0.
 const PESO_CATEGORIA: Record<string, number> = {
+  menu_speciale: 1,
   pizze_rosse: 1,
   pizze_bianche: 1,
   calzoni: 1,
