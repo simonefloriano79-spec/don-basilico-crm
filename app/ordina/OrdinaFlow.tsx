@@ -149,7 +149,12 @@ export default function OrdinaFlow({ sedeSlugIniziale }: { sedeSlugIniziale?: st
   const [sedi, setSedi] = useState<any[]>([]);
   const [tipo, setTipo] = useState<"asporto" | "domicilio" | null>(null);
   const [sedeSelezionata, setSedeSelezionata] = useState<string>("");
-  const [indirizzo, setIndirizzo] = useState("");
+  // Indirizzo in campi separati: la città obbligatoria evita ambiguità (es. "Via Dante 36" esiste a Pescara, Montesilvano e Chieti).
+  const [via, setVia] = useState("");
+  const [civico, setCivico] = useState("");
+  const [cittaConsegna, setCittaConsegna] = useState("");
+  const [cap, setCap] = useState("");
+  const indirizzo = `${via.trim()} ${civico.trim()}, ${cap.trim() ? cap.trim() + " " : ""}${cittaConsegna}`.trim();
   const [statoIndirizzo, setStatoIndirizzo] = useState<"idle" | "verificando" | "ok" | "errore">("idle");
   const [sedeAssegnata, setSedeAssegnata] = useState<{ id: string; nome: string } | null>(null);
   const [erroreIndirizzo, setErroreIndirizzo] = useState("");
@@ -250,7 +255,10 @@ export default function OrdinaFlow({ sedeSlugIniziale }: { sedeSlugIniziale?: st
   const verificaIndirizzo = async () => {
     setErroreIndirizzo("");
     setSedeAssegnata(null);
-    if (!indirizzo.trim()) return;
+    if (!cittaConsegna) { setStatoIndirizzo("errore"); setErroreIndirizzo("Scegli la città"); return; }
+    if (!via.trim()) { setStatoIndirizzo("errore"); setErroreIndirizzo("Inserisci la via"); return; }
+    if (!civico.trim()) { setStatoIndirizzo("errore"); setErroreIndirizzo("Inserisci il numero civico"); return; }
+    if (cap.trim() && !/^\d{5}$/.test(cap.trim())) { setStatoIndirizzo("errore"); setErroreIndirizzo("Il CAP deve avere 5 cifre (oppure lascialo vuoto)"); return; }
     setStatoIndirizzo("verificando");
     const res = await fetch("/api/ordina/copertura", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ indirizzo }),
@@ -407,7 +415,17 @@ export default function OrdinaFlow({ sedeSlugIniziale }: { sedeSlugIniziale?: st
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 20 }}>
         <button onClick={() => setTipo(null)} style={{ alignSelf: "flex-start", background: "none", border: "none", color: "var(--text-muted)", fontSize: 12.5, cursor: "pointer" }}>← Indietro</button>
         <h2 style={{ fontFamily: "var(--font-display)", fontSize: 19, color: "var(--text)" }}>Indirizzo di consegna</h2>
-        <input style={fieldSt} placeholder="Via, numero civico, città" value={indirizzo} onChange={(e) => setIndirizzo(e.target.value)} />
+        <select style={fieldSt} value={cittaConsegna} onChange={(e) => setCittaConsegna(e.target.value)}>
+          <option value="">Città *</option>
+          {Array.from(new Set(sedi.map((s: any) => s.citta as string).filter(Boolean))).sort((a, b) => a.localeCompare(b, "it")).map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+        <input style={fieldSt} placeholder="Via / piazza *" value={via} onChange={(e) => setVia(e.target.value)} />
+        <div style={{ display: "flex", gap: 10 }}>
+          <input style={{ ...fieldSt, flex: 1, minWidth: 0 }} placeholder="N. civico *" value={civico} onChange={(e) => setCivico(e.target.value)} />
+          <input style={{ ...fieldSt, flex: 1, minWidth: 0 }} placeholder="CAP (facoltativo)" inputMode="numeric" maxLength={5} value={cap} onChange={(e) => setCap(e.target.value.replace(/\D/g, ""))} />
+        </div>
         <input style={fieldSt} placeholder="Cognome / nome sul citofono" value={nomeCitofono} onChange={(e) => setNomeCitofono(e.target.value)} />
         {statoIndirizzo === "errore" && <div style={{ fontSize: 12.5, color: "var(--danger)" }}>{erroreIndirizzo}</div>}
         <button style={btnPrimarySt} onClick={verificaIndirizzo} disabled={statoIndirizzo === "verificando"}>
