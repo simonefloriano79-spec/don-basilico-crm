@@ -11,15 +11,15 @@ export default function ZonaConsegnaPage() {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapObj = useRef<google.maps.Map | null>(null);
   const poligonoRef = useRef<google.maps.Polygon | null>(null);
-  // I tipi @types/google.maps non modellano più il costruttore classico di
-  // DrawingManager (pensato per il nuovo caricamento a librerie async):
-  // il comportamento a runtime resta quello classico, quindi qui usiamo `any`.
-  const drawingManagerRef = useRef<any>(null);
+  // Disegno a click: Google ha rimosso DrawingManager dalla v3.65, quindi i
+  // vertici si raccolgono a mano con un listener sul click della mappa.
+  const bozzaRef = useRef<{ punti: google.maps.LatLng[]; linea: google.maps.Polyline; marker: google.maps.Marker[]; ascolto: google.maps.MapsEventListener } | null>(null);
 
   const [sede, setSede] = useState<any>(null);
   const [pronto, setPronto] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [haPoligono, setHaPoligono] = useState(false);
+  const [nPunti, setNPunti] = useState(0);
   const [errore, setErrore] = useState("");
 
   useEffect(() => {
@@ -76,21 +76,64 @@ export default function ZonaConsegnaPage() {
     setHaPoligono(true);
   }
 
-  function avviaDisegno(map: google.maps.Map) {
-    const DrawingManagerCtor = (google.maps.drawing as any).DrawingManager;
-    const dm = new DrawingManagerCtor({
-      drawingMode: google.maps.drawing.OverlayType.POLYGON,
-      drawingControl: false,
-      polygonOptions: { strokeColor: "#7ac143", fillColor: "#7ac143", fillOpacity: 0.15, strokeWeight: 2, editable: true, draggable: true },
-    });
-    dm.setMap(map);
-    drawingManagerRef.current = dm;
+  function pulisciBozza() {
+    const b = bozzaRef.current;
+    if (!b) return;
+    google.maps.event.removeListener(b.ascolto);
+    b.linea.setMap(null);
+    b.marker.forEach((m) => m.setMap(null));
+    bozzaRef.current = null;
+    setNPunti(0);
+    if (mapObj.current) mapObj.current.setOptions({ draggableCursor: undefined });
+  }
 
-    google.maps.event.addListener(dm, "polygoncomplete", (poligono: google.maps.Polygon) => {
-      poligonoRef.current = poligono;
-      dm.setDrawingMode(null);
-      setHaPoligono(true);
+  function chiudiZona(map: google.maps.Map) {
+    const b = bozzaRef.current;
+    if (!b || b.punti.length < 3) return;
+    const punti = b.punti.map((p) => ({ lat: p.lat(), lng: p.lng() }));
+    pulisciBozza();
+    const poligono = new google.maps.Polygon({
+      paths: punti, editable: true, draggable: true,
+      strokeColor: "#7ac143", fillColor: "#7ac143", fillOpacity: 0.15, strokeWeight: 2,
     });
+    poligono.setMap(map);
+    poligonoRef.current = poligono;
+    setHaPoligono(true);
+  }
+
+  function avviaDisegno(map: google.maps.Map) {
+    pulisciBozza();
+    map.setOptions({ draggableCursor: "crosshair" });
+    const linea = new google.maps.Polyline({
+      path: [], strokeColor: "#7ac143", strokeWeight: 2, map,
+    });
+    const bozza = {
+      punti: [] as google.maps.LatLng[], linea, marker: [] as google.maps.Marker[],
+      ascolto: map.addListener("click", (e: google.maps.MapMouseEvent) => {
+        if (!e.latLng) return;
+        bozza.punti.push(e.latLng);
+        linea.setPath(bozza.punti);
+        const primo = bozza.punti.length === 1;
+        const marker = new google.maps.Marker({
+          position: e.latLng, map, clickable: primo,
+          title: primo ? "Clicca qui per chiudere la zona" : undefined,
+          icon: { path: google.maps.SymbolPath.CIRCLE, scale: primo ? 9 : 6, fillColor: primo ? "#e14b3b" : "#7ac143", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2 },
+        });
+        if (primo) marker.addListener("click", () => chiudiZona(map));
+        bozza.marker.push(marker);
+        setNPunti(bozza.punti.length);
+      }),
+    };
+    bozzaRef.current = bozza;
+  }
+
+  function annullaUltimoPunto() {
+    const b = bozzaRef.current;
+    if (!b || !b.punti.length) return;
+    b.punti.pop();
+    b.marker.pop()?.setMap(null);
+    b.linea.setPath(b.punti);
+    setNPunti(b.punti.length);
   }
 
   function ridisegna() {
@@ -123,6 +166,12 @@ export default function ZonaConsegnaPage() {
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={() => router.push("/sedi")} style={{ background: "#fff", border: "1px solid var(--border)", color: "var(--text-2)", padding: "9px 16px", borderRadius: 9, fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-ui)" }}>Annulla</button>
+          {nPunti > 0 && (
+            <button onClick={annullaUltimoPunto} style={{ background: "#fff", border: "1px solid var(--border)", color: "var(--text-2)", padding: "9px 16px", borderRadius: 9, fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-ui)" }}>Togli ultimo punto</button>
+          )}
+          {nPunti >= 3 && (
+            <button onClick={() => mapObj.current && chiudiZona(mapObj.current)} style={{ background: "var(--accent-ink)", color: "#fff", border: "none", padding: "9px 16px", borderRadius: 9, fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)" }}>Chiudi zona</button>
+          )}
           {haPoligono && (
             <button onClick={ridisegna} style={{ background: "#fff", border: "1px solid var(--border)", color: "var(--text-2)", padding: "9px 16px", borderRadius: 9, fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-ui)" }}>Ridisegna</button>
           )}
@@ -134,7 +183,15 @@ export default function ZonaConsegnaPage() {
       </div>
 
       {errore && <div style={{ fontSize: 12.5, color: "var(--danger)" }}>{errore}</div>}
-      <p style={{ fontSize: 12, color: "var(--text-muted)" }}>Disegna sulla mappa l'area coperta dalla consegna di questa sede. Trascina i vertici per modificarla, poi salva.</p>
+      <p style={{ fontSize: 12.5, color: "var(--text-2)", lineHeight: 1.5 }}>
+        {haPoligono
+          ? "Zona pronta: trascina i pallini sui bordi per correggerla (o sposta l'area intera), poi premi Salva zona."
+          : nPunti === 0
+            ? "Clicca sulla mappa per mettere il primo punto, poi gli altri attorno all'area coperta dalla consegna."
+            : nPunti < 3
+              ? `Hai messo ${nPunti} ${nPunti === 1 ? "punto" : "punti"}: continua a cliccare attorno all'area (ne servono almeno 3).`
+              : "Per finire clicca sul pallino rosso (il primo punto) oppure premi Chiudi zona."}
+      </p>
 
       <div ref={mapRef} style={{ width: "100%", height: "70vh", borderRadius: 14, border: "1px solid var(--border)", background: "var(--surface-muted)" }} />
     </div>
