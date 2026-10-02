@@ -78,9 +78,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: esito.motivo, esito: esito.esito }, { status: 422 });
   }
 
+  // Interruttore d'emergenza della sede: nessun nuovo ordine dal sito finché è sospeso.
+  const sede = await prisma.sede.findUnique({ where: { id: esito.sedeId } });
+  if (!sede) return NextResponse.json({ error: "Sede non trovata" }, { status: 404 });
+  if (!sede.ordiniOnlineAttivi) {
+    return NextResponse.json({ error: "In questo momento non stiamo ricevendo ordini online per questa sede (troppo lavoro in cucina). Riprova tra poco oppure chiamaci.", esito: "sospeso" }, { status: 422 });
+  }
+
   if (oraRitiro) {
-    const sede = await prisma.sede.findUnique({ where: { id: esito.sedeId } });
-    if (!sede) return NextResponse.json({ error: "Sede non trovata" }, { status: 404 });
 
     const gen = generaSlot({ adesso: new Date(), apertura: sede.orarioApertura, chiusura: sede.orarioChiusura });
     const scelto = [...gen.oggi, ...gen.domani].find((s) => new Date(s.iso).getTime() === oraRitiro!.getTime());

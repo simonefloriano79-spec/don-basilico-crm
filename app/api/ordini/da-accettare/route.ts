@@ -17,5 +17,9 @@ export async function GET() {
       ...(user.ruolo !== "super_admin" && user.sedeId ? { sedeId: user.sedeId } : {}),
     },
   });
-  return NextResponse.json({ n });
+  const sospese = await prisma.sede.findMany({
+    where: { attiva: true, ordiniOnlineAttivi: false, ...(user.ruolo !== "super_admin" && user.sedeId ? { id: user.sedeId } : {}) },
+    select: { id: true, nome: true },
+  });
+  return NextResponse.json({ n, sospese });
 }

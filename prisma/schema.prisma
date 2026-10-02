@@ -72,6 +72,8 @@ model Sede {
   // Limita solo gli slot prenotabili online, non blocca mai cassa/telefono.
   capacitaPizze       Int @default(15) @map("capacita_pizze")
   finestraCapacitaMin Int @default(15) @map("finestra_capacita_min")
+  // Interruttore d'emergenza: se false il sito clienti non accetta più ordini per questa sede.
+  ordiniOnlineAttivi  Boolean @default(true) @map("ordini_online_attivi")
   note           String?
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")

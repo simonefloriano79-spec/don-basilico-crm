@@ -398,12 +398,16 @@ export default function OrdinaFlow({ sedeSlugIniziale }: { sedeSlugIniziale?: st
         <button onClick={() => setTipo(null)} style={{ alignSelf: "flex-start", background: "none", border: "none", color: "var(--text-muted)", fontSize: 12.5, cursor: "pointer" }}>← Indietro</button>
         <h2 style={{ fontFamily: "var(--font-display)", fontSize: 19, color: "var(--text)" }}>Scegli la sede</h2>
         {sedi.map((s) => (
-          <button key={s.id} onClick={() => setSedeSelezionata(s.id)} style={{
+          <button key={s.id} onClick={() => s.ordiniOnlineAttivi !== false && setSedeSelezionata(s.id)} disabled={s.ordiniOnlineAttivi === false} style={{
             textAlign: "left", background: "#fff", border: "1px solid var(--border)", borderRadius: 10,
-            padding: "12px 14px", cursor: "pointer", fontFamily: "var(--font-ui)",
+            padding: "12px 14px", cursor: s.ordiniOnlineAttivi === false ? "default" : "pointer", fontFamily: "var(--font-ui)",
+            opacity: s.ordiniOnlineAttivi === false ? 0.55 : 1,
           }}>
             <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text)" }}>{s.nome}</div>
             <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{s.indirizzo}, {s.citta}</div>
+            {s.ordiniOnlineAttivi === false && (
+              <div style={{ fontSize: 12, color: "var(--danger)", marginTop: 4 }}>Ordini online sospesi al momento: riprova tra poco o chiamaci</div>
+            )}
           </button>
         ))}
       </div>

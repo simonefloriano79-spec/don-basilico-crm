@@ -34,6 +34,7 @@ export function Sidebar({ session }: Props) {
 
   // Ordini online in attesa di accettazione: contatore sulla voce "Online" + suono se ne arriva uno nuovo.
   const [daAccettare, setDaAccettare] = useState(0);
+  const [sospese, setSospese] = useState(0);
   const precedente = useRef<number | null>(null);
   useEffect(() => {
     let attivo = true;
@@ -43,6 +44,7 @@ export function Sidebar({ session }: Props) {
         if (precedente.current !== null && d.n > precedente.current) suonaNuovoOrdine();
         precedente.current = d.n;
         setDaAccettare(d.n);
+        setSospese(Array.isArray(d.sospese) ? d.sospese.length : 0);
       }).catch(() => {});
     carica();
     const iv = setInterval(carica, 15000);
@@ -107,6 +109,11 @@ export function Sidebar({ session }: Props) {
               >
                 <span className={styles.icon}>{item.glyph}</span>
                 {item.label}
+                {item.href === "/online" && sospese > 0 && (
+                  <span title="Ordini online sospesi" style={{ marginLeft: "auto", background: "#fff", color: "var(--danger)", border: "1px solid var(--danger-border)", borderRadius: 20, fontSize: 10.5, fontWeight: 700, padding: "1px 7px" }}>
+                    STOP
+                  </span>
+                )}
                 {item.href === "/online" && daAccettare > 0 && (
                   <span style={{ marginLeft: "auto", background: "var(--danger)", color: "#fff", borderRadius: 20, fontSize: 11, fontWeight: 600, padding: "1px 8px" }}>
                     {daAccettare}

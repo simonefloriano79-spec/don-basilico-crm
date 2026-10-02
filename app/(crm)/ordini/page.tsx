@@ -81,6 +81,8 @@ export default function OrdiniPage() {
   const ordini = soloOnline ? ordiniTutti.filter((o) => o.canale === "online") : ordiniTutti;
   const [filtroStato, setFiltroStato] = useState(soloOnline ? "attivi" : "tutti");
   const primoCaricoFatto = useRef(false);
+  // Interruttore "ordini online" per sede (solo nella vista Online).
+  const [sediOnline, setSediOnline] = useState<{ id: string; nome: string; ordiniOnlineAttivi: boolean }[]>([]);
   const [ricerca, setRicerca] = useState("");
   const [selezionato, setSelezionato] = useState<any>(null);
   const [orarioConferma, setOrarioConferma] = useState("");
@@ -97,6 +99,36 @@ export default function OrdiniPage() {
   }, [isSuperAdmin, sedeParam]);
 
   useEffect(() => { caricaOrdini(); }, [caricaOrdini]);
+
+  const caricaSediOnline = useCallback(async () => {
+    if (!soloOnline || !user) return;
+    const res = await fetch("/api/sedi");
+    const d = await res.json().catch(() => []);
+    if (!Array.isArray(d)) return;
+    setSediOnline(
+      d
+        .filter((x: any) => isSuperAdmin || x.id === user.sedeId)
+        .map((x: any) => ({ id: x.id, nome: x.nome, ordiniOnlineAttivi: x.ordiniOnlineAttivi !== false }))
+    );
+  }, [soloOnline, user, isSuperAdmin]);
+
+  useEffect(() => { caricaSediOnline(); }, [caricaSediOnline]);
+  useEffect(() => {
+    if (!soloOnline) return;
+    const iv = setInterval(caricaSediOnline, 15000);
+    return () => clearInterval(iv);
+  }, [soloOnline, caricaSediOnline]);
+
+  const cambiaOrdiniOnline = async (sede: { id: string; nome: string }, attivi: boolean) => {
+    if (!attivi && !confirm(`Sospendere gli ordini online di ${sede.nome}?\n\nI clienti non potranno più ordinare dal sito per questa sede finché non li riattivi. Gli ordini già arrivati restano e vanno gestiti normalmente.`)) return;
+    const res = await fetch(`/api/sedi/${sede.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ordiniOnlineAttivi: attivi }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return toast.error(data.error ?? "Errore");
+    toast.success(attivi ? `Ordini online riattivati: ${sede.nome}` : `Ordini online SOSPESI: ${sede.nome}`);
+    caricaSediOnline();
+  };
 
   // In "Online", al primo caricamento si parte da "Da accettare" se ce ne sono.
   useEffect(() => {
@@ -247,6 +279,31 @@ export default function OrdiniPage() {
   return (
     <div className="animate-in" style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
       <div style={{ flex: 1, minWidth: 0 }}>
+        {soloOnline && sediOnline.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+            {sediOnline.map((sd) => (
+              <div key={sd.id} style={{
+                display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "10px 14px", borderRadius: 12,
+                border: `1px solid ${sd.ordiniOnlineAttivi ? "var(--border)" : "var(--danger-border)"}`,
+                background: sd.ordiniOnlineAttivi ? "#fff" : "var(--danger-bg)",
+              }}>
+                <span style={{ width: 9, height: 9, borderRadius: "50%", background: sd.ordiniOnlineAttivi ? "#4caf50" : "var(--danger)", flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 160 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>{sd.nome}</div>
+                  <div style={{ fontSize: 12, color: sd.ordiniOnlineAttivi ? "var(--text-muted)" : "var(--danger)" }}>
+                    {sd.ordiniOnlineAttivi ? "Ordini online attivi" : "Ordini online SOSPESI: i clienti non possono ordinare"}
+                  </div>
+                </div>
+                <button onClick={() => cambiaOrdiniOnline(sd, !sd.ordiniOnlineAttivi)} style={{
+                  padding: "8px 16px", borderRadius: 9, fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)",
+                  border: sd.ordiniOnlineAttivi ? "1px solid var(--danger-border)" : "none",
+                  background: sd.ordiniOnlineAttivi ? "#fff" : "var(--text)",
+                  color: sd.ordiniOnlineAttivi ? "var(--danger)" : "#fff",
+                }}>{sd.ordiniOnlineAttivi ? "Sospendi ordini online" : "Riattiva ordini online"}</button>
+              </div>
+            ))}
+          </div>
+        )}
         {/* Filtri */}
         <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
