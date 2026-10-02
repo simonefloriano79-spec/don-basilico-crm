@@ -286,28 +286,33 @@ export default function OrdinaFlow({ sedeSlugIniziale }: { sedeSlugIniziale?: st
     if (!orario) { setErroreInvio("Scegli l'orario di ritiro"); return; }
     setInvio(true);
     const sedeAsporto = sedi.find((s) => s.id === sedeSelezionata);
-    const res = await fetch("/api/ordina/conferma", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        tipo,
-        clienteIndirizzo: tipo === "domicilio" ? indirizzo : undefined,
-        sedeSlugAsporto: tipo === "asporto" ? sedeAsporto?.slug : undefined,
-        metodoPagamento: tipo === "domicilio" ? metodoPagamento : undefined,
-        nomeCitofono: tipo === "domicilio" ? nomeCitofono || undefined : undefined,
-        oraRitiro: orario === "asap" ? undefined : orario,
-        note: note || undefined,
-        articoli: cart.map((c) => ({
-          menuItemId: c.menuItemId, quantita: c.qty,
-          ingredientiAggiuntiIds: c.aggiunti.map((i) => i.id),
-          ingredientiRimossi: c.rimossi.map((i) => i.id),
-          note: c.nota || undefined,
-        })),
-      }),
-    });
-    setInvio(false);
-    const data = await res.json();
-    if (!res.ok) { setErroreInvio(data.error ?? "Errore nell'invio dell'ordine"); return; }
-    setConfermato({ numeroOrdine: data.numeroOrdine, sede: data.sede, totale: data.totale, oraRitiro: data.oraRitiro });
+    try {
+      const res = await fetch("/api/ordina/conferma", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tipo,
+          clienteIndirizzo: tipo === "domicilio" ? indirizzo : undefined,
+          sedeSlugAsporto: tipo === "asporto" ? sedeAsporto?.slug : undefined,
+          metodoPagamento: tipo === "domicilio" ? metodoPagamento : undefined,
+          nomeCitofono: tipo === "domicilio" ? nomeCitofono || undefined : undefined,
+          oraRitiro: orario === "asap" ? undefined : orario,
+          note: note || undefined,
+          articoli: cart.map((c) => ({
+            menuItemId: c.menuItemId, quantita: c.qty,
+            ingredientiAggiuntiIds: c.aggiunti.map((i) => i.id),
+            ingredientiRimossi: c.rimossi.map((i) => i.id),
+            note: c.nota || undefined,
+          })),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setErroreInvio(data.error ?? "Non siamo riusciti a inviare l'ordine, riprova tra un momento"); return; }
+      setConfermato({ numeroOrdine: data.numeroOrdine, sede: data.sede, totale: data.totale, oraRitiro: data.oraRitiro });
+    } catch {
+      setErroreInvio("Connessione assente o server non raggiungibile, riprova");
+    } finally {
+      setInvio(false);
+    }
   };
 
   if (caricamento) return null;

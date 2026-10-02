@@ -49,7 +49,7 @@ async function verificaCapacitaSlot(sedeId: string, oraRichiesta: Date): Promise
   const slot = await prisma.$queryRaw<{ capacita_max: number; durata_slot_minuti: number }[]>`
     SELECT capacita_max, durata_slot_minuti
     FROM slot_cucina
-    WHERE sede_id = ${sedeId}
+    WHERE sede_id = ${sedeId}::uuid
       AND (giorno_settimana = ${giorno} OR giorno_settimana IS NULL)
       AND ora_inizio <= ${ora}::time
       AND ora_fine > ${ora}::time
