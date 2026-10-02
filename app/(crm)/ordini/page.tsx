@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, usePathname } from "next/navigation";
 import toast from "react-hot-toast";
 import { stampaBrowser } from "@/lib/print";
 import { pesoRiga } from "@/lib/peso-pizze";
@@ -72,12 +72,15 @@ const arrotonda10 = (d: Date) => new Date(Math.ceil(d.getTime() / 600000) * 6000
 export default function OrdiniPage() {
   const { data: session } = useSession();
   const searchParams = useSearchParams();
+  const soloOnline = usePathname() === "/online";
   const sedeParam = searchParams.get("sede") ?? "";
   const user = session?.user as any;
   const isSuperAdmin = user?.ruolo === "super_admin";
 
-  const [ordini, setOrdini] = useState<any[]>([]);
-  const [filtroStato, setFiltroStato] = useState("tutti");
+  const [ordiniTutti, setOrdini] = useState<any[]>([]);
+  const ordini = soloOnline ? ordiniTutti.filter((o) => o.canale === "online") : ordiniTutti;
+  const [filtroStato, setFiltroStato] = useState(soloOnline ? "attivi" : "tutti");
+  const primoCaricoFatto = useRef(false);
   const [ricerca, setRicerca] = useState("");
   const [selezionato, setSelezionato] = useState<any>(null);
   const [orarioConferma, setOrarioConferma] = useState("");
@@ -94,6 +97,13 @@ export default function OrdiniPage() {
   }, [isSuperAdmin, sedeParam]);
 
   useEffect(() => { caricaOrdini(); }, [caricaOrdini]);
+
+  // In "Online", al primo caricamento si parte da "Da accettare" se ce ne sono.
+  useEffect(() => {
+    if (!soloOnline || primoCaricoFatto.current || !ordiniTutti.length) return;
+    primoCaricoFatto.current = true;
+    if (ordiniTutti.some(inAttesaOnline)) setFiltroStato("da_accettare");
+  }, [soloOnline, ordiniTutti]);
   useEffect(() => {
     const iv = setInterval(caricaOrdini, 15000);
     return () => clearInterval(iv);

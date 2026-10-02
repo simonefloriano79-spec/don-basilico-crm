@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Session } from "next-auth";
@@ -8,17 +8,42 @@ import styles from "./Sidebar.module.css";
 
 interface Props { session: Session; }
 
+// Doppio "din" breve; se il browser blocca l'audio (nessun click ancora sulla pagina) non succede nulla.
+function suonaNuovoOrdine() {
+  try {
+    const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+    const ctx = new Ctx();
+    [0, 0.28].forEach((t) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "sine"; o.frequency.value = t ? 1175 : 880;
+      g.gain.setValueAtTime(0.0001, ctx.currentTime + t);
+      g.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime + t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t + 0.25);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.26);
+    });
+    setTimeout(() => ctx.close().catch(() => {}), 800);
+  } catch {}
+}
+
 export function Sidebar({ session }: Props) {
   const pathname = usePathname();
   const user = session.user as any;
   const isSuperAdmin = user.ruolo === "super_admin";
 
-  // Ordini online in attesa di accettazione: contatore sulla voce "Ordini".
+  // Ordini online in attesa di accettazione: contatore sulla voce "Online" + suono se ne arriva uno nuovo.
   const [daAccettare, setDaAccettare] = useState(0);
+  const precedente = useRef<number | null>(null);
   useEffect(() => {
     let attivo = true;
     const carica = () =>
-      fetch("/api/ordini/da-accettare").then((r) => (r.ok ? r.json() : null)).then((d) => { if (attivo && d) setDaAccettare(d.n); }).catch(() => {});
+      fetch("/api/ordini/da-accettare").then((r) => (r.ok ? r.json() : null)).then((d) => {
+        if (!attivo || !d) return;
+        if (precedente.current !== null && d.n > precedente.current) suonaNuovoOrdine();
+        precedente.current = d.n;
+        setDaAccettare(d.n);
+      }).catch(() => {});
     carica();
     const iv = setInterval(carica, 15000);
     return () => { attivo = false; clearInterval(iv); };
@@ -29,6 +54,7 @@ export function Sidebar({ session }: Props) {
       label: "Operatività",
       items: [
         { href: "/dashboard",     glyph: "◇", label: "Panoramica"   },
+        { href: "/online",        glyph: "☁", label: "Online"       },
         { href: "/ordini",        glyph: "≡", label: "Ordini"       },
         { href: "/nuovo-ordine",  glyph: "+", label: "Nuovo ordine" },
         { href: "/kds",           glyph: "◉", label: "Cucina"       },
@@ -81,7 +107,7 @@ export function Sidebar({ session }: Props) {
               >
                 <span className={styles.icon}>{item.glyph}</span>
                 {item.label}
-                {item.href === "/ordini" && daAccettare > 0 && (
+                {item.href === "/online" && daAccettare > 0 && (
                   <span style={{ marginLeft: "auto", background: "var(--danger)", color: "#fff", borderRadius: 20, fontSize: 11, fontWeight: 600, padding: "1px 8px" }}>
                     {daAccettare}
                   </span>
