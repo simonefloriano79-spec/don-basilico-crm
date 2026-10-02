@@ -440,9 +440,13 @@ export default function OrdinaFlow({ sedeSlugIniziale }: { sedeSlugIniziale?: st
   }
 
   // ── Menù + carrello ──────────────────────────────────────────
-  const catsPresenti = Array.from(new Set(menuItems.map((m) => m.categoria as string))).sort((a, b) => posCat(a) - posCat(b));
+  // "Crea la tua pizza" è un prodotto normale del menù (base Margherita a € 6, extra ai prezzi degli
+  // ingredienti) ma sul sito ha un pulsante in evidenza e non compare nell'elenco delle pizze.
+  const creaItem = menuItems.find((m) => String(m.nome).trim().toLowerCase() === "crea la tua pizza");
+  const menuLista = menuItems.filter((m) => m !== creaItem);
+  const catsPresenti = Array.from(new Set(menuLista.map((m) => m.categoria as string))).sort((a, b) => posCat(a) - posCat(b));
   const filtro = catFiltro || catsPresenti[0] || "";
-  const itemsFiltrati = menuItems.filter((m) => m.categoria === filtro).sort((a, b) => a.nome.localeCompare(b.nome, "it", { sensitivity: "base" }));
+  const itemsFiltrati = menuLista.filter((m) => m.categoria === filtro).sort((a, b) => a.nome.localeCompare(b.nome, "it", { sensitivity: "base" }));
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 12 }}>
@@ -455,6 +459,20 @@ export default function OrdinaFlow({ sedeSlugIniziale }: { sedeSlugIniziale?: st
           Al momento siamo chiusi (orario {slotData.apertura}–{slotData.chiusura}). Puoi comunque ordinare scegliendo l'orario di
           {" "}{tipo === "domicilio" ? "consegna" : "ritiro"}{slotData.primoGiorno === "domani" ? ": gli orari disponibili sono per domani" : ""}.
         </div>
+      )}
+
+      {creaItem && (
+        <button onClick={() => setPizzaModal(creaItem)} style={{
+          display: "flex", alignItems: "center", gap: 14, textAlign: "left", cursor: "pointer", fontFamily: "var(--font-ui)",
+          background: "var(--accent-bg-2)", border: "1.5px solid var(--accent-border)", borderRadius: 14, padding: "14px 16px",
+        }}>
+          <span style={{ fontSize: 28, lineHeight: 1 }}>🍕</span>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <span style={{ display: "block", fontFamily: "var(--font-display)", fontSize: 17, color: "var(--text)" }}>Crea la tua pizza</span>
+            <span style={{ display: "block", fontSize: 12.5, color: "var(--text-2)", marginTop: 2 }}>Parti da pomodoro e mozzarella e aggiungi gli ingredienti che vuoi</span>
+          </span>
+          <span className="num" style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)", whiteSpace: "nowrap" }}>da {euro(parseFloat(creaItem.prezzoEffettivo ?? creaItem.prezzoBase))}</span>
+        </button>
       )}
 
       <div style={{ display: "flex", gap: 6, overflowX: "auto" }}>
