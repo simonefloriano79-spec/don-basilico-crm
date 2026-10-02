@@ -98,7 +98,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const indirizzoFinale = esito.indirizzoFormattato ?? richiesta.clienteIndirizzo ?? null;
+  // Google aggiunge ", Italy" in coda: sullo scontrino è solo rumore.
+  const indirizzoFinale = (esito.indirizzoFormattato ?? richiesta.clienteIndirizzo ?? null)?.replace(/,\s*(Italy|Italia)\s*$/i, "") ?? null;
   const costoConsegna = tipo === "domicilio" ? COSTO_CONSEGNA_DEFAULT : 0;
   const nomeCitofono =
     tipo === "domicilio" && typeof body.nomeCitofono === "string" && body.nomeCitofono.trim()

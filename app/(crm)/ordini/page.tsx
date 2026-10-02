@@ -208,6 +208,7 @@ export default function OrdiniPage() {
       nomeCitofono: ordine.nomeCitofono,
       items: (ordine.items ?? []).map((i: any) => ({ nome: i.nomeSnapshot, qty: i.quantita, prezzo: parseFloat(i.prezzoSnapshot), note: i.noteItem })),
       totale: parseFloat(ordine.totale),
+      costoConsegna: parseFloat(ordine.costoConsegna ?? 0) || undefined,
       note: ordine.note,
       noteDomicilio: ordine.noteDomicilio,
       oraConsegnaComunicata: ordine.oraConsegnaComunicata ? quando(ordine.oraConsegnaComunicata) : undefined,
