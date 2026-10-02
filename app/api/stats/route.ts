@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
 
   const [ordiniOggi, ordiniAttivi, pronti, online, sedi] = await Promise.all([
     prisma.ordine.findMany({
-      where: { ...(sedeFilter && { sedeId: sedeFilter }), createdAt: { gte: oggi } },
+      where: { ...(sedeFilter && { sedeId: sedeFilter }), createdAt: { gte: oggi }, stato: { not: "annullato" } },
       select: { totale: true, canale: true, stato: true, sedeId: true },
     }),
     prisma.ordine.count({
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       where: { attiva: true, ...(sedeFilter && { id: sedeFilter }) },
       include: {
         ordini: {
-          where: { createdAt: { gte: oggi } },
+          where: { createdAt: { gte: oggi }, stato: { not: "annullato" } },
           select: { totale: true, canale: true, stato: true },
         },
       },

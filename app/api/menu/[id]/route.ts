@@ -11,8 +11,28 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const user = session.user as any;
   const body = await req.json();
 
-  // Super admin: modifica globale
+  // Super admin: modifica globale, oppure override su una sede a sua scelta
   if (user.ruolo === "super_admin") {
+    const { sedeId: sedeIdAdmin, disponibile: disponibileAdmin, prezzoCustom: prezzoCustomAdmin, noteSede: noteSedeAdmin } = body;
+    if (sedeIdAdmin) {
+      const override = await prisma.sedeMenuOverride.upsert({
+        where: { sedeId_menuItemId: { sedeId: sedeIdAdmin, menuItemId: params.id } },
+        update: {
+          ...(disponibileAdmin !== undefined && { disponibile: disponibileAdmin }),
+          ...(prezzoCustomAdmin !== undefined && { prezzoCustom: prezzoCustomAdmin }),
+          ...(noteSedeAdmin !== undefined && { noteSede: noteSedeAdmin }),
+        },
+        create: {
+          sedeId: sedeIdAdmin,
+          menuItemId: params.id,
+          disponibile: disponibileAdmin ?? true,
+          prezzoCustom: prezzoCustomAdmin ?? null,
+          noteSede: noteSedeAdmin ?? null,
+        },
+      });
+      return NextResponse.json(override);
+    }
+
     const { nome, descrizione, categoria, prezzoBase, isAttivo, immagineUrl, ordineVisualizzazione } = body;
     const item = await prisma.menuItem.update({
       where: { id: params.id },
@@ -29,7 +49,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json(item);
   }
 
-  // Operatore sede: solo override
+  // Operatore sede: solo override della propria sede
   const { disponibile, prezzoCustom, sedeId, noteSede } = body;
 
   if (!sedeId) {

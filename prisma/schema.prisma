@@ -133,6 +133,7 @@ model Ingrediente {
   isAllergene        Boolean  @default(false) @map("is_allergene")
   prezzoAggiunta     Decimal  @default(0.00) @map("prezzo_aggiunta") @db.Decimal(10, 2)
   disponibileDefault Boolean  @default(true) @map("disponibile_default")
+  escludiCompensazione Boolean @default(false) @map("escludi_compensazione")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
 
@@ -235,10 +236,23 @@ model Ordine {
   clienteNome      String? @map("cliente_nome")
   clienteTelefono  String? @map("cliente_telefono")
   clienteIndirizzo String? @map("cliente_indirizzo")
+  // Nome sul citofono per il domicilio — spesso diverso dal nome del
+  // cliente (es. intestatario del citofono/famiglia), chiesto sempre
+  // insieme all'indirizzo quando si prende l'ordine per telefono.
+  nomeCitofono     String? @map("nome_citofono")
 
   oraRichiesta       DateTime  @default(now()) @map("ora_richiesta")
   oraStimataPronte   DateTime? @map("ora_stimata_pronto")
   oraEffettivaPronte DateTime? @map("ora_effettiva_pronto")
+
+  // Orario di consegna comunicato al cliente per il domicilio — distinto
+  // da oraRichiesta (quando è stato preso l'ordine). modalitaConsegna vale
+  // "appena_possibile" (obiettivo flessibile, va bene anche prima) o
+  // "non_prima" (il cliente ha chiesto esplicitamente di non arrivare
+  // prima di quell'orario). Stringa libera invece di un enum Postgres per
+  // evitare i problemi di mapping già visti con gli enum in questo schema.
+  oraConsegnaComunicata DateTime? @map("ora_consegna_comunicata")
+  modalitaConsegna      String?   @map("modalita_consegna")
 
   totale          Decimal @default(0) @db.Decimal(10, 2)
   costoConsegna   Decimal @default(0) @db.Decimal(10, 2) @map("costo_consegna")
@@ -246,8 +260,11 @@ model Ordine {
   metodoPagamento String? @map("metodo_pagamento")
   stripePaymentId String? @map("stripe_payment_id")
 
-  note      String?
-  stampato  Boolean  @default(false)
+  note          String?
+  // Note specifiche per la consegna a domicilio (es. "Citofono rotto,
+  // chiamare"), separate dalle note generali dell'ordine.
+  noteDomicilio String? @map("note_domicilio")
+  stampato      Boolean  @default(false)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

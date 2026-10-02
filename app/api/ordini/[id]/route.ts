@@ -44,7 +44,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const body = await req.json();
   const user = session.user as any;
-  const { stato, stampato, note } = body;
+  const { stato, stampato, note, pagato } = body;
 
   const STATI_FLOW = ["nuovo", "confermato", "in_preparazione", "pronto", "consegnato", "annullato"];
 
@@ -67,6 +67,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     data: {
       ...(stato && { stato }),
       ...(stampato !== undefined && { stampato }),
+      ...(pagato !== undefined && { pagato }),
       ...(stato === "pronto" && { oraEffettivaPronte: new Date() }),
     },
     include: { items: true, sede: { select: { nome: true } } },

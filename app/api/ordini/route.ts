@@ -54,6 +54,11 @@ export async function POST(req: NextRequest) {
     clienteId,
     note,
     costoConsegna,
+    oraConsegnaComunicata,
+    modalitaConsegna,
+    noteDomicilio,
+    nomeCitofono,
+    metodoPagamento,
     items, // Array<{ menuItemId?, sedeExtraId?, nomeSnapshot, quantita, noteItem?, ingredientiRimossi?, ingredientiAggiuntiIds? }>
   } = body;
 
@@ -69,7 +74,10 @@ export async function POST(req: NextRequest) {
   // Ricalcola sempre il prezzo lato server: non fidarsi mai del prezzo inviato dal client
   const menuItemIds = items.filter((i: any) => i.menuItemId).map((i: any) => i.menuItemId);
   const sedeExtraIds = items.filter((i: any) => i.sedeExtraId).map((i: any) => i.sedeExtraId);
-  const ingredienteIds = Array.from(new Set(items.flatMap((i: any) => i.ingredientiAggiuntiIds ?? [])));
+  const ingredienteIds = Array.from(new Set(items.flatMap((i: any) => [
+    ...(i.ingredientiAggiuntiIds ?? []),
+    ...(i.ingredientiRimossi ?? []),
+  ])));
 
   const [menuItemsDb, overrideDb, sedeExtraDb, ingredientiDb] = await Promise.all([
     menuItemIds.length ? prisma.menuItem.findMany({ where: { id: { in: menuItemIds } } }) : [],
@@ -96,11 +104,21 @@ export async function POST(req: NextRequest) {
         const base = override?.prezzoCustom != null
           ? parseFloat(override.prezzoCustom.toString())
           : parseFloat(menuItem.prezzoBase.toString());
-        const extra = (i.ingredientiAggiuntiIds ?? []).reduce((acc: number, id: string) => {
+        const extraLordo = (i.ingredientiAggiuntiIds ?? []).reduce((acc: number, id: string) => {
           const ing = ingredienteMap.get(id);
           if (!ing) throw new Error(`Ingrediente non trovato: ${id}`);
           return acc + parseFloat(ing.prezzoAggiunta.toString());
         }, 0);
+        // Compensazione: un ingrediente rimosso non genera mai uno sconto da solo,
+        // ma "copre" fino al suo valore un ingrediente aggiunto al suo posto —
+        // a meno che l'ingrediente non sia marcato "escluso dalla compensazione"
+        // (es. Mozzarella, Pomodoro: farne a meno non "vale" credito).
+        const credito = (i.ingredientiRimossi ?? []).reduce((acc: number, id: string) => {
+          const ing = ingredienteMap.get(id);
+          if (!ing) throw new Error(`Ingrediente non trovato: ${id}`);
+          return ing.escludiCompensazione ? acc : acc + parseFloat(ing.prezzoAggiunta.toString());
+        }, 0);
+        const extra = Math.max(0, extraLordo - credito);
         prezzoUnitario = base + extra;
       } else if (i.sedeExtraId) {
         const sedeExtra = sedeExtraMap.get(i.sedeExtraId);
@@ -130,6 +148,13 @@ export async function POST(req: NextRequest) {
   const costoConsegnaFinale = tipo === "domicilio" ? Math.max(0, parseFloat(costoConsegna) || 0) : 0;
   totale += costoConsegnaFinale;
 
+  const modalitaConsegnaValida = ["appena_possibile", "non_prima"].includes(modalitaConsegna) ? modalitaConsegna : null;
+  const oraConsegnaComunicataFinale = tipo === "domicilio" && oraConsegnaComunicata ? new Date(oraConsegnaComunicata) : null;
+  const modalitaConsegnaFinale = tipo === "domicilio" ? modalitaConsegnaValida : null;
+  const noteDomicilioFinale = tipo === "domicilio" ? (noteDomicilio || null) : null;
+  const nomeCitofonoFinale = tipo === "domicilio" ? (nomeCitofono || null) : null;
+  const metodoPagamentoFinale = ["contanti", "pos"].includes(metodoPagamento) ? metodoPagamento : null;
+
   // Se non è stato selezionato un cliente esistente ma è stato inserito un telefono,
   // collega l'ordine all'anagrafica cliente corrispondente (creandola se non esiste).
   let clienteIdFinale = clienteId || null;
@@ -157,7 +182,12 @@ export async function POST(req: NextRequest) {
       clienteNome,
       clienteTelefono,
       clienteIndirizzo,
+      nomeCitofono: nomeCitofonoFinale,
       note,
+      noteDomicilio: noteDomicilioFinale,
+      oraConsegnaComunicata: oraConsegnaComunicataFinale,
+      modalitaConsegna: modalitaConsegnaFinale,
+      metodoPagamento: metodoPagamentoFinale,
       totale,
       costoConsegna: costoConsegnaFinale,
       items: { create: itemsData },

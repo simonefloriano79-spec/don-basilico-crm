@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
   const passwordHash = await bcrypt.hash(password, 12);
 
   const utente = await prisma.utente.create({
-    data: { email, nome, cognome, ruolo: ruolo ?? "operatore", sedeId: sedeId ?? null, passwordHash },
+    data: { email, nome, cognome, ruolo: ruolo ?? "operatore", sedeId: sedeId || null, passwordHash },
     include: { sede: { select: { nome: true } } },
   });
 

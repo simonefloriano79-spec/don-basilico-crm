@@ -58,6 +58,11 @@ export default function ClientiPage() {
   const [form, setForm] = useState({
     nome: "", cognome: "", telefono: "", email: "", indirizzoDefault: "", note: "",
   });
+  const [editMode, setEditMode] = useState(false);
+  const [editForm, setEditForm] = useState({
+    nome: "", cognome: "", telefono: "", email: "", indirizzoDefault: "", note: "",
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const cerca = useCallback(async (q: string) => {
     const url = q ? `/api/clienti?q=${encodeURIComponent(q)}&limit=30` : "/api/clienti?limit=30";
@@ -73,6 +78,35 @@ export default function ClientiPage() {
     const res = await fetch(`/api/clienti/${c.id}`);
     const data = await res.json();
     setSelected(data);
+    setEditMode(false);
+  };
+
+  const apriModifica = () => {
+    if (!selected) return;
+    setEditForm({
+      nome: selected.nome, cognome: selected.cognome ?? "", telefono: selected.telefono ?? "",
+      email: selected.email ?? "", indirizzoDefault: selected.indirizzoDefault ?? "", note: selected.note ?? "",
+    });
+    setEditMode(true);
+  };
+
+  const salvaModifica = async () => {
+    if (!selected) return;
+    if (!editForm.nome.trim()) return toast.error("Nome richiesto");
+    setSavingEdit(true);
+    const res = await fetch(`/api/clienti/${selected.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(editForm),
+    });
+    setSavingEdit(false);
+    if (res.ok) {
+      const aggiornato = await res.json();
+      setSelected((p) => p ? { ...p, ...aggiornato } : p);
+      setEditMode(false);
+      toast.success("Cliente aggiornato");
+      cerca(ricerca);
+    } else {
+      toast.error("Errore nel salvataggio");
+    }
   };
 
   const salvaCliente = async () => {
@@ -175,17 +209,31 @@ export default function ClientiPage() {
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, position: "sticky", top: 0 }}>
             <div style={{ padding: "18px 22px", borderBottom: "1px solid var(--border-soft)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 9.5, letterSpacing: 1.7, textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 6 }}>Cliente</div>
-                  <div style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--text)" }}>{selected.nome} {selected.cognome ?? ""}</div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
-                    {selected.createdAt && `Cliente dal ${new Date(selected.createdAt).toLocaleDateString("it-IT", { month: "long", year: "numeric" })}`}
-                    {selected.sedePreferita && ` · ${selected.sedePreferita}`}
-                  </div>
+                  {editMode ? (
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input style={fieldSt} placeholder="Nome" value={editForm.nome} onChange={(e) => setEditForm((p) => ({ ...p, nome: e.target.value }))} />
+                      <input style={fieldSt} placeholder="Cognome" value={editForm.cognome} onChange={(e) => setEditForm((p) => ({ ...p, cognome: e.target.value }))} />
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--text)" }}>{selected.nome} {selected.cognome ?? ""}</div>
+                      <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
+                        {selected.createdAt && `Cliente dal ${new Date(selected.createdAt).toLocaleDateString("it-IT", { month: "long", year: "numeric" })}`}
+                        {selected.sedePreferita && ` · ${selected.sedePreferita}`}
+                      </div>
+                    </>
+                  )}
                 </div>
-                <button onClick={() => setSelected(null)} style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid var(--border)", background: "#fff", cursor: "pointer", fontSize: 13, color: "var(--text-3)", flexShrink: 0 }}>✕</button>
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  {!editMode && (
+                    <button onClick={apriModifica} style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid var(--border)", background: "#fff", cursor: "pointer", fontSize: 12.5, color: "var(--text-3)" }}>✎</button>
+                  )}
+                  <button onClick={() => { setSelected(null); setEditMode(false); }} style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid var(--border)", background: "#fff", cursor: "pointer", fontSize: 13, color: "var(--text-3)" }}>✕</button>
+                </div>
               </div>
-              {(selected.puntiFedelta ?? 0) > 0 && (
+              {!editMode && (selected.puntiFedelta ?? 0) > 0 && (
                 <span className="num" style={{
                   display: "inline-flex", alignItems: "center", gap: 5, marginTop: 10, padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 500,
                   background: (selected.puntiFedelta ?? 0) >= 250 ? "var(--accent-bg)" : "var(--surface-muted)",
@@ -207,18 +255,51 @@ export default function ClientiPage() {
               ))}
             </div>
 
-            <div style={{ padding: "16px 22px", borderBottom: "1px solid var(--border-soft)", display: "flex", flexDirection: "column", gap: 8 }}>
-              {[
-                { label: "Telefono", val: selected.telefono },
-                { label: "Email", val: selected.email },
-                { label: "Indirizzo", val: selected.indirizzoDefault },
-                { label: "Note", val: selected.note },
-              ].filter((r) => r.val).map((r) => (
-                <div key={r.label} style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 12.5 }}>
-                  <span style={{ color: "var(--text-muted)" }}>{r.label}</span>
-                  <span style={{ color: "var(--text-2)", textAlign: "right" }}>{r.val}</span>
+            <div style={{ padding: "16px 22px", borderBottom: "1px solid var(--border-soft)" }}>
+              {editMode ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div>
+                    <label style={labelSt}>Telefono</label>
+                    <input style={fieldSt} value={editForm.telefono} onChange={(e) => setEditForm((p) => ({ ...p, telefono: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label style={labelSt}>Email</label>
+                    <input style={fieldSt} value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label style={labelSt}>Indirizzo</label>
+                    <input style={fieldSt} value={editForm.indirizzoDefault} onChange={(e) => setEditForm((p) => ({ ...p, indirizzoDefault: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label style={labelSt}>Note (es. casa gialla, citofono Rossi)</label>
+                    <input style={fieldSt} value={editForm.note} onChange={(e) => setEditForm((p) => ({ ...p, note: e.target.value }))} />
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                    <button onClick={() => setEditMode(false)} style={{
+                      background: "#fff", border: "1px solid var(--border)", color: "var(--text-2)",
+                      padding: "9px 16px", borderRadius: 9, cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 12.5,
+                    }}>Annulla</button>
+                    <button onClick={salvaModifica} disabled={savingEdit} style={{
+                      flex: 1, background: "var(--text)", color: "#fff", border: "none",
+                      padding: "9px 16px", borderRadius: 9, fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)",
+                    }}>{savingEdit ? "Salvo…" : "Salva"}</button>
+                  </div>
                 </div>
-              ))}
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {[
+                    { label: "Telefono", val: selected.telefono },
+                    { label: "Email", val: selected.email },
+                    { label: "Indirizzo", val: selected.indirizzoDefault },
+                    { label: "Note", val: selected.note },
+                  ].filter((r) => r.val).map((r) => (
+                    <div key={r.label} style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 12.5 }}>
+                      <span style={{ color: "var(--text-muted)" }}>{r.label}</span>
+                      <span style={{ color: "var(--text-2)", textAlign: "right" }}>{r.val}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div style={{ padding: "16px 22px", borderBottom: "1px solid var(--border-soft)" }}>

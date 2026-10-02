@@ -16,10 +16,19 @@ const STATO_HEX: Record<string, string> = {
   pronto: "#4d7c1c", consegnato: "#8a8c80", annullato: "#a8452f",
 };
 const CANALE_LABEL: Record<string, string> = { online: "online", telefono: "telefono", walk_in: "walk-in" };
-const AZIONE_LABEL: Record<string, string> = {
-  nuovo: "Conferma ordine", confermato: "Inizia preparazione",
-  in_preparazione: "Segna pronto", pronto: "Segna consegnato",
-};
+
+// Uso interno, nessuna notifica arriva al cliente sugli stati intermedi:
+// un solo passaggio porta l'ordine da "in lavorazione" a "pronto", un
+// secondo (che segna anche il pagamento) lo porta a "consegnato".
+function prossimaAzione(stato: string): { label: string; patch: Record<string, any> } | null {
+  if (["nuovo", "confermato", "in_preparazione"].includes(stato)) {
+    return { label: "Pronto", patch: { stato: "pronto" } };
+  }
+  if (stato === "pronto") {
+    return { label: "Vai al pagamento", patch: { stato: "consegnato", pagato: true } };
+  }
+  return null;
+}
 
 function euro(n: number) {
   return `€ ${n.toFixed(2).replace(".", ",")}`;
@@ -50,6 +59,10 @@ export default function OrdiniPage() {
   }, [isSuperAdmin, sedeParam]);
 
   useEffect(() => { caricaOrdini(); }, [caricaOrdini]);
+  useEffect(() => {
+    const iv = setInterval(caricaOrdini, 15000);
+    return () => clearInterval(iv);
+  }, [caricaOrdini]);
 
   const caricaDettaglio = useCallback(async (id: string) => {
     const res = await fetch(`/api/ordini/${id}`);
@@ -63,16 +76,15 @@ export default function OrdiniPage() {
   }, [selezionato?.id, caricaDettaglio]);
 
   const avanzaStato = async (ordine: any) => {
-    const idx = STATI_FLOW.indexOf(ordine.stato);
-    if (idx >= STATI_FLOW.length - 1) return;
-    const newStato = STATI_FLOW[idx + 1];
+    const azione = prossimaAzione(ordine.stato);
+    if (!azione) return;
     const res = await fetch(`/api/ordini/${ordine.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stato: newStato }),
+      body: JSON.stringify(azione.patch),
     });
     if (res.ok) {
-      toast.success(`Stato → ${STATO_LABEL[newStato]}`);
+      toast.success(`Stato → ${STATO_LABEL[azione.patch.stato]}`);
       caricaOrdini();
       caricaDettaglio(ordine.id);
     }
@@ -95,17 +107,23 @@ export default function OrdiniPage() {
   };
 
   const gestisciStampa = async (ordine: any) => {
-    stampaBrowser({
+    await stampaBrowser({
       numero: ordine.numeroOrdine,
+      ordineId: ordine.id,
       sede: ordine.sede?.nome ?? "",
       canale: ordine.canale,
       tipo: ordine.tipo,
       cliente: ordine.clienteNome ?? "Anonimo",
       telefono: ordine.clienteTelefono,
       indirizzo: ordine.clienteIndirizzo,
+      nomeCitofono: ordine.nomeCitofono,
       items: (ordine.items ?? []).map((i: any) => ({ nome: i.nomeSnapshot, qty: i.quantita, prezzo: parseFloat(i.prezzoSnapshot), note: i.noteItem })),
       totale: parseFloat(ordine.totale),
       note: ordine.note,
+      noteDomicilio: ordine.noteDomicilio,
+      oraConsegnaComunicata: ordine.oraConsegnaComunicata ? ora(ordine.oraConsegnaComunicata) : undefined,
+      modalitaConsegna: ordine.modalitaConsegna,
+      metodoPagamento: ordine.metodoPagamento,
       ora: ora(ordine.createdAt),
     });
     await fetch(`/api/ordini/${ordine.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stampato: true }) });
@@ -137,15 +155,15 @@ export default function OrdiniPage() {
     <div className="animate-in" style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         {/* Filtri */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center" }}>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
             <button onClick={() => setFiltroStato("tutti")} style={chipStyle(filtroStato === "tutti")}>Tutti</button>
             <button onClick={() => setFiltroStato("attivi")} style={chipStyle(filtroStato === "attivi")}>Attivi</button>
             {STATI_FLOW.map((s) => (
               <button key={s} onClick={() => setFiltroStato(s)} style={chipStyle(filtroStato === s)}>{STATO_LABEL[s]}</button>
             ))}
           </div>
-          <div style={{ position: "relative", marginLeft: "auto", width: 300, flexShrink: 0 }}>
+          <div style={{ position: "relative", marginLeft: "auto", flex: "1 1 160px", maxWidth: 300, minWidth: 0 }}>
             <span style={{ position: "absolute", left: 12, top: 9, color: "var(--text-faint)", fontSize: 13 }}>⌕</span>
             <input
               value={ricerca}
@@ -159,7 +177,7 @@ export default function OrdiniPage() {
           </div>
         </div>
 
-        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
+        <div className="ordini-table-desktop" style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "var(--surface-muted)" }}>
@@ -201,13 +219,49 @@ export default function OrdiniPage() {
             </tbody>
           </table>
         </div>
+
+        <div className="ordini-cards-mobile" style={{ display: "none" }}>
+          {visibili.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 44, color: "var(--text-muted)", fontSize: 13, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14 }}>Nessun ordine con questi filtri</div>
+          ) : visibili.map((o) => (
+            <div
+              key={o.id}
+              onClick={() => caricaDettaglio(o.id)}
+              style={{
+                background: selezionato?.id === o.id ? "var(--surface-muted)" : "var(--surface)",
+                border: "1px solid var(--border)", borderRadius: 12, padding: "12px 14px", cursor: "pointer",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                <div>
+                  <span className="num" style={{ fontSize: 14, fontWeight: 500, color: "var(--text)" }}>#{o.numeroOrdine}</span>
+                  <span className="num" style={{ fontSize: 12, color: "var(--text-muted)", marginLeft: 8 }}>{ora(o.createdAt)}</span>
+                </div>
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px",
+                  borderRadius: 20, fontSize: 11, fontWeight: 500, flexShrink: 0,
+                  background: `${STATO_HEX[o.stato]}14`, color: STATO_HEX[o.stato],
+                }}>{STATO_LABEL[o.stato]}</span>
+              </div>
+              <div style={{ marginTop: 6, fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>{o.clienteNome || "Anonimo"}</div>
+              {o.clienteTelefono && <div className="num" style={{ fontSize: 11.5, color: "var(--text-muted)" }}>{o.clienteTelefono}</div>}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
+                <span style={{ fontSize: 12, color: "var(--text-3)" }}>
+                  {CANALE_LABEL[o.canale]}{isSuperAdmin && o.sede?.nome ? ` · ${o.sede.nome.replace("Don Basilico ", "")}` : ""}
+                </span>
+                <span className="num" style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>{euro(parseFloat(o.totale))}</span>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* PANNELLO DETTAGLIO */}
       {selezionato && (
-        <div style={{
+        <div className="ordini-detail-panel" style={{
           width: 352, flexShrink: 0, position: "sticky", top: 0,
           background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14,
+          overflowY: "auto",
         }}>
           <div style={{ padding: "18px 22px", borderBottom: "1px solid var(--border-soft)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
@@ -235,6 +289,14 @@ export default function OrdiniPage() {
               </div>
             ))}
             {selezionato.note && <div style={{ fontSize: 12, color: "var(--danger)", marginTop: 6 }}>Nota: {selezionato.note}</div>}
+            {selezionato.oraConsegnaComunicata && (
+              <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 6 }}>
+                {selezionato.modalitaConsegna === "non_prima" ? "Non prima delle " : "Appena possibile, entro le "}
+                <strong className="num">{ora(selezionato.oraConsegnaComunicata)}</strong>
+              </div>
+            )}
+            {selezionato.nomeCitofono && <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 6 }}>Citofono: <strong>{selezionato.nomeCitofono}</strong></div>}
+            {selezionato.noteDomicilio && <div style={{ fontSize: 12, color: "var(--danger)", marginTop: 6 }}>Consegna: {selezionato.noteDomicilio}</div>}
             {parseFloat(selezionato.costoConsegna ?? 0) > 0 && (
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
                 <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>Consegna</span>
@@ -245,6 +307,12 @@ export default function OrdiniPage() {
               <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-2)" }}>Totale</span>
               <span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--text)" }}>{euro(parseFloat(selezionato.totale))}</span>
             </div>
+            {selezionato.metodoPagamento && (
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+                <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Pagamento</span>
+                <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-2)" }}>{selezionato.metodoPagamento === "pos" ? "POS" : "Contanti"}</span>
+              </div>
+            )}
           </div>
 
           {selezionato.stato !== "annullato" && (
@@ -267,11 +335,11 @@ export default function OrdiniPage() {
           )}
 
           <div style={{ padding: 22, display: "flex", flexDirection: "column", gap: 8 }}>
-            {AZIONE_LABEL[selezionato.stato] && (
+            {prossimaAzione(selezionato.stato) && (
               <button onClick={() => avanzaStato(selezionato)} style={{
                 background: "var(--text)", color: "#fff", border: "none", padding: "10px 18px",
                 borderRadius: 9, fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)",
-              }}>{AZIONE_LABEL[selezionato.stato]}</button>
+              }}>{prossimaAzione(selezionato.stato)!.label}</button>
             )}
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => gestisciStampa(selezionato)} style={{
