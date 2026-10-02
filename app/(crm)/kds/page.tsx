@@ -11,6 +11,22 @@ function minutiTrascorsi(createdAt: string) {
   return Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
 }
 
+// Ordini a orario fissato (online accettati: ritiro/consegna "alle HH:MM"): l'attesa e il
+// ritardo si contano da quell'orario, non da quando l'ordine è stato fatto.
+const aOrario = (o: any) => o.modalitaConsegna === "alle_ore" && !!o.oraConsegnaComunicata;
+const riferimento = (o: any): string => (aOrario(o) ? o.oraConsegnaComunicata : o.createdAt);
+const minOrdine = (o: any) => minutiTrascorsi(riferimento(o));
+
+function etichettaOrario(d: string) {
+  const dt = new Date(d);
+  const giorno = (x: Date) => x.toLocaleDateString("it-IT", { timeZone: "Europe/Rome" });
+  const ora = dt.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Rome" });
+  const oggi = new Date();
+  if (giorno(dt) === giorno(oggi)) return ora;
+  if (giorno(dt) === giorno(new Date(oggi.getTime() + 86400000))) return `domani ${ora}`;
+  return `${dt.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", timeZone: "Europe/Rome" })} ${ora}`;
+}
+
 export default function KDSPage() {
   const { data: session } = useSession();
   const [ordini, setOrdini] = useState<any[]>([]);
@@ -21,7 +37,12 @@ export default function KDSPage() {
     const sedeParam = user?.ruolo !== "super_admin" && user?.sedeId ? `&sedeId=${user.sedeId}` : "";
     const res = await fetch(`/api/ordini?limit=100${sedeParam}`);
     const all = await res.json();
-    setOrdini((Array.isArray(all) ? all : []).filter((o: any) => ["nuovo", "confermato", "in_preparazione"].includes(o.stato)));
+    setOrdini(
+      (Array.isArray(all) ? all : [])
+        // Gli online non ancora accettati dalla pizzeria restano in Ordini ("Da accettare"), non in cucina.
+        .filter((o: any) => ["nuovo", "confermato", "in_preparazione"].includes(o.stato) && !(o.canale === "online" && o.stato === "nuovo"))
+        .sort((a: any, b: any) => new Date(riferimento(a)).getTime() - new Date(riferimento(b)).getTime())
+    );
   }, [user]);
 
   useEffect(() => { carica(); const iv = setInterval(carica, 15000); return () => clearInterval(iv); }, [carica]);
@@ -56,8 +77,9 @@ export default function KDSPage() {
   };
 
   const inForno = ordini.filter((o) => o.stato === "in_preparazione").length;
-  const attesaMedia = ordini.length ? Math.round(ordini.reduce((a, o) => a + minutiTrascorsi(o.createdAt), 0) / ordini.length) : 0;
-  const oltre15 = ordini.filter((o) => minutiTrascorsi(o.createdAt) > 15).length;
+  const attivi = ordini.filter((o) => minOrdine(o) >= 0);
+  const attesaMedia = attivi.length ? Math.round(attivi.reduce((a, o) => a + minOrdine(o), 0) / attivi.length) : 0;
+  const oltre15 = ordini.filter((o) => minOrdine(o) > 15).length;
 
   return (
     <div className="animate-in" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -93,7 +115,8 @@ export default function KDSPage() {
       ) : (
         <div className="kds-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(270px, 1fr))", gap: 14 }}>
           {ordini.map((ordine) => {
-            const min = minutiTrascorsi(ordine.createdAt);
+            const min = minOrdine(ordine);
+            const futuro = min < 0;
             const inRitardo = min > 15;
             const inPrep = ordine.stato === "in_preparazione";
             return (
@@ -108,7 +131,12 @@ export default function KDSPage() {
                       display: "inline-block", marginTop: 4, fontSize: 11, padding: "2px 8px", borderRadius: 20,
                       background: inRitardo ? "var(--danger-bg)" : "var(--surface-muted)",
                       color: inRitardo ? "var(--danger)" : "var(--text-muted)",
-                    }}>{min} min</span>
+                    }}>{aOrario(ordine) ? (futuro ? `ore ${etichettaOrario(ordine.oraConsegnaComunicata)}` : `${min} min dopo l'orario`) : `${min} min`}</span>
+                    {aOrario(ordine) && (
+                      <div style={{ marginTop: 6, fontSize: 12, fontWeight: 700, color: "var(--accent-ink)", letterSpacing: 0.3 }}>
+                        {ordine.tipo === "domicilio" ? "CONSEGNA" : "RITIRO"} {etichettaOrario(ordine.oraConsegnaComunicata).toUpperCase()}
+                      </div>
+                    )}
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <div style={{ fontSize: 11.5, color: "var(--text-3)" }}>{CANALE_LABEL[ordine.canale]}</div>
