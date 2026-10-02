@@ -33,6 +33,7 @@ export default function SediPage() {
   const [utenti, setUtenti] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editCap, setEditCap] = useState<{ id: string; pizze: string; finestra: string } | null>(null);
   const [form, setForm] = useState({
     nome: "", indirizzo: "", citta: "", telefono: "", email: "", slug: "",
     orarioApertura: "11:30", orarioChiusura: "23:00",
@@ -63,6 +64,19 @@ export default function SediPage() {
     nome: "", indirizzo: "", citta: "", telefono: "", email: "", slug: "",
     orarioApertura: "11:30", orarioChiusura: "23:00",
   });
+
+  const salvaCapienza = async () => {
+    if (!editCap) return;
+    const res = await fetch(`/api/sedi/${editCap.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ capacitaPizze: editCap.pizze, finestraCapacitaMin: editCap.finestra }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return toast.error(data.error ?? "Errore nel salvataggio");
+    toast.success("Capienza cucina aggiornata");
+    setEditCap(null);
+    carica();
+  };
 
   const salva = async () => {
     const payload = {
@@ -117,6 +131,24 @@ export default function SediPage() {
                   <div>{s.indirizzo}, {s.citta}</div>
                   {s.telefono && <div>{s.telefono}</div>}
                   <div>{s.orarioApertura} – {s.orarioChiusura}</div>
+                  {editCap && editCap.id === s.id ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                      <input type="number" min={1} max={200} style={{ ...fieldSt, width: 64, padding: "6px 8px" }} value={editCap.pizze}
+                        onChange={(e) => setEditCap({ ...editCap, pizze: e.target.value })} />
+                      <span>pizze ogni</span>
+                      <input type="number" min={5} max={60} step={5} style={{ ...fieldSt, width: 64, padding: "6px 8px" }} value={editCap.finestra}
+                        onChange={(e) => setEditCap({ ...editCap, finestra: e.target.value })} />
+                      <span>min</span>
+                      <button onClick={salvaCapienza} style={{ background: "var(--text)", color: "#fff", border: "none", padding: "6px 12px", borderRadius: 8, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-ui)" }}>Salva</button>
+                      <button onClick={() => setEditCap(null)} style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: 12, cursor: "pointer" }}>Annulla</button>
+                    </div>
+                  ) : (
+                    <div>
+                      Capienza cucina: {s.capacitaPizze ?? 15} pizze ogni {s.finestraCapacitaMin ?? 15} min{" "}
+                      <button onClick={() => setEditCap({ id: s.id, pizze: String(s.capacitaPizze ?? 15), finestra: String(s.finestraCapacitaMin ?? 15) })}
+                        style={{ background: "none", border: "none", color: "var(--accent-ink)", fontSize: 12, cursor: "pointer", padding: 0, textDecoration: "underline" }}>modifica</button>
+                    </div>
+                  )}
                 </div>
               </div>
 

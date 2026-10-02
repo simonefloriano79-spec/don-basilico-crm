@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Session } from "next-auth";
@@ -11,6 +12,17 @@ export function Sidebar({ session }: Props) {
   const pathname = usePathname();
   const user = session.user as any;
   const isSuperAdmin = user.ruolo === "super_admin";
+
+  // Ordini online in attesa di accettazione: contatore sulla voce "Ordini".
+  const [daAccettare, setDaAccettare] = useState(0);
+  useEffect(() => {
+    let attivo = true;
+    const carica = () =>
+      fetch("/api/ordini/da-accettare").then((r) => (r.ok ? r.json() : null)).then((d) => { if (attivo && d) setDaAccettare(d.n); }).catch(() => {});
+    carica();
+    const iv = setInterval(carica, 15000);
+    return () => { attivo = false; clearInterval(iv); };
+  }, []);
 
   const sections = [
     {
@@ -69,6 +81,11 @@ export function Sidebar({ session }: Props) {
               >
                 <span className={styles.icon}>{item.glyph}</span>
                 {item.label}
+                {item.href === "/ordini" && daAccettare > 0 && (
+                  <span style={{ marginLeft: "auto", background: "var(--danger)", color: "#fff", borderRadius: 20, fontSize: 11, fontWeight: 600, padding: "1px 8px" }}>
+                    {daAccettare}
+                  </span>
+                )}
               </Link>
             ))}
           </div>
