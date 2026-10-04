@@ -40,6 +40,8 @@ export interface SedeCoperta {
 // a mano (precise), poi come fallback il raggio_km per le sedi senza zona
 // ancora definita. Le due modalità sono mutuamente esclusive per riga:
 // se una sede ha una zona, quella sede NON usa più il raggio come ripiego.
+// Se più sedi coprono lo stesso indirizzo (zone sovrapposte) vince la più vicina:
+// lat/lng di sedi_copertura è la posizione della sede (salvata dall'editor zone).
 export async function trovaSedeCompetente(lat: number, lng: number): Promise<SedeCoperta | null> {
   const risultati = await prisma.$queryRaw<{ sede_id: string; nome: string }[]>`
     SELECT sc.sede_id, s.nome
@@ -55,7 +57,12 @@ export async function trovaSedeCompetente(lat: number, lng: number): Promise<Sed
            ST_MakePoint(${lng}::float8, ${lat}::float8)
          ) <= sc.raggio_km * 1000)
       )
-    ORDER BY (sc.zona IS NOT NULL) DESC
+    ORDER BY
+      (sc.zona IS NOT NULL) DESC,
+      ST_DistanceSphere(
+        ST_MakePoint(sc.lng::float8, sc.lat::float8),
+        ST_MakePoint(${lng}::float8, ${lat}::float8)
+      ) ASC
     LIMIT 1
   `;
 

@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, usePathname } from "next/navigation";
 import toast from "react-hot-toast";
 import { stampaBrowser } from "@/lib/print";
+import { pesoRiga } from "@/lib/peso-pizze";
 
 const STATI_FLOW = ["nuovo", "confermato", "in_preparazione", "pronto", "consegnato"];
 const STATO_LABEL: Record<string, string> = {
@@ -20,7 +21,9 @@ const CANALE_LABEL: Record<string, string> = { online: "online", telefono: "tele
 // Uso interno, nessuna notifica arriva al cliente sugli stati intermedi:
 // un solo passaggio porta l'ordine da "in lavorazione" a "pronto", un
 // secondo (che segna anche il pagamento) lo porta a "consegnato".
-function prossimaAzione(stato: string): { label: string; patch: Record<string, any> } | null {
+function prossimaAzione(o: any): { label: string; patch: Record<string, any> } | null {
+  if (inAttesaOnline(o)) return null;
+  const stato = o.stato;
   if (["nuovo", "confermato", "in_preparazione"].includes(stato)) {
     return { label: "Pronto", patch: { stato: "pronto" } };
   }
@@ -38,17 +41,54 @@ function ora(d: string) {
   return new Date(d).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
 }
 
+// Ordine online non ancora accettato dalla pizzeria (nasce "nuovo").
+function inAttesaOnline(o: any) {
+  return o?.canale === "online" && o?.stato === "nuovo";
+}
+const statoEtichetta = (o: any) => (inAttesaOnline(o) ? "da accettare" : STATO_LABEL[o.stato]);
+const statoColore = (o: any) => (inAttesaOnline(o) ? "#a8452f" : STATO_HEX[o.stato]);
+
+// "20:40" se oggi, "domani 20:40", altrimenti "03/10 20:40".
+function quando(d: string) {
+  const dt = new Date(d);
+  const giorno = (x: Date) => x.toLocaleDateString("it-IT", { timeZone: "Europe/Rome" });
+  const oggi = new Date();
+  if (giorno(dt) === giorno(oggi)) return ora(d);
+  if (giorno(dt) === giorno(new Date(oggi.getTime() + 86400000))) return `domani ${ora(d)}`;
+  return `${dt.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", timeZone: "Europe/Rome" })} ${ora(d)}`;
+}
+
+// Un ordine online è "prenotato" se l'orario richiesto è molto dopo la creazione.
+const prenotato = (o: any) => !!o.oraRichiesta && new Date(o.oraRichiesta).getTime() - new Date(o.createdAt).getTime() > 5 * 60000;
+// Orario di riferimento da mostrare in lista (confermato, oppure richiesto se prenotato).
+const orarioRif = (o: any): string | null =>
+  o.oraConsegnaComunicata ?? (o.canale === "online" && prenotato(o) ? o.oraRichiesta : null);
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+const perInputLocale = (d: Date) =>
+  `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+const arrotonda10 = (d: Date) => new Date(Math.ceil(d.getTime() / 600000) * 600000);
+
 export default function OrdiniPage() {
   const { data: session } = useSession();
   const searchParams = useSearchParams();
+  const soloOnline = usePathname() === "/online";
   const sedeParam = searchParams.get("sede") ?? "";
   const user = session?.user as any;
   const isSuperAdmin = user?.ruolo === "super_admin";
 
-  const [ordini, setOrdini] = useState<any[]>([]);
-  const [filtroStato, setFiltroStato] = useState("tutti");
+  const [ordiniTutti, setOrdini] = useState<any[]>([]);
+  const ordini = soloOnline ? ordiniTutti.filter((o) => o.canale === "online") : ordiniTutti;
+  const [filtroStato, setFiltroStato] = useState(soloOnline ? "attivi" : "tutti");
+  const primoCaricoFatto = useRef(false);
+  // Interruttore "ordini online" per sede (solo nella vista Online).
+  const [sediOnline, setSediOnline] = useState<{ id: string; nome: string; ordiniOnlineAttivi: boolean }[]>([]);
   const [ricerca, setRicerca] = useState("");
   const [selezionato, setSelezionato] = useState<any>(null);
+  const [orarioConferma, setOrarioConferma] = useState("");
+  const [avvisaSms, setAvvisaSms] = useState(true);
+  const [inAzione, setInAzione] = useState(false);
+  const [carico, setCarico] = useState<{ usati: number; capacita: number; finestraMin: number } | null>(null);
 
   const caricaOrdini = useCallback(async () => {
     const qs = new URLSearchParams({ limit: "80" });
@@ -59,6 +99,43 @@ export default function OrdiniPage() {
   }, [isSuperAdmin, sedeParam]);
 
   useEffect(() => { caricaOrdini(); }, [caricaOrdini]);
+
+  const caricaSediOnline = useCallback(async () => {
+    if (!soloOnline || !user) return;
+    const res = await fetch("/api/sedi");
+    const d = await res.json().catch(() => []);
+    if (!Array.isArray(d)) return;
+    setSediOnline(
+      d
+        .filter((x: any) => isSuperAdmin || x.id === user.sedeId)
+        .map((x: any) => ({ id: x.id, nome: x.nome, ordiniOnlineAttivi: x.ordiniOnlineAttivi !== false }))
+    );
+  }, [soloOnline, user, isSuperAdmin]);
+
+  useEffect(() => { caricaSediOnline(); }, [caricaSediOnline]);
+  useEffect(() => {
+    if (!soloOnline) return;
+    const iv = setInterval(caricaSediOnline, 15000);
+    return () => clearInterval(iv);
+  }, [soloOnline, caricaSediOnline]);
+
+  const cambiaOrdiniOnline = async (sede: { id: string; nome: string }, attivi: boolean) => {
+    if (!attivi && !confirm(`Sospendere gli ordini online di ${sede.nome}?\n\nI clienti non potranno più ordinare dal sito per questa sede finché non li riattivi. Gli ordini già arrivati restano e vanno gestiti normalmente.`)) return;
+    const res = await fetch(`/api/sedi/${sede.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ordiniOnlineAttivi: attivi }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return toast.error(data.error ?? "Errore");
+    toast.success(attivi ? `Ordini online riattivati: ${sede.nome}` : `Ordini online SOSPESI: ${sede.nome}`);
+    caricaSediOnline();
+  };
+
+  // In "Online", al primo caricamento si parte da "Da accettare" se ce ne sono.
+  useEffect(() => {
+    if (!soloOnline || primoCaricoFatto.current || !ordiniTutti.length) return;
+    primoCaricoFatto.current = true;
+    if (ordiniTutti.some(inAttesaOnline)) setFiltroStato("da_accettare");
+  }, [soloOnline, ordiniTutti]);
   useEffect(() => {
     const iv = setInterval(caricaOrdini, 15000);
     return () => clearInterval(iv);
@@ -75,8 +152,52 @@ export default function OrdiniPage() {
     return () => clearInterval(iv);
   }, [selezionato?.id, caricaDettaglio]);
 
+  // Orario di default per accettare/spostare un ordine online: quello già confermato,
+  // altrimenti quello richiesto (se prenotato), altrimenti tra ~20 minuti.
+  useEffect(() => {
+    if (!selezionato || selezionato.canale !== "online") return;
+    const base = selezionato.oraConsegnaComunicata
+      ? new Date(selezionato.oraConsegnaComunicata)
+      : prenotato(selezionato)
+        ? new Date(selezionato.oraRichiesta)
+        : arrotonda10(new Date(Date.now() + 20 * 60000));
+    setOrarioConferma(perInputLocale(base));
+    setAvvisaSms(true);
+  }, [selezionato?.id]);
+
+  // Carico della cucina nella fascia dell'orario scelto (esclude l'ordine stesso).
+  useEffect(() => {
+    if (!selezionato || selezionato.canale !== "online" || !orarioConferma) { setCarico(null); return; }
+    const t = new Date(orarioConferma);
+    if (Number.isNaN(t.getTime())) return;
+    let annullato = false;
+    fetch(`/api/ordini/carico?sedeId=${selezionato.sedeId}&ora=${encodeURIComponent(t.toISOString())}&escludi=${selezionato.id}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!annullato) setCarico(d); })
+      .catch(() => {});
+    return () => { annullato = true; };
+  }, [selezionato?.id, orarioConferma]);
+
+  const azioneOnline = async (ordine: any, azione: "accetta" | "rifiuta" | "sposta") => {
+    const t = new Date(orarioConferma);
+    if (azione !== "rifiuta" && Number.isNaN(t.getTime())) return toast.error("Scegli un orario valido");
+    if (azione === "rifiuta" && !confirm(`Rifiutare l'ordine #${ordine.numeroOrdine}?${avvisaSms ? " Il cliente riceverà un SMS." : ""}`)) return;
+    setInAzione(true);
+    const res = await fetch(`/api/ordini/${ordine.id}/${azione}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ oraConfermata: Number.isNaN(t.getTime()) ? undefined : t.toISOString(), avvisa: avvisaSms }),
+    });
+    setInAzione(false);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return toast.error(data.error ?? "Errore");
+    toast.success(azione === "accetta" ? `Ordine #${ordine.numeroOrdine} accettato` : azione === "rifiuta" ? "Ordine rifiutato" : "Orario spostato");
+    if (avvisaSms && !data.smsInviato) toast("SMS non inviato (controlla la configurazione Twilio)", { icon: "⚠️" });
+    caricaOrdini();
+    caricaDettaglio(ordine.id);
+  };
+
   const avanzaStato = async (ordine: any) => {
-    const azione = prossimaAzione(ordine.stato);
+    const azione = prossimaAzione(ordine);
     if (!azione) return;
     const res = await fetch(`/api/ordini/${ordine.id}`, {
       method: "PATCH",
@@ -119,9 +240,10 @@ export default function OrdiniPage() {
       nomeCitofono: ordine.nomeCitofono,
       items: (ordine.items ?? []).map((i: any) => ({ nome: i.nomeSnapshot, qty: i.quantita, prezzo: parseFloat(i.prezzoSnapshot), note: i.noteItem })),
       totale: parseFloat(ordine.totale),
+      costoConsegna: parseFloat(ordine.costoConsegna ?? 0) || undefined,
       note: ordine.note,
       noteDomicilio: ordine.noteDomicilio,
-      oraConsegnaComunicata: ordine.oraConsegnaComunicata ? ora(ordine.oraConsegnaComunicata) : undefined,
+      oraConsegnaComunicata: ordine.oraConsegnaComunicata ? quando(ordine.oraConsegnaComunicata) : undefined,
       modalitaConsegna: ordine.modalitaConsegna,
       metodoPagamento: ordine.metodoPagamento,
       ora: ora(ordine.createdAt),
@@ -131,6 +253,7 @@ export default function OrdiniPage() {
   };
 
   const visibili = ordini.filter((o) => {
+    if (filtroStato === "da_accettare" && !inAttesaOnline(o)) return false;
     if (filtroStato === "attivi" && ["consegnato", "annullato"].includes(o.stato)) return false;
     if (STATI_FLOW.includes(filtroStato) && o.stato !== filtroStato) return false;
     if (ricerca.trim()) {
@@ -143,6 +266,8 @@ export default function OrdiniPage() {
     return true;
   });
 
+  const nDaAccettare = ordini.filter(inAttesaOnline).length;
+
   const chipStyle = (attivo: boolean, hex?: string) => ({
     padding: "8px 15px", borderRadius: 20, fontSize: 12.5, cursor: "pointer",
     border: `1px solid ${attivo ? "var(--text)" : "var(--border)"}`,
@@ -154,9 +279,40 @@ export default function OrdiniPage() {
   return (
     <div className="animate-in" style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
       <div style={{ flex: 1, minWidth: 0 }}>
+        {soloOnline && sediOnline.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+            {sediOnline.map((sd) => (
+              <div key={sd.id} style={{
+                display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "10px 14px", borderRadius: 12,
+                border: `1px solid ${sd.ordiniOnlineAttivi ? "var(--border)" : "var(--danger-border)"}`,
+                background: sd.ordiniOnlineAttivi ? "#fff" : "var(--danger-bg)",
+              }}>
+                <span style={{ width: 9, height: 9, borderRadius: "50%", background: sd.ordiniOnlineAttivi ? "#4caf50" : "var(--danger)", flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 160 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>{sd.nome}</div>
+                  <div style={{ fontSize: 12, color: sd.ordiniOnlineAttivi ? "var(--text-muted)" : "var(--danger)" }}>
+                    {sd.ordiniOnlineAttivi ? "Ordini online attivi" : "Ordini online SOSPESI: i clienti non possono ordinare"}
+                  </div>
+                </div>
+                <button onClick={() => cambiaOrdiniOnline(sd, !sd.ordiniOnlineAttivi)} style={{
+                  padding: "8px 16px", borderRadius: 9, fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)",
+                  border: sd.ordiniOnlineAttivi ? "1px solid var(--danger-border)" : "none",
+                  background: sd.ordiniOnlineAttivi ? "#fff" : "var(--text)",
+                  color: sd.ordiniOnlineAttivi ? "var(--danger)" : "#fff",
+                }}>{sd.ordiniOnlineAttivi ? "Sospendi ordini online" : "Riattiva ordini online"}</button>
+              </div>
+            ))}
+          </div>
+        )}
         {/* Filtri */}
         <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
+            {nDaAccettare > 0 && (
+              <button onClick={() => setFiltroStato("da_accettare")} style={{
+                ...chipStyle(filtroStato === "da_accettare"),
+                ...(filtroStato === "da_accettare" ? {} : { background: "var(--danger-bg)", color: "var(--danger)", borderColor: "var(--danger-border)" }),
+              }}>Da accettare ({nDaAccettare})</button>
+            )}
             <button onClick={() => setFiltroStato("tutti")} style={chipStyle(filtroStato === "tutti")}>Tutti</button>
             <button onClick={() => setFiltroStato("attivi")} style={chipStyle(filtroStato === "attivi")}>Attivi</button>
             {STATI_FLOW.map((s) => (
@@ -199,7 +355,10 @@ export default function OrdiniPage() {
                   }}
                 >
                   <td className="num" style={{ padding: "13px 14px", fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>#{o.numeroOrdine}</td>
-                  <td className="num" style={{ padding: "13px 14px", fontSize: 12.5, color: "var(--text-3)" }}>{ora(o.createdAt)}</td>
+                  <td className="num" style={{ padding: "13px 14px", fontSize: 12.5, color: "var(--text-3)" }}>
+                    {ora(o.createdAt)}
+                    {orarioRif(o) && <div style={{ fontSize: 11, fontWeight: 600, color: "var(--accent-ink)" }}>per {quando(orarioRif(o)!)}</div>}
+                  </td>
                   <td style={{ padding: "13px 14px" }}>
                     <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>{o.clienteNome || "Anonimo"}</div>
                     {o.clienteTelefono && <div className="num" style={{ fontSize: 11.5, color: "var(--text-muted)" }}>{o.clienteTelefono}</div>}
@@ -210,8 +369,8 @@ export default function OrdiniPage() {
                     <span style={{
                       display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px",
                       borderRadius: 20, fontSize: 11, fontWeight: 500,
-                      background: `${STATO_HEX[o.stato]}14`, color: STATO_HEX[o.stato],
-                    }}>{STATO_LABEL[o.stato]}</span>
+                      background: `${statoColore(o)}14`, color: statoColore(o),
+                    }}>{statoEtichetta(o)}</span>
                   </td>
                   <td className="num" style={{ padding: "13px 14px", fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>{euro(parseFloat(o.totale))}</td>
                 </tr>
@@ -240,8 +399,8 @@ export default function OrdiniPage() {
                 <span style={{
                   display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px",
                   borderRadius: 20, fontSize: 11, fontWeight: 500, flexShrink: 0,
-                  background: `${STATO_HEX[o.stato]}14`, color: STATO_HEX[o.stato],
-                }}>{STATO_LABEL[o.stato]}</span>
+                  background: `${statoColore(o)}14`, color: statoColore(o),
+                }}>{statoEtichetta(o)}</span>
               </div>
               <div style={{ marginTop: 6, fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>{o.clienteNome || "Anonimo"}</div>
               {o.clienteTelefono && <div className="num" style={{ fontSize: 11.5, color: "var(--text-muted)" }}>{o.clienteTelefono}</div>}
@@ -291,8 +450,12 @@ export default function OrdiniPage() {
             {selezionato.note && <div style={{ fontSize: 12, color: "var(--danger)", marginTop: 6 }}>Nota: {selezionato.note}</div>}
             {selezionato.oraConsegnaComunicata && (
               <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 6 }}>
-                {selezionato.modalitaConsegna === "non_prima" ? "Non prima delle " : "Appena possibile, entro le "}
-                <strong className="num">{ora(selezionato.oraConsegnaComunicata)}</strong>
+                {selezionato.modalitaConsegna === "alle_ore"
+                  ? <>{selezionato.tipo === "domicilio" ? "Consegna" : "Ritiro"}: <strong className="num">{quando(selezionato.oraConsegnaComunicata)}</strong></>
+                  : <>
+                      {selezionato.modalitaConsegna === "non_prima" ? "Non prima delle " : "Appena possibile, entro le "}
+                      <strong className="num">{ora(selezionato.oraConsegnaComunicata)}</strong>
+                    </>}
               </div>
             )}
             {selezionato.nomeCitofono && <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 6 }}>Citofono: <strong>{selezionato.nomeCitofono}</strong></div>}
@@ -315,6 +478,53 @@ export default function OrdiniPage() {
             )}
           </div>
 
+          {selezionato.canale === "online" && !["annullato", "consegnato"].includes(selezionato.stato) && (() => {
+            const attesa = inAttesaOnline(selezionato);
+            const pesoOrdine = (selezionato.items ?? []).reduce(
+              (a: number, i: any) => a + pesoRiga(i.menuItem?.categoria ?? i.sedeExtra?.categoria, i.nomeSnapshot, i.quantita), 0);
+            const oltre = carico ? carico.usati + pesoOrdine > carico.capacita : false;
+            return (
+              <div style={{ padding: "16px 22px", borderBottom: "1px solid var(--border-soft)", background: attesa ? "var(--danger-bg)" : "transparent" }}>
+                <div style={{ fontSize: 9.5, letterSpacing: 1.7, textTransform: "uppercase", color: attesa ? "var(--danger)" : "var(--text-muted)", marginBottom: 8, fontWeight: 600 }}>
+                  {attesa ? "Ordine online — da accettare" : "Orario confermato al cliente"}
+                </div>
+                <div style={{ fontSize: 12.5, color: "var(--text-2)", marginBottom: 8 }}>
+                  Richiesto dal cliente: <strong>{prenotato(selezionato) ? quando(selezionato.oraRichiesta) : "appena possibile"}</strong>
+                </div>
+                <input type="datetime-local" step={600} value={orarioConferma} onChange={(e) => setOrarioConferma(e.target.value)} style={{
+                  width: "100%", padding: "9px 12px", border: "1px solid var(--border)", borderRadius: 9,
+                  fontSize: 13, background: "#fff", fontFamily: "var(--font-ui)", marginBottom: 8,
+                }} />
+                {carico && (
+                  <div style={{ fontSize: 12, marginBottom: 8, color: oltre ? "var(--danger)" : "var(--text-muted)", fontWeight: oltre ? 600 : 400 }}>
+                    Cucina in quella fascia ({carico.finestraMin} min): {carico.usati} pizze già previste + {pesoOrdine} di questo ordine / {carico.capacita}
+                    {oltre ? " — oltre la capienza" : ""}
+                  </div>
+                )}
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--text-2)", marginBottom: 12, cursor: "pointer" }}>
+                  <input type="checkbox" checked={avvisaSms} onChange={(e) => setAvvisaSms(e.target.checked)} /> Avvisa il cliente via SMS
+                </label>
+                {attesa ? (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button disabled={inAzione} onClick={() => azioneOnline(selezionato, "accetta")} style={{
+                      flex: 1, background: "var(--text)", color: "#fff", border: "none", padding: "10px 14px",
+                      borderRadius: 9, fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)",
+                    }}>{inAzione ? "…" : "Accetta"}</button>
+                    <button disabled={inAzione} onClick={() => azioneOnline(selezionato, "rifiuta")} style={{
+                      background: "#fff", border: "1px solid var(--danger-border)", color: "var(--danger)",
+                      padding: "10px 14px", borderRadius: 9, fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-ui)",
+                    }}>Rifiuta</button>
+                  </div>
+                ) : (
+                  <button disabled={inAzione} onClick={() => azioneOnline(selezionato, "sposta")} style={{
+                    width: "100%", background: "#fff", border: "1px solid var(--border)", color: "var(--text-2)",
+                    padding: "9px 12px", borderRadius: 9, fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-ui)",
+                  }}>{inAzione ? "…" : "Sposta orario"}</button>
+                )}
+              </div>
+            );
+          })()}
+
           {selezionato.stato !== "annullato" && (
             <div style={{ padding: "16px 22px", borderBottom: "1px solid var(--border-soft)" }}>
               <div style={{ fontSize: 9.5, letterSpacing: 1.7, textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 12 }}>Avanzamento</div>
@@ -335,11 +545,11 @@ export default function OrdiniPage() {
           )}
 
           <div style={{ padding: 22, display: "flex", flexDirection: "column", gap: 8 }}>
-            {prossimaAzione(selezionato.stato) && (
+            {prossimaAzione(selezionato) && (
               <button onClick={() => avanzaStato(selezionato)} style={{
                 background: "var(--text)", color: "#fff", border: "none", padding: "10px 18px",
                 borderRadius: 9, fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)",
-              }}>{prossimaAzione(selezionato.stato)!.label}</button>
+              }}>{prossimaAzione(selezionato)!.label}</button>
             )}
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => gestisciStampa(selezionato)} style={{

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { prossimoNumeroOrdine } from "@/lib/numero-ordine";
 import { verificaSegretoWebhook } from "@/lib/ordini-vocali/auth";
 import { elaboraRichiestaOrdine, RichiestaOrdine } from "@/lib/ordini-vocali/orchestrazione";
 import { notificaSede } from "@/lib/ordini-vocali/notifiche";
@@ -68,10 +69,13 @@ export async function POST(req: NextRequest) {
 
   // Transazione unica: l'ordine "vero" (visibile su /ordini, /kds, statistiche,
   // stampabile) e il log vocale nascono o falliscono insieme, mai uno senza l'altro.
+  const numeroOrdine = await prossimoNumeroOrdine(esito.sedeId, esito.oraRichiesta);
+
   const { ordine, ordineReale } = await prisma.$transaction(async (tx) => {
     const ordineReale = await tx.ordine.create({
       data: {
         sedeId: esito.sedeId,
+        ...(numeroOrdine !== undefined ? { numeroOrdine } : {}),
         canale: "telefono", // ordine telefonico, risposto dall'assistente AI invece che da uno staff
         tipo: body.tipo,
         stato: "nuovo",

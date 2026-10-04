@@ -68,6 +68,12 @@ model Sede {
   attiva         Boolean  @default(true)
   orarioApertura String   @default("11:30") @map("orario_apertura")
   orarioChiusura String   @default("23:00") @map("orario_chiusura")
+  // Capienza cucina a peso: max pizze (equivalenti) ogni finestra di N minuti.
+  // Limita solo gli slot prenotabili online, non blocca mai cassa/telefono.
+  capacitaPizze       Int @default(15) @map("capacita_pizze")
+  finestraCapacitaMin Int @default(15) @map("finestra_capacita_min")
+  // Interruttore d'emergenza: se false il sito clienti non accetta più ordini per questa sede.
+  ordiniOnlineAttivi  Boolean @default(true) @map("ordini_online_attivi")
   note           String?
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
@@ -214,6 +220,7 @@ model Cliente {
   note             String?
   puntiFedelta     Int      @default(0) @map("punti_fedelta")
   sedePreferita    String?  @map("sede_preferita") @db.Uuid
+  telefonoVerificatoAt DateTime? @map("telefono_verificato_at")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
@@ -361,7 +368,7 @@ model SedeCopertura {
   sedeId    String                                  @unique @map("sede_id") @db.Uuid
   lat       Decimal                                 @db.Decimal(9, 6)
   lng       Decimal                                 @db.Decimal(9, 6)
-  zona      Unsupported("geography(Polygon,4326)")?
+  zona      Unsupported("geography(MultiPolygon,4326)")?
   raggioKm  Decimal?                                @default(5.00) @map("raggio_km") @db.Decimal(5, 2)
   attiva    Boolean                                 @default(true)
   createdAt DateTime                                @default(now()) @map("created_at")
