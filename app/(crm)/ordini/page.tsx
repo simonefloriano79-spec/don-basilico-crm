@@ -192,7 +192,7 @@ export default function OrdiniPage() {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return toast.error(data.error ?? "Errore");
     toast.success(azione === "accetta" ? `Ordine #${ordine.numeroOrdine} accettato` : azione === "rifiuta" ? "Ordine rifiutato" : "Orario spostato");
-    if (avvisaSms && !data.smsInviato) toast("SMS non inviato (controlla la configurazione Twilio)", { icon: "⚠️" });
+    if (avvisaSms && !data.smsInviato) toast(`SMS non inviato${data.smsErrore ? `: ${data.smsErrore}` : " (controlla la configurazione Twilio)"}`, { icon: "⚠️", duration: 10000 });
     caricaOrdini();
     caricaDettaglio(ordine.id);
   };

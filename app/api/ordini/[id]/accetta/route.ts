@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { inviaSms } from "@/lib/customer-auth/sms";
+import { inviaSmsDettaglio } from "@/lib/customer-auth/sms";
 import { caricaOrdineStaff, descriviOrario, euroSms, leggiOrario } from "@/lib/ordini-online";
 
 // POST /api/ordini/[id]/accetta — la pizzeria accetta un ordine online "da accettare"
@@ -30,13 +30,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   ]);
 
   let smsInviato = false;
+  let smsErrore: string | undefined;
   if (ordine.clienteTelefono && body.avvisa !== false) {
-    smsInviato = await inviaSms(
+    const esitoSms = await inviaSmsDettaglio(
       ordine.clienteTelefono,
       `Don Basilico ${ordine.sede.nome.replace("Don Basilico ", "")}: ordine #${ordine.numeroOrdine} CONFERMATO. ` +
         `${ordine.tipo === "domicilio" ? "Consegna" : "Ritiro"} ${descriviOrario(orario)}. ` +
         `Totale ${euroSms(parseFloat(ordine.totale.toString()))}.`
     );
+    smsInviato = esitoSms.ok;
+    smsErrore = esitoSms.errore;
   }
-  return NextResponse.json({ ok: true, smsInviato });
+  return NextResponse.json({ ok: true, smsInviato, smsErrore });
 }
