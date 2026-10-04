@@ -49,8 +49,13 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
   const anello = [...punti, punti[0]]; // il poligono deve chiudersi sul primo punto
   const wkt = `POLYGON((${anello.map((p) => `${p.lng} ${p.lat}`).join(", ")}))`;
-  const latCentro = punti.reduce((a, p) => a + p.lat, 0) / punti.length;
-  const lngCentro = punti.reduce((a, p) => a + p.lng, 0) / punti.length;
+  // lat/lng = posizione della sede (geocodificata dall'editor); se manca, ripiego sul baricentro della zona.
+  const centro = body.centro;
+  const centroValido =
+    centro && Number.isFinite(centro.lat) && Number.isFinite(centro.lng) &&
+    Math.abs(centro.lat) <= 90 && Math.abs(centro.lng) <= 180;
+  const latCentro = centroValido ? Number(centro.lat) : punti.reduce((a, p) => a + p.lat, 0) / punti.length;
+  const lngCentro = centroValido ? Number(centro.lng) : punti.reduce((a, p) => a + p.lng, 0) / punti.length;
 
   await prisma.$executeRaw`
     INSERT INTO sedi_copertura (id, sede_id, lat, lng, zona, attiva)

@@ -15,6 +15,7 @@ export default function ZonaConsegnaPage() {
   // vertici si raccolgono a mano con un listener sul click della mappa.
   const bozzaRef = useRef<{ punti: google.maps.LatLng[]; linea: google.maps.Polyline; marker: google.maps.Marker[]; ascolto: google.maps.MapsEventListener } | null>(null);
 
+  const sedePosRef = useRef<{ lat: number; lng: number } | null>(null);
   const [sede, setSede] = useState<any>(null);
   const [pronto, setPronto] = useState(false);
   const [salvando, setSalvando] = useState(false);
@@ -44,16 +45,18 @@ export default function ZonaConsegnaPage() {
         });
         mapObj.current = map;
 
-        if (punti?.length) {
-          disegnaPoligonoEsistente(map, punti);
-        } else {
-          // Centra sull'indirizzo della sede, poi apre subito la modalità disegno
-          const geocoder = new google.maps.Geocoder();
-          geocoder.geocode({ address: `${sede.indirizzo}, ${sede.citta}, Italia` }, (risultati, status) => {
-            if (status === "OK" && risultati?.[0]) map.setCenter(risultati[0].geometry.location);
-          });
-          avviaDisegno(map);
-        }
+        // Posizione reale della sede: serve a scegliere la sede più vicina quando due zone si sovrappongono.
+        const geocoder = new google.maps.Geocoder();
+        geocoder.geocode({ address: `${sede.indirizzo}, ${sede.citta}, Italia` }, (risultati, status) => {
+          if (status === "OK" && risultati?.[0]) {
+            const loc = risultati[0].geometry.location;
+            sedePosRef.current = { lat: loc.lat(), lng: loc.lng() };
+            if (!punti?.length) map.setCenter(loc);
+          }
+        });
+
+        if (punti?.length) disegnaPoligonoEsistente(map, punti);
+        else avviaDisegno(map);
 
         setPronto(true);
       })
@@ -149,7 +152,7 @@ export default function ZonaConsegnaPage() {
 
     setSalvando(true);
     const res = await fetch(`/api/sedi/${id}/zona`, {
-      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ punti }),
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ punti, centro: sedePosRef.current }),
     });
     setSalvando(false);
 
