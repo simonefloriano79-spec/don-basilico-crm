@@ -365,6 +365,11 @@ export default function OrdiniPage() {
                   <td style={{ padding: "13px 14px" }}>
                     <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>{nomeOrdine(o)}</div>
                     {o.clienteTelefono && <div className="num" style={{ fontSize: 11.5, color: "var(--text-muted)" }}>{o.clienteTelefono}</div>}
+                    {o.tipo === "domicilio" && o.clienteIndirizzo && (
+                      <div style={{ fontSize: 11.5, color: "var(--text-2)", marginTop: 2, maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={o.clienteIndirizzo}>
+                        📍 {o.clienteIndirizzo}
+                      </div>
+                    )}
                   </td>
                   <td style={{ padding: "13px 14px", fontSize: 12.5, color: "var(--text-3)" }}>{CANALE_LABEL[o.canale]}</td>
                   {isSuperAdmin && <td style={{ padding: "13px 14px", fontSize: 12.5, color: "var(--text-3)", whiteSpace: "nowrap" }}>{o.sede?.nome?.replace("Don Basilico ", "") ?? "—"}</td>}
@@ -407,6 +412,11 @@ export default function OrdiniPage() {
               </div>
               <div style={{ marginTop: 6, fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>{nomeOrdine(o)}</div>
               {o.clienteTelefono && <div className="num" style={{ fontSize: 11.5, color: "var(--text-muted)" }}>{o.clienteTelefono}</div>}
+                    {o.tipo === "domicilio" && o.clienteIndirizzo && (
+                      <div style={{ fontSize: 11.5, color: "var(--text-2)", marginTop: 2, maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={o.clienteIndirizzo}>
+                        📍 {o.clienteIndirizzo}
+                      </div>
+                    )}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
                 <span style={{ fontSize: 12, color: "var(--text-3)" }}>
                   {CANALE_LABEL[o.canale]}{isSuperAdmin && o.sede?.nome ? ` · ${o.sede.nome.replace("Don Basilico ", "")}` : ""}
@@ -438,6 +448,27 @@ export default function OrdiniPage() {
               background: "#fff", cursor: "pointer", fontSize: 13, color: "var(--text-3)",
             }}>✕</button>
           </div>
+
+          {selezionato.tipo === "domicilio" && (
+            <div style={{ padding: "14px 22px", borderBottom: "1px solid var(--border-soft)", background: "var(--accent-bg-2)" }}>
+              <div style={{ fontSize: 9.5, letterSpacing: 1.7, textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 6, fontWeight: 600 }}>Consegna a</div>
+              {selezionato.clienteIndirizzo ? (
+                <>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text)", lineHeight: 1.35 }}>📍 {selezionato.clienteIndirizzo}</div>
+                  <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selezionato.clienteIndirizzo)}`} target="_blank" rel="noreferrer"
+                    style={{ display: "inline-block", marginTop: 6, fontSize: 12, color: "var(--accent-ink)", textDecoration: "underline" }}>Apri su Google Maps ↗</a>
+                </>
+              ) : (
+                <div style={{ fontSize: 13, color: "var(--danger)" }}>Indirizzo non indicato</div>
+              )}
+              {selezionato.nomeCitofono && <div style={{ fontSize: 13, color: "var(--text)", marginTop: 8 }}>Citofono: <strong>{selezionato.nomeCitofono}</strong></div>}
+              {selezionato.clienteTelefono && (
+                <div style={{ fontSize: 13, color: "var(--text)", marginTop: 4 }}>
+                  Tel: <a href={`tel:${selezionato.clienteTelefono}`} className="num" style={{ color: "var(--text)", fontWeight: 600 }}>{selezionato.clienteTelefono}</a>
+                </div>
+              )}
+            </div>
+          )}
 
           <div style={{ padding: "16px 22px", borderBottom: "1px solid var(--border-soft)" }}>
             {(selezionato.items ?? []).map((i: any) => (
@@ -498,6 +529,30 @@ export default function OrdiniPage() {
                   width: "100%", padding: "9px 12px", border: "1px solid var(--border)", borderRadius: 9,
                   fontSize: 13, background: "#fff", fontFamily: "var(--font-ui)", marginBottom: 8,
                 }} />
+                {selezionato.tipo === "domicilio" && (() => {
+                  const t = new Date(orarioConferma).getTime();
+                  if (Number.isNaN(t)) return null;
+                  const vicine = ordini
+                    .filter((o) => o.id !== selezionato.id && o.tipo === "domicilio" && o.sedeId === selezionato.sedeId
+                      && ["nuovo", "confermato", "in_preparazione", "pronto"].includes(o.stato))
+                    .map((o) => ({ o, quando: new Date(orarioRif(o) ?? o.createdAt).getTime() }))
+                    .filter((x) => Math.abs(x.quando - t) <= 40 * 60000)
+                    .sort((a, b) => a.quando - b.quando)
+                    .slice(0, 6);
+                  return (
+                    <div style={{ marginBottom: 10, padding: "8px 10px", background: "#fff", border: "1px solid var(--border)", borderRadius: 9 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4 }}>Altre consegne entro 40 minuti da quell'ora</div>
+                      {vicine.length === 0 ? (
+                        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Nessuna</div>
+                      ) : vicine.map(({ o, quando: q }) => (
+                        <div key={o.id} style={{ fontSize: 12, color: "var(--text-2)", marginTop: 3, lineHeight: 1.35 }}>
+                          <strong className="num">{ora(new Date(q).toISOString())}</strong> · #{o.numeroOrdine} · {o.clienteIndirizzo || "senza indirizzo"}
+                          {inAttesaOnline(o) ? " (da accettare)" : ""}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
                 {carico && (
                   <div style={{ fontSize: 12, marginBottom: 8, color: oltre ? "var(--danger)" : "var(--text-muted)", fontWeight: oltre ? 600 : 400 }}>
                     Cucina in quella fascia ({carico.finestraMin} min): {carico.usati} pizze già previste + {pesoOrdine} di questo ordine / {carico.capacita}
