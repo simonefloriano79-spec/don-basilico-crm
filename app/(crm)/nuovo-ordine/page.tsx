@@ -340,7 +340,7 @@ function CercaClienteModal({ onSeleziona, onChiudi }: {
 // ── Contenuto carrello (condiviso desktop/mobile) ──────────────
 const MESSAGGI_DOMICILIO = ["Resto a 50 euro", "Citofono rotto, chiamare", "Chiamare all'arrivo"];
 
-function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna, oraConsegna, modConsegna, onApriOrario, onCercaCliente, noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma, loading, justSent }: any) {
+function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo, setTavolo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna, oraConsegna, modConsegna, onApriOrario, onCercaCliente, noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma, loading, justSent }: any) {
   const subtotale = cart.reduce((a: number, c: CartItem) => a + c.prezzoTotaleItem * c.qty, 0);
   const consegna = tipo === "domicilio" ? (parseFloat(costoConsegna) || 0) : 0;
   const totale = subtotale + consegna;
@@ -374,6 +374,9 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, cliente
             }}>{t}</button>
           ))}
         </div>
+        {tipo === "tavolo" && (
+          <input style={{ ...fieldSt, borderColor: "var(--accent-border)", fontWeight: 600 }} placeholder="Tavolo * (numero o nome)" value={tavolo} onChange={(e: any) => setTavolo(e.target.value)} />
+        )}
         {tipo === "domicilio" && (
           <button onClick={onCercaCliente} style={{
             display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%",
@@ -505,6 +508,7 @@ export default function NuovoOrdinePage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [canale, setCanale] = useState<"walk_in" | "telefono">("walk_in");
   const [tipo, setTipo] = useState<"asporto" | "domicilio" | "tavolo">("asporto");
+  const [tavolo, setTavolo] = useState("");
   const [clienteNome, setClienteNome] = useState("");
   const [clienteTel, setClienteTel] = useState("");
   const [clienteIndirizzo, setAddr] = useState("");
@@ -565,6 +569,9 @@ export default function NuovoOrdinePage() {
 
   const confermaOrdine = async () => {
     if (!cart.length) return toast.error("Aggiungi almeno un prodotto");
+    if (tipo === "tavolo" && !tavolo.trim()) return toast.error("Indica il tavolo (numero o nome)");
+    // Da telefono/tablet non si stampa: la comanda esce dal PC con la stampa automatica attiva.
+    const stampaQui = typeof window !== "undefined" && window.innerWidth > 900;
     setLoading(true);
     let oraConsegnaISO: string | null = null;
     if (tipo === "domicilio" && oraConsegna) {
@@ -577,7 +584,9 @@ export default function NuovoOrdinePage() {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         sedeId: sedeSelezionata, canale, tipo,
-        clienteNome: clienteNome || "Cliente anonimo",
+        clienteNome: clienteNome || (tipo === "tavolo" ? `Tavolo ${tavolo.trim()}` : "Cliente anonimo"),
+        tavolo: tipo === "tavolo" ? tavolo.trim() : null,
+        stampato: stampaQui,
         clienteTelefono: clienteTel || null,
         clienteIndirizzo: tipo === "domicilio" ? clienteIndirizzo : null,
         nomeCitofono: tipo === "domicilio" ? (nomeCitofono || null) : null,
@@ -601,8 +610,8 @@ export default function NuovoOrdinePage() {
     if (res.ok) {
       const ordine = await res.json();
       toast.success(`Ordine #${ordine.numeroOrdine} creato`);
-      await stampaBrowser({
-        numero: ordine.numeroOrdine, ordineId: ordine.id, sede: nomeSede, canale, tipo, cliente: clienteNome || "Cliente anonimo", telefono: clienteTel, indirizzo: clienteIndirizzo,
+      if (stampaQui) await stampaBrowser({
+        numero: ordine.numeroOrdine, ordineId: ordine.id, sede: nomeSede, canale, tipo, tavolo: tipo === "tavolo" ? tavolo.trim() : undefined, cliente: clienteNome || (tipo === "tavolo" ? `Tavolo ${tavolo.trim()}` : "Cliente anonimo"), telefono: clienteTel, indirizzo: clienteIndirizzo,
         nomeCitofono: tipo === "domicilio" ? (nomeCitofono || undefined) : undefined,
         items: cart.map((c) => ({
           nome: c.nome, qty: c.qty, prezzo: c.prezzoTotaleItem,
@@ -621,12 +630,12 @@ export default function NuovoOrdinePage() {
       });
       setJustSent(true);
       setTimeout(() => setJustSent(false), 1800);
-      setCart([]); setClienteNome(""); setClienteTel(""); setAddr(""); setNomeCitofono(""); setCostoConsegna("1.50"); setNote(""); setNoteDomicilio(""); setOraConsegna(""); setModConsegna(""); setMetodoPagamento(""); setShowCart(false);
+      setCart([]); setTavolo(""); setClienteNome(""); setClienteTel(""); setAddr(""); setNomeCitofono(""); setCostoConsegna("1.50"); setNote(""); setNoteDomicilio(""); setOraConsegna(""); setModConsegna(""); setMetodoPagamento(""); setShowCart(false);
     } else { toast.error("Errore nella creazione dell'ordine"); }
   };
 
   const cartProps = {
-    cart, setCart, canale, setCanale, tipo, setTipo, clienteNome, setClienteNome, clienteTel, setClienteTel,
+    cart, setCart, canale, setCanale, tipo, setTipo, tavolo, setTavolo, clienteNome, setClienteNome, clienteTel, setClienteTel,
     clienteIndirizzo, setClienteIndirizzo: setAddr, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna,
     oraConsegna, modConsegna, onApriOrario: () => setShowOrarioModal(true),
     onCercaCliente: () => setShowCercaCliente(true),

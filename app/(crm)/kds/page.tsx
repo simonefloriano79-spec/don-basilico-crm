@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import { stampaBrowser } from "@/lib/print";
+import { nomeOrdine } from "@/lib/ordine-utils";
 
 const CANALE_LABEL: Record<string, string> = { online: "online", telefono: "telefono", walk_in: "walk-in" };
 
@@ -67,7 +68,7 @@ export default function KDSPage() {
     e.stopPropagation();
     await stampaBrowser({
       numero: ordine.numeroOrdine, ordineId: ordine.id, sede: ordine.sede?.nome ?? "", canale: ordine.canale, tipo: ordine.tipo,
-      cliente: ordine.clienteNome ?? "Anonimo", telefono: ordine.clienteTelefono, indirizzo: ordine.clienteIndirizzo,
+      cliente: nomeOrdine(ordine), tavolo: ordine.tavolo ?? undefined, telefono: ordine.clienteTelefono, indirizzo: ordine.clienteIndirizzo,
       items: (ordine.items ?? []).map((i: any) => ({ nome: i.nomeSnapshot, qty: i.quantita, prezzo: parseFloat(i.prezzoSnapshot), note: i.noteItem })),
       totale: parseFloat(ordine.totale), note: ordine.note,
       ora: new Date(ordine.createdAt).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }),
@@ -146,7 +147,7 @@ export default function KDSPage() {
 
                 <div style={{ padding: "0 16px 12px", flex: 1 }}>
                   <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 8 }}>
-                    {ordine.clienteNome || "Anonimo"}{ordine.clienteTelefono && ` · ${ordine.clienteTelefono}`}
+                    {nomeOrdine(ordine)}{ordine.clienteTelefono && ` · ${ordine.clienteTelefono}`}
                   </div>
                   {(ordine.items ?? []).map((item: any, i: number) => (
                     <div key={i} style={{ display: "flex", gap: 8, padding: "6px 0", borderTop: i > 0 ? "1px solid var(--border-faint)" : "none" }}>

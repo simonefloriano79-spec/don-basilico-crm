@@ -20,6 +20,7 @@ export interface PrintOrdine {
   note?: string;
   noteDomicilio?: string;
   nomeCitofono?: string;
+  tavolo?: string | null;
   oraConsegnaComunicata?: string;
   modalitaConsegna?: "appena_possibile" | "non_prima" | "alle_ore" | null;
   metodoPagamento?: "contanti" | "pos" | null;
@@ -87,6 +88,7 @@ export async function generaTicketHTML(ordine: PrintOrdine): Promise<string> {
       <div style="text-align:center;margin-bottom:6px">
         <span class="badge">${ordine.tipo.toUpperCase()}</span>
       </div>
+      ${ordine.tavolo ? `<div style="text-align:center;font-size:28px;font-weight:bold;margin:4px 0">TAVOLO ${ordine.tavolo}</div>` : ""}
       <div class="info-row"><span>Cliente:</span><strong>${ordine.cliente}</strong></div>
       ${ordine.telefono ? `<div class="info-row"><span>Tel:</span><span>${ordine.telefono}</span></div>` : ""}
       ${ordine.indirizzo ? `<div class="info-row"><span>Indirizzo:</span><span>${ordine.indirizzo}</span></div>` : ""}
@@ -98,7 +100,7 @@ export async function generaTicketHTML(ordine: PrintOrdine): Promise<string> {
         <tbody>${itemsHtml}</tbody>
       </table>
       ${ordine.costoConsegna ? `<div class="info-row" style="margin-top:6px;border-top:1px dashed #000;padding-top:4px"><span>Consegna:</span><span>€${ordine.costoConsegna.toFixed(2)}</span></div>` : ""}
-      ${ordine.metodoPagamento ? `<div class="info-row" style="margin-top:6px;border-top:1px dashed #000;padding-top:4px"><span>Pagamento:</span><strong>${ordine.metodoPagamento === "pos" ? "POS" : "Contanti"}</strong></div>` : ""}
+      ${ordine.metodoPagamento ? `<div class="info-row" style="margin-top:6px;border-top:1px dashed #000;padding-top:4px"><span>Pagamento:</span><strong>${ordine.metodoPagamento === "pos" || (ordine.metodoPagamento as string) === "carta" ? "POS" : "Contanti"}</strong></div>` : ""}
       ${ordine.note ? `<div style="margin-top:6px;font-size:15px;border-top:1px dashed #000;padding-top:4px"><strong>NOTE:</strong> ${ordine.note}</div>` : ""}
       ${ordine.noteDomicilio ? `<div style="margin-top:6px;font-size:15px;border-top:1px dashed #000;padding-top:4px"><strong>NOTE CONSEGNA:</strong> ${ordine.noteDomicilio}</div>` : ""}
       <div class="totale">TOTALE: €${ordine.totale.toFixed(2)}</div>
@@ -127,6 +129,33 @@ export async function stampaBrowser(ordine: PrintOrdine): Promise<void> {
     win.print();
     win.close();
   }, 250);
+}
+
+// Stampa "silenziosa": niente popup (che il browser bloccherebbe senza un click), il ticket viene scritto in un
+// iframe nascosto e stampato da lì. Serve per la stampa automatica: per evitare anche la finestra di conferma
+// avviare Chrome/Edge sul PC della cassa con l'opzione --kiosk-printing (stampa subito sulla stampante predefinita).
+export async function stampaSilenziosa(ordine: PrintOrdine): Promise<void> {
+  const html = await generaTicketHTML(ordine);
+  await new Promise<void>((resolve) => {
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
+    document.body.appendChild(iframe);
+    const doc = iframe.contentDocument;
+    if (!doc || !iframe.contentWindow) { iframe.remove(); resolve(); return; }
+    doc.open();
+    doc.write(html);
+    doc.close();
+    setTimeout(() => {
+      try {
+        iframe.contentWindow!.focus();
+        iframe.contentWindow!.print();
+      } catch (e) {
+        console.error("Stampa automatica non riuscita", e);
+      }
+      setTimeout(() => { iframe.remove(); resolve(); }, 1000);
+    }, 500);
+  });
 }
 
 // PrintNode API (fase 2 - stampa automatica)
