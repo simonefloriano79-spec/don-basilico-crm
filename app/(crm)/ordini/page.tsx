@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useSearchParams, usePathname } from "next/navigation";
 import toast from "react-hot-toast";
 import { stampaBrowser } from "@/lib/print";
+import { nomeOrdine } from "@/lib/ordine-utils";
 import { pesoRiga } from "@/lib/peso-pizze";
 
 const STATI_FLOW = ["nuovo", "confermato", "in_preparazione", "pronto", "consegnato"];
@@ -234,7 +235,8 @@ export default function OrdiniPage() {
       sede: ordine.sede?.nome ?? "",
       canale: ordine.canale,
       tipo: ordine.tipo,
-      cliente: ordine.clienteNome ?? "Anonimo",
+      cliente: nomeOrdine(ordine),
+      tavolo: ordine.tavolo ?? undefined,
       telefono: ordine.clienteTelefono,
       indirizzo: ordine.clienteIndirizzo,
       nomeCitofono: ordine.nomeCitofono,
@@ -260,6 +262,7 @@ export default function OrdiniPage() {
       const q = ricerca.trim().toLowerCase();
       const match = String(o.numeroOrdine).includes(q)
         || (o.clienteNome ?? "").toLowerCase().includes(q)
+        || (o.tavolo ?? "").toLowerCase().includes(q)
         || (o.clienteTelefono ?? "").includes(q);
       if (!match) return false;
     }
@@ -360,7 +363,7 @@ export default function OrdiniPage() {
                     {orarioRif(o) && <div style={{ fontSize: 11, fontWeight: 600, color: "var(--accent-ink)" }}>per {quando(orarioRif(o)!)}</div>}
                   </td>
                   <td style={{ padding: "13px 14px" }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>{o.clienteNome || "Anonimo"}</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>{nomeOrdine(o)}</div>
                     {o.clienteTelefono && <div className="num" style={{ fontSize: 11.5, color: "var(--text-muted)" }}>{o.clienteTelefono}</div>}
                   </td>
                   <td style={{ padding: "13px 14px", fontSize: 12.5, color: "var(--text-3)" }}>{CANALE_LABEL[o.canale]}</td>
@@ -402,7 +405,7 @@ export default function OrdiniPage() {
                   background: `${statoColore(o)}14`, color: statoColore(o),
                 }}>{statoEtichetta(o)}</span>
               </div>
-              <div style={{ marginTop: 6, fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>{o.clienteNome || "Anonimo"}</div>
+              <div style={{ marginTop: 6, fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>{nomeOrdine(o)}</div>
               {o.clienteTelefono && <div className="num" style={{ fontSize: 11.5, color: "var(--text-muted)" }}>{o.clienteTelefono}</div>}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
                 <span style={{ fontSize: 12, color: "var(--text-3)" }}>
@@ -427,7 +430,7 @@ export default function OrdiniPage() {
               <div style={{ fontSize: 9.5, letterSpacing: 1.7, textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 6 }}>Ordine</div>
               <div style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--text)" }}>#{selezionato.numeroOrdine}</div>
               <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
-                {selezionato.clienteNome || "Anonimo"} · {ora(selezionato.createdAt)}
+                {nomeOrdine(selezionato)} · {ora(selezionato.createdAt)}
               </div>
             </div>
             <button onClick={() => setSelezionato(null)} style={{

@@ -271,6 +271,8 @@ model Ordine {
   // chiamare"), separate dalle note generali dell'ordine.
   noteDomicilio String? @map("note_domicilio")
   stampato      Boolean  @default(false)
+  // Ordini al tavolo: numero o nome del tavolo (testo libero).
+  tavolo        String?
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

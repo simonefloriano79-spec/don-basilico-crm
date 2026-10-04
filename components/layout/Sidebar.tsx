@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Session } from "next-auth";
 import styles from "./Sidebar.module.css";
 import { ORDINA_BETA } from "@/lib/beta";
+import { AutoStampa } from "./AutoStampa";
 
 interface Props { session: Session; }
 
@@ -130,6 +131,8 @@ export function Sidebar({ session }: Props) {
           </div>
         ))}
       </div>
+
+      <AutoStampa sedeId={user.sedeId} isSuperAdmin={isSuperAdmin} />
 
       <div className={styles.footer}>
         <Link href="/profilo" className={styles.userPill}>

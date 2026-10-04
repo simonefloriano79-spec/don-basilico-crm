@@ -60,6 +60,8 @@ export async function POST(req: NextRequest) {
     noteDomicilio,
     nomeCitofono,
     metodoPagamento,
+    tavolo,
+    stampato, // true se il dispositivo che crea l'ordine stampa da sé la comanda (evita la doppia stampa automatica)
     items, // Array<{ menuItemId?, sedeExtraId?, nomeSnapshot, quantita, noteItem?, ingredientiRimossi?, ingredientiAggiuntiIds? }>
   } = body;
 
@@ -154,6 +156,10 @@ export async function POST(req: NextRequest) {
   const modalitaConsegnaFinale = tipo === "domicilio" ? modalitaConsegnaValida : null;
   const noteDomicilioFinale = tipo === "domicilio" ? (noteDomicilio || null) : null;
   const nomeCitofonoFinale = tipo === "domicilio" ? (nomeCitofono || null) : null;
+  const tavoloFinale = tipo === "tavolo" && typeof tavolo === "string" && tavolo.trim() ? tavolo.trim().slice(0, 40) : null;
+  if (tipo === "tavolo" && !tavoloFinale) {
+    return NextResponse.json({ error: "Indica il tavolo (numero o nome)" }, { status: 400 });
+  }
   const metodoPagamentoFinale = ["contanti", "pos"].includes(metodoPagamento) ? metodoPagamento : null;
 
   // Se non è stato selezionato un cliente esistente ma è stato inserito un telefono,
@@ -187,6 +193,8 @@ export async function POST(req: NextRequest) {
       clienteTelefono,
       clienteIndirizzo,
       nomeCitofono: nomeCitofonoFinale,
+      tavolo: tavoloFinale,
+      ...(stampato === true ? { stampato: true } : {}),
       note,
       noteDomicilio: noteDomicilioFinale,
       oraConsegnaComunicata: oraConsegnaComunicataFinale,
