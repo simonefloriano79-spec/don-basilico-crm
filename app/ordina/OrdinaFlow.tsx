@@ -136,6 +136,7 @@ function PizzaModalCliente({ item, ingredienti, onConferma, onChiudi }: {
 export default function OrdinaFlow({ sedeSlugIniziale }: { sedeSlugIniziale?: string }) {
   const [caricamento, setCaricamento] = useState(true);
   const [cliente, setCliente] = useState<Cliente | null>(null);
+  const [staffBeta, setStaffBeta] = useState(false);
 
   // Gate OTP
   const [passoGate, setPassoGate] = useState<"telefono" | "codice">("telefono");
@@ -179,7 +180,7 @@ export default function OrdinaFlow({ sedeSlugIniziale }: { sedeSlugIniziale?: st
   const [riepilogoVisibile, setRiepilogoVisibile] = useState(false);
 
   useEffect(() => {
-    fetch("/api/ordina/sessione").then((r) => r.json()).then((d) => { setCliente(d.cliente ?? null); setCaricamento(false); });
+    fetch("/api/ordina/sessione").then((r) => r.json()).then((d) => { setCliente(d.cliente ?? null); setStaffBeta(!!d.staff); setCaricamento(false); });
     fetch("/api/sedi").then((r) => r.json()).then((d) => setSedi(Array.isArray(d) ? d : []));
   }, []);
 
@@ -225,6 +226,14 @@ export default function OrdinaFlow({ sedeSlugIniziale }: { sedeSlugIniziale?: st
     obs.observe(el);
     return () => obs.disconnect();
   }, [cart.length, cliente, tipo, sedeSelezionata, statoIndirizzo, confermato]);
+
+  const entraComeStaff = async () => {
+    setErroreGate("");
+    const res = await fetch("/api/ordina/sessione/staff", { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { setErroreGate(data.error ?? "Non riesco a entrare in modalità prova"); return; }
+    setCliente(data.cliente);
+  };
 
   const richiediOtp = async () => {
     setErroreGate("");
@@ -353,6 +362,15 @@ export default function OrdinaFlow({ sedeSlugIniziale }: { sedeSlugIniziale?: st
       <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 20 }}>
         <h1 style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--text)" }}>Ordina online</h1>
         <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Registrati con il tuo numero di telefono: ci serve per confermarti l'ordine e poterti chiamare in caso di problemi in consegna.</p>
+
+        {staffBeta && (
+          <div style={{ background: "var(--accent-bg-2)", border: "1px solid var(--accent-border)", borderRadius: 12, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ fontSize: 13, color: "var(--text)" }}>
+              <strong>Sei del team?</strong> Sei collegato al CRM: puoi provare l'ordine online senza codice SMS. L'ordine comparirà nel CRM come "PROVA …": ricordati di annullarlo dopo la prova.
+            </div>
+            <button style={btnPrimarySt} onClick={entraComeStaff} disabled={inviandoOtp}>Entra in modalità prova (staff)</button>
+          </div>
+        )}
 
         {passoGate === "telefono" ? (
           <>
