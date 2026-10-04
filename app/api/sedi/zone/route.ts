@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { areeDaGeoJson } from "@/lib/zone-geo";
 
 // GET /api/sedi/zone — le zone di consegna già disegnate di tutte le sedi
 // (l'editor zone le mostra per non sovrapporle). Il campo `zona` è un
@@ -17,9 +18,7 @@ export async function GET() {
     WHERE sc.zona IS NOT NULL AND s.attiva = true
   `;
 
-  const zone = righe.map((r) => {
-    const anello: [number, number][] = JSON.parse(r.zona_geojson).coordinates?.[0] ?? [];
-    return { sedeId: r.sede_id, nome: r.nome, punti: anello.map(([lng, lat]) => ({ lat, lng })) };
-  });
-  return NextResponse.json(zone);
+  return NextResponse.json(
+    righe.map((r) => ({ sedeId: r.sede_id, nome: r.nome, aree: areeDaGeoJson(JSON.parse(r.zona_geojson)) }))
+  );
 }

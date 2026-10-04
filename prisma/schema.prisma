@@ -368,7 +368,7 @@ model SedeCopertura {
   sedeId    String                                  @unique @map("sede_id") @db.Uuid
   lat       Decimal                                 @db.Decimal(9, 6)
   lng       Decimal                                 @db.Decimal(9, 6)
-  zona      Unsupported("geography(Polygon,4326)")?
+  zona      Unsupported("geography(MultiPolygon,4326)")?
   raggioKm  Decimal?                                @default(5.00) @map("raggio_km") @db.Decimal(5, 2)
   attiva    Boolean                                 @default(true)
   createdAt DateTime                                @default(now()) @map("created_at")
