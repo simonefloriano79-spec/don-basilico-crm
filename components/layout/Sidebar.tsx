@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Session } from "next-auth";
 import styles from "./Sidebar.module.css";
+import { ORDINA_BETA } from "@/lib/beta";
 
 interface Props { session: Session; }
 
@@ -109,6 +110,11 @@ export function Sidebar({ session }: Props) {
               >
                 <span className={styles.icon}>{item.glyph}</span>
                 {item.label}
+                {item.href === "/online" && ORDINA_BETA && sospese === 0 && daAccettare === 0 && (
+                  <span style={{ marginLeft: "auto", background: "var(--accent-bg-2)", border: "1px solid var(--accent-border)", color: "var(--text-2)", borderRadius: 20, fontSize: 10, fontWeight: 700, letterSpacing: 0.8, padding: "1px 7px" }}>
+                    BETA
+                  </span>
+                )}
                 {item.href === "/online" && sospese > 0 && (
                   <span title="Ordini online sospesi" style={{ marginLeft: "auto", background: "#fff", color: "var(--danger)", border: "1px solid var(--danger-border)", borderRadius: 20, fontSize: 10.5, fontWeight: 700, padding: "1px 7px" }}>
                     STOP

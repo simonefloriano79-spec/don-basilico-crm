@@ -6,6 +6,7 @@ import { ArticoloOrdinatoInput } from "@/lib/ordini-vocali/pricing";
 import { generaSlot } from "@/lib/slot-ritiro";
 import { disponibilitaSlot, pesoRiga } from "@/lib/capacita-pizze";
 import { COSTO_CONSEGNA_DEFAULT } from "@/lib/consegna";
+import { prossimoNumeroOrdine } from "@/lib/numero-ordine";
 
 const METODI_PAGAMENTO = ["contanti", "carta"];
 
@@ -112,10 +113,13 @@ export async function POST(req: NextRequest) {
       : null;
   const totale = Math.round((esito.totale + costoConsegna) * 100) / 100;
 
+  const numeroOrdine = await prossimoNumeroOrdine(esito.sedeId, esito.oraRichiesta);
+
   const ordine = await prisma.$transaction(async (tx) => {
     const ordineCreato = await tx.ordine.create({
       data: {
         sedeId: esito.sedeId,
+        ...(numeroOrdine !== undefined ? { numeroOrdine } : {}),
         canale: "online",
         tipo,
         stato: "nuovo",
