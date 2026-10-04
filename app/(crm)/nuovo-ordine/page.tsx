@@ -8,7 +8,7 @@ import { stampaBrowser } from "@/lib/print";
 
 const CAT_LABEL: Record<string, string> = {
   pizze_rosse: "Pizze rosse", pizze_bianche: "Pizze bianche", calzoni: "Calzoni",
-  fritti: "Fritti", bevande: "Bevande", dolci: "Dolci", extra: "Extra", menu_speciale: "Pizze speciali",
+  fritti: "Fritti", bevande: "Bevande", dolci: "Dolci", extra: "Extra", menu_speciale: "Speciali",
 };
 
 const fieldSt: React.CSSProperties = {
@@ -542,7 +542,8 @@ export default function NuovoOrdinePage() {
       setIngredienti(Array.isArray(d) ? d : []));
   }, [sedeSelezionata]);
 
-  const cats = ["menu_speciale", "pizze_rosse", "pizze_bianche", "calzoni", "fritti", "dolci", "bevande", "extra"];
+  // In cassa "Speciali" viene dopo i calzoni; sul sito clienti (OrdinaFlow) è invece la prima sezione.
+  const cats = ["pizze_rosse", "pizze_bianche", "calzoni", "menu_speciale", "fritti", "dolci", "bevande", "extra"];
   const catsPresenti = cats.filter((c) => menuItems.some((m) => m.categoria === c));
   const isSezionePizze = catFiltro === "pizze_rosse" || catFiltro === "pizze_bianche";
   // In ordine alfabetico dentro ogni sezione, per leggere e cercare più in fretta.

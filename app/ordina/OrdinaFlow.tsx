@@ -6,7 +6,7 @@ import { COSTO_CONSEGNA_DEFAULT } from "@/lib/consegna";
 const CAT_LABEL: Record<string, string> = {
   pizze: "Pizze", pizze_rosse: "Pizze rosse", pizze_bianche: "Pizze bianche",
   calzoni: "Calzoni", fritti: "Fritti", bevande: "Bevande", dolci: "Dolci",
-  extra: "Extra", menu_speciale: "Pizze speciali",
+  extra: "Extra", menu_speciale: "Speciali",
 };
 
 const fieldSt: React.CSSProperties = {
@@ -484,7 +484,6 @@ export default function OrdinaFlow({ sedeSlugIniziale }: { sedeSlugIniziale?: st
           display: "flex", alignItems: "center", gap: 14, textAlign: "left", cursor: "pointer", fontFamily: "var(--font-ui)",
           background: "var(--accent-bg-2)", border: "1.5px solid var(--accent-border)", borderRadius: 14, padding: "14px 16px",
         }}>
-          <span style={{ fontSize: 28, lineHeight: 1 }}>🍕</span>
           <span style={{ flex: 1, minWidth: 0 }}>
             <span style={{ display: "block", fontFamily: "var(--font-display)", fontSize: 17, color: "var(--text)" }}>Crea la tua pizza</span>
             <span style={{ display: "block", fontSize: 12.5, color: "var(--text-2)", marginTop: 2 }}>Parti da pomodoro e mozzarella e aggiungi gli ingredienti che vuoi</span>
