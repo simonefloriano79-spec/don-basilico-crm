@@ -58,12 +58,56 @@ export default function ZonaConsegnaPage() {
         if (punti?.length) disegnaPoligonoEsistente(map, punti);
         else avviaDisegno(map);
 
+        mostraAltreSedi(map, geocoder).catch(() => {});
+
         setPronto(true);
       })
       .catch((e) => setErrore(e.message));
 
     return () => { cancellato = true; };
   }, [sede, id]);
+
+  // Pin rossi su tutte le sedi + confini delle zone già assegnate alle altre sedi (sola lettura:
+  // clickable false, così i click passano alla mappa e si può disegnare anche sopra).
+  async function mostraAltreSedi(map: google.maps.Map, geocoder: google.maps.Geocoder) {
+    const [elenco, zone] = await Promise.all([
+      fetch("/api/sedi").then((r) => r.json()),
+      fetch("/api/sedi/zone").then((r) => r.json()),
+    ]);
+    const COLORI = ["#2563eb", "#d97706", "#7c3aed", "#db2777", "#0d9488", "#ea580c"];
+    const corto = (nome: string) => String(nome).replace(/^Don Basilico\s*/i, "");
+
+    (Array.isArray(zone) ? zone : []).filter((z: any) => z.sedeId !== id).forEach((z: any, i: number) => {
+      const colore = COLORI[i % COLORI.length];
+      new google.maps.Polygon({
+        paths: z.punti, map, clickable: false,
+        strokeColor: colore, fillColor: colore, fillOpacity: 0.12, strokeWeight: 2,
+      });
+      const c = new google.maps.LatLngBounds();
+      z.punti.forEach((p: any) => c.extend(p));
+      new google.maps.Marker({
+        position: c.getCenter(), map, clickable: false,
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 0 },
+        label: { text: `Zona ${corto(z.nome)}`, color: colore, fontSize: "12px", fontWeight: "700" },
+      });
+    });
+
+    (Array.isArray(elenco) ? elenco : []).forEach((s: any) => {
+      geocoder.geocode({ address: `${s.indirizzo}, ${s.citta}, Italia` }, (risultati, status) => {
+        if (status !== "OK" || !risultati?.[0]) return;
+        const corrente = s.id === id;
+        new google.maps.Marker({
+          position: risultati[0].geometry.location, map, clickable: false, zIndex: corrente ? 20 : 10,
+          icon: {
+            path: "M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z",
+            fillColor: "#dc2626", fillOpacity: 1, strokeColor: corrente ? "#111" : "#fff", strokeWeight: corrente ? 2 : 1.2,
+            scale: corrente ? 1.9 : 1.5, anchor: new google.maps.Point(12, 22), labelOrigin: new google.maps.Point(12, 28),
+          },
+          label: { text: corto(s.nome), color: "#111", fontSize: "12px", fontWeight: corrente ? "800" : "600", className: "pin-sede-label" },
+        });
+      });
+    });
+  }
 
   function disegnaPoligonoEsistente(map: google.maps.Map, punti: { lat: number; lng: number }[]) {
     const bounds = new google.maps.LatLngBounds();
@@ -146,18 +190,24 @@ export default function ZonaConsegnaPage() {
     if (mapObj.current) avviaDisegno(mapObj.current);
   }
 
-  async function salva() {
+  async function salva(forza = false) {
     if (!poligonoRef.current) return;
     const punti = poligonoRef.current.getPath().getArray().map((p) => ({ lat: p.lat(), lng: p.lng() }));
 
     setSalvando(true);
     const res = await fetch(`/api/sedi/${id}/zona`, {
-      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ punti, centro: sedePosRef.current }),
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ punti, centro: sedePosRef.current, forza }),
     });
     setSalvando(false);
 
-    if (res.ok) { toast.success("Zona di consegna salvata"); router.push("/sedi"); }
-    else { const d = await res.json().catch(() => ({})); toast.error(d.error ?? "Errore nel salvataggio"); }
+    if (res.ok) { toast.success("Zona di consegna salvata"); router.push("/sedi"); return; }
+    const d = await res.json().catch(() => ({}));
+    if (res.status === 409 && Array.isArray(d.sovrapposizioni)) {
+      const elenco = d.sovrapposizioni.map((s: any) => `• ${s.nome} (circa ${s.mq.toLocaleString("it-IT")} m²)`).join("\n");
+      if (confirm(`Questa zona si sovrappone a:\n${elenco}\n\nNelle parti in comune vincerà la sede più vicina all'indirizzo.\nSalvare comunque?`)) salva(true);
+      return;
+    }
+    toast.error(d.error ?? "Errore nel salvataggio");
   }
 
   return (
@@ -178,7 +228,7 @@ export default function ZonaConsegnaPage() {
           {haPoligono && (
             <button onClick={ridisegna} style={{ background: "#fff", border: "1px solid var(--border)", color: "var(--text-2)", padding: "9px 16px", borderRadius: 9, fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-ui)" }}>Ridisegna</button>
           )}
-          <button onClick={salva} disabled={!haPoligono || salvando} style={{
+          <button onClick={() => salva()} disabled={!haPoligono || salvando} style={{
             background: haPoligono ? "var(--text)" : "var(--border)", color: haPoligono ? "#fff" : "var(--text-faint)",
             border: "none", padding: "9px 18px", borderRadius: 9, fontSize: 12.5, fontWeight: 500, cursor: haPoligono ? "pointer" : "default", fontFamily: "var(--font-ui)",
           }}>{salvando ? "Salvataggio…" : "Salva zona"}</button>
@@ -194,6 +244,11 @@ export default function ZonaConsegnaPage() {
             : nPunti < 3
               ? `Hai messo ${nPunti} ${nPunti === 1 ? "punto" : "punti"}: continua a cliccare attorno all'area (ne servono almeno 3).`
               : "Per finire clicca sul pallino rosso (il primo punto) oppure premi Chiudi zona."}
+      </p>
+
+      <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
+        <span style={{ color: "#dc2626", fontWeight: 700 }}>●</span> Pin rossi = le nostre sedi (quella che stai modificando ha il contorno nero).
+        Le aree colorate sono le zone già assegnate alle altre sedi: tieni il tuo disegno fuori da quelle.
       </p>
 
       <div ref={mapRef} style={{ width: "100%", height: "70vh", borderRadius: 14, border: "1px solid var(--border)", background: "var(--surface-muted)" }} />

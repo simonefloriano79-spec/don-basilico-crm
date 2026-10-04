@@ -57,6 +57,28 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   const latCentro = centroValido ? Number(centro.lat) : punti.reduce((a, p) => a + p.lat, 0) / punti.length;
   const lngCentro = centroValido ? Number(centro.lng) : punti.reduce((a, p) => a + p.lng, 0) / punti.length;
 
+  // Sovrapposizione con le zone delle altre sedi: avviso (non blocco) se supera ~1.000 m²,
+  // salvo conferma esplicita dall'editor (`forza`).
+  if (body.forza !== true) {
+    const sovrapposte = await prisma.$queryRaw<{ nome: string; area: number }[]>`
+      SELECT s.nome, ST_Area(ST_Intersection(sc.zona, ST_GeogFromText(${`SRID=4326;${wkt}`}))) AS area
+      FROM sedi_copertura sc
+      JOIN sedi s ON s.id = sc.sede_id
+      WHERE sc.sede_id <> ${params.id}::uuid AND sc.zona IS NOT NULL AND s.attiva = true
+        AND ST_Intersects(sc.zona, ST_GeogFromText(${`SRID=4326;${wkt}`}))
+    `;
+    const significative = sovrapposte.filter((r) => Number(r.area) > 1000);
+    if (significative.length) {
+      return NextResponse.json(
+        {
+          error: "La zona si sovrappone a quella di altre sedi",
+          sovrapposizioni: significative.map((r) => ({ nome: r.nome, mq: Math.round(Number(r.area)) })),
+        },
+        { status: 409 }
+      );
+    }
+  }
+
   await prisma.$executeRaw`
     INSERT INTO sedi_copertura (id, sede_id, lat, lng, zona, attiva)
     VALUES (gen_random_uuid(), ${params.id}::uuid, ${latCentro}, ${lngCentro}, ST_GeogFromText(${`SRID=4326;${wkt}`}), true)
