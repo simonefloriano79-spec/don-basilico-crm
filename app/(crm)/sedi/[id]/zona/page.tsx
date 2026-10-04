@@ -29,6 +29,7 @@ export default function ZonaConsegnaPage() {
   const [sede, setSede] = useState<any>(null);
   const [pronto, setPronto] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  const [adattando, setAdattando] = useState(false);
   const [nAree, setNAree] = useState(0);
   const [selezione, setSelezione] = useState(false);
   const [nPunti, setNPunti] = useState(0);
@@ -219,6 +220,29 @@ export default function ZonaConsegnaPage() {
     setNPunti(b.punti.length);
   }
 
+  // "Adatta ai confini vicini": il server ritaglia le sovrapposizioni con le altre sedi e chiude le fessure
+  // strette; qui si sostituisce il disegno con il risultato. Non salva nulla: si controlla e poi si preme Salva.
+  async function adattaConfini() {
+    if (!mapObj.current || !areeRef.current.length) return;
+    const aree = areeRef.current.map((p) => p.getPath().getArray().map((q) => ({ lat: q.lat(), lng: q.lng() })));
+    setAdattando(true);
+    const res = await fetch(`/api/sedi/${id}/zona/adatta`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ aree }),
+    });
+    setAdattando(false);
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) return toast.error(d.error ?? "Errore");
+
+    areeRef.current.forEach((p) => p.setMap(null));
+    areeRef.current = [];
+    selezionaArea(null);
+    (d.aree as Punto[][]).forEach((punti) => aggiungiArea(mapObj.current!, punti));
+    const mq = (n: number) => `${Number(n).toLocaleString("it-IT")} m²`;
+    if (!d.confinanti) toast("Non ci sono altre zone vicine da adattare", { icon: "ℹ️" });
+    else if (!d.toltoMq && !d.aggiuntoMq) toast.success("Già a posto: nessuna sovrapposizione e nessuna fessura");
+    else toast.success(`Adattata: tolti ${mq(d.toltoMq)} di sovrapposizione, aggiunti ${mq(d.aggiuntoMq)} di fessure. Controlla e premi Salva zona.`, { duration: 7000 });
+  }
+
   // Annulla il disegno in corso: le aree già presenti restano com'erano.
   function annullaDisegno() {
     pulisciBozza();
@@ -262,6 +286,11 @@ export default function ZonaConsegnaPage() {
           {disegnando && nAree > 0 && <button onClick={annullaDisegno} style={btnChiaro}>Annulla questo disegno</button>}
           {!disegnando && nAree > 0 && (
             <button onClick={() => mapObj.current && avviaDisegno(mapObj.current)} style={btnChiaro}>+ Aggiungi un'altra area</button>
+          )}
+          {!disegnando && nAree > 0 && (
+            <button onClick={adattaConfini} disabled={adattando} style={btnChiaro} title="Toglie le sovrapposizioni con le altre sedi e chiude le fessure strette tra i confini. Non salva: controlli e poi salvi.">
+              {adattando ? "Adatto…" : "Adatta ai confini vicini"}
+            </button>
           )}
           {!disegnando && selezione && (
             <button onClick={eliminaSelezionata} style={{ ...btnChiaro, color: "var(--danger)", borderColor: "var(--danger-border)" }}>Elimina area selezionata</button>
