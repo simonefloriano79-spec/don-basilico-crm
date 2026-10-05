@@ -311,7 +311,11 @@ function PizzaModalCliente({ item, ingredienti, onConferma, onChiudi }: {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end" }} onClick={onChiudi}>
-      <div style={{ background: "var(--surface)", borderRadius: "20px 20px 0 0", maxHeight: "92vh", display: "flex", flexDirection: "column", width: "100%", maxWidth: 560, margin: "0 auto" }} onClick={(e) => e.stopPropagation()}>
+      <div style={{ background: "var(--surface)", borderRadius: "20px 20px 0 0", maxHeight: "92vh", display: "flex", flexDirection: "column", width: "100%", maxWidth: 560, margin: "0 auto", overflow: "hidden" }} onClick={(e) => e.stopPropagation()}>
+        {item.immagineUrl && (
+          <img src={item.immagineUrl} alt={item.nome} decoding="async"
+            style={{ width: "100%", height: 190, objectFit: "cover", display: "block", flexShrink: 0, background: "var(--border)" }} />
+        )}
         <div style={{ padding: "18px 20px 10px", display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
           <div style={{ fontFamily: "var(--font-display)", fontSize: 21, color: "var(--text)" }}>{item.nome}</div>
           <span className="num" style={{ fontSize: 14, color: "var(--text-2)" }}>{euro(prezzoBase)}</span>
@@ -825,9 +829,13 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
           return (
             <div key={item.id} onClick={() => aggiungiAlCarrello(item)} style={{
               background: "#fff", border: "1px solid var(--border)", borderRadius: 10, padding: "12px 14px", cursor: "pointer",
-              display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10,
+              display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12,
             }}>
-              <div>
+              {item.immagineUrl && (
+                <img src={item.immagineUrl} alt={item.nome} loading="lazy" decoding="async"
+                  style={{ width: 78, height: 78, borderRadius: 12, objectFit: "cover", flexShrink: 0, background: "var(--border)" }} />
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: "var(--font-display)", fontSize: 16, color: "var(--text)" }}>{item.nome}</div>
                 {item.descrizione && <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 3 }}>{item.descrizione}</div>}
               </div>
