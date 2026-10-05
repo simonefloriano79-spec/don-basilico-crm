@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { COSTO_CONSEGNA_DEFAULT } from "@/lib/consegna";
+import PaginaTessera from "./PaginaTessera";
 
 const CAT_LABEL: Record<string, string> = {
   pizze: "Pizze", pizze_rosse: "Pizze rosse", pizze_bianche: "Pizze bianche",
@@ -127,8 +128,9 @@ function ConsensiPrivacy({ privacy, setPrivacy, marketing, setMarketing }: { pri
 }
 
 // Tessera fedeltà: cerchietti dei timbri e messaggio.
-function CartaFedelta({ tessera }: { tessera: Tessera | null }) {
+function CartaFedelta({ tessera, onApri }: { tessera: Tessera | null; onApri: () => void }) {
   const timbri = tessera?.timbri ?? 0;
+  const scontoAccumulato = tessera ? Math.round(tessera.totaleCiclo * 0.1 * 100) / 100 : 0;
   return (
     <div style={{ border: "1px solid var(--border)", background: "#fff", borderRadius: 16, padding: "14px 16px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -150,6 +152,15 @@ function CartaFedelta({ tessera }: { tessera: Tessera | null }) {
             ? <>Ancora {TIMBRI_PER_CICLO - timbri} {TIMBRI_PER_CICLO - timbri === 1 ? "ordine" : "ordini"} e ottieni il 10% di sconto sulla spesa.</>
             : <>Ogni ordine è un timbro: ogni {TIMBRI_PER_CICLO} ottieni il 10% di sconto sulla spesa (la consegna non conta). La tessera si attiva con il tuo primo ordine.</>}
       </div>
+      {tessera && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
+          <span style={{ fontSize: 12.5, color: "var(--text-2)" }}>Sconto accumulato</span>
+          <b className="num" style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--text)" }}>{euro(scontoAccumulato)}</b>
+        </div>
+      )}
+      <button onClick={onApri} style={{ width: "100%", marginTop: 12, background: "var(--text)", color: "#fff", border: "none", padding: "13px", borderRadius: 12, fontSize: 14, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)" }}>
+        {tessera ? "Apri la tessera e il QR" : "Attiva la tessera"}
+      </button>
     </div>
   );
 }
@@ -367,6 +378,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   const [nome, setNome] = useState("");
   const [codice, setCodice] = useState("");
   const [vistaOrdini, setVistaOrdini] = useState(false);
+  const [vistaTessera, setVistaTessera] = useState(false);
   const [privacy, setPrivacy] = useState(false);
   const [marketing, setMarketing] = useState(false);
   const [tessera, setTessera] = useState<Tessera | null>(null);
@@ -531,8 +543,8 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   // Prime schermate (registrazione e scelta ritiro/domicilio): logo grande al centro.
   useEffect(() => {
     if (caricamento) return; // durante il caricamento resta com'è (logo grande), niente salti
-    onSchermataIniziale?.(!tipo && !confermato && !vistaOrdini);
-  }, [caricamento, tipo, confermato, vistaOrdini, onSchermataIniziale]);
+    onSchermataIniziale?.(!tipo && !confermato && !vistaOrdini && !vistaTessera);
+  }, [caricamento, tipo, confermato, vistaOrdini, vistaTessera, onSchermataIniziale]);
 
   const subtotale = cart.reduce((a, c) => a + c.prezzo * c.qty, 0);
   const consegna = tipo === "domicilio" ? COSTO_CONSEGNA_DEFAULT : 0;
@@ -585,6 +597,14 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   };
 
   if (caricamento) return null;
+
+  // ── La mia tessera ───────────────────────────────────────────
+  if (vistaTessera && cliente) {
+    return <PaginaTessera sedi={sedi.map((x: any) => ({ slug: x.slug, nome: x.nome }))} onIndietro={() => {
+      setVistaTessera(false);
+      fetch("/api/ordina/tessera").then((r) => r.json()).then((d) => setTessera(d.tessera ?? null)).catch(() => {});
+    }} />;
+  }
 
   // ── I miei ordini ────────────────────────────────────────────
   if (vistaOrdini && cliente) {
@@ -696,7 +716,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 420, width: "100%", margin: "0 auto" }}>
         <h1 style={{ fontFamily: "var(--font-display)", fontSize: 26, color: "var(--text)", textAlign: "center" }}>Ciao {cliente.nome.split(" ")[0]}</h1>
-        <CartaFedelta tessera={tessera} />
+        <CartaFedelta tessera={tessera} onApri={() => setVistaTessera(true)} />
         <p style={{ fontSize: 14, color: "var(--text-muted)", textAlign: "center" }}>Come vuoi ricevere il tuo ordine?</p>
         <button style={{ ...btnPrimarySt }} onClick={() => setTipo("asporto")}>Ritiro in sede</button>
         <button style={{ ...btnPrimarySt, background: "#fff", color: "var(--text)", border: "1px solid var(--border)" }} onClick={() => setTipo("domicilio")}>Consegna a domicilio</button>
