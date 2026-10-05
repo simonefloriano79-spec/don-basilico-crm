@@ -11,13 +11,99 @@ const CAT_LABEL: Record<string, string> = {
 
 const fieldSt: React.CSSProperties = {
   width: "100%", background: "#fff", border: "1px solid var(--border)",
-  color: "var(--text)", padding: "11px 14px", borderRadius: 9, fontSize: 15,
+  color: "var(--text)", padding: "14px 16px", borderRadius: 14, fontSize: 16,
   outline: "none", fontFamily: "var(--font-ui)",
 };
 const btnPrimarySt: React.CSSProperties = {
   width: "100%", background: "var(--text)", color: "#fff", border: "none",
-  padding: 14, borderRadius: 9, fontSize: 14, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)",
+  padding: 16, borderRadius: 14, fontSize: 15, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)",
 };
+
+// Registrazione dell'evento di installazione (arriva una volta sola, spesso prima che il pulsante sia visibile).
+let eventoInstalla: any = null;
+
+function Testata({ grande }: { grande: boolean }) {
+  return (
+    <img
+      src="/brand/don-basilico-logo.png"
+      alt="Don Basilico — Naturalmente Pizza"
+      style={grande
+        ? { display: "block", width: "min(80vw, 340px)", height: "auto", margin: "10px auto 26px" }
+        : { display: "block", width: 118, height: "auto", margin: "4px auto 16px" }}
+    />
+  );
+}
+
+// "Scarica sul tuo cellulare": installa l'app (aggiunge l'icona alla schermata Home). Dove il browser lo permette
+// (Android/Chrome) parte l'installazione; altrove (iPhone, altri browser) mostra i passaggi.
+function BottoneInstalla() {
+  const [installata, setInstallata] = useState(false);
+  const [aiuto, setAiuto] = useState(false);
+
+  useEffect(() => {
+    const standalone = window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone === true;
+    if (standalone) setInstallata(true);
+    const fatto = () => setInstallata(true);
+    window.addEventListener("appinstalled", fatto);
+    return () => window.removeEventListener("appinstalled", fatto);
+  }, []);
+
+  if (installata) return null;
+
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+  const ios = /iPad|iPhone|iPod/.test(ua) || (typeof navigator !== "undefined" && navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const appInterna = /FBAN|FBAV|Instagram|Line\/|MicroMessenger/i.test(ua);
+
+  const clic = async () => {
+    if (eventoInstalla) {
+      eventoInstalla.prompt();
+      try { await eventoInstalla.userChoice; } catch {}
+      eventoInstalla = null;
+      return;
+    }
+    setAiuto(true);
+  };
+
+  return (
+    <>
+      <button onClick={clic} style={{
+        ...btnPrimarySt, background: "transparent", color: "var(--text)", border: "1.5px solid var(--text)",
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+      }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 3v12" /><path d="M7 11l5 5 5-5" /><path d="M5 21h14" />
+        </svg>
+        Scarica sul tuo cellulare
+      </button>
+
+      {aiuto && (
+        <div onClick={() => setAiuto(false)} style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.5)", zIndex: 1000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--surface)", width: "100%", maxWidth: 520, borderRadius: "22px 22px 0 0", padding: "24px 22px 30px" }}>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 20, color: "var(--text)", marginBottom: 12 }}>Aggiungi Don Basilico al telefono</div>
+            {appInterna ? (
+              <p style={{ fontSize: 14, color: "var(--text-2)", lineHeight: 1.55 }}>
+                Stai usando il browser interno di un'altra app. Apri questa pagina in <strong>Safari</strong> (iPhone) o <strong>Chrome</strong> (Android) e poi premi di nuovo questo pulsante.
+              </p>
+            ) : ios ? (
+              <ol style={{ fontSize: 14, color: "var(--text-2)", lineHeight: 1.7, paddingLeft: 20, margin: 0 }}>
+                <li>Tocca il pulsante <strong>Condividi</strong> (il quadrato con la freccia verso l'alto) in basso.</li>
+                <li>Scorri e tocca <strong>«Aggiungi alla schermata Home»</strong>.</li>
+                <li>Tocca <strong>«Aggiungi»</strong>: l'icona dei baffi comparirà tra le tue app.</li>
+              </ol>
+            ) : (
+              <ol style={{ fontSize: 14, color: "var(--text-2)", lineHeight: 1.7, paddingLeft: 20, margin: 0 }}>
+                <li>Tocca il menu del browser (i tre puntini <strong>⋮</strong> in alto).</li>
+                <li>Scegli <strong>«Installa app»</strong> oppure <strong>«Aggiungi a schermata Home»</strong>.</li>
+                <li>Conferma: l'icona dei baffi comparirà tra le tue app.</li>
+              </ol>
+            )}
+            <button onClick={() => setAiuto(false)} style={{ ...btnPrimarySt, marginTop: 20 }}>Ho capito</button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 function euro(n: number) {
   return `€ ${n.toFixed(2).replace(".", ",")}`;
@@ -133,7 +219,7 @@ function PizzaModalCliente({ item, ingredienti, onConferma, onChiudi }: {
   );
 }
 
-export default function OrdinaFlow({ sedeSlugIniziale }: { sedeSlugIniziale?: string }) {
+function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIniziale?: string; onSchermataIniziale?: (iniziale: boolean) => void }) {
   const [caricamento, setCaricamento] = useState(true);
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [staffBeta, setStaffBeta] = useState(false);
@@ -292,6 +378,12 @@ export default function OrdinaFlow({ sedeSlugIniziale }: { sedeSlugIniziale?: st
     });
   };
 
+  // Prime schermate (registrazione e scelta ritiro/domicilio): logo grande al centro.
+  useEffect(() => {
+    if (caricamento) return; // durante il caricamento resta com'è (logo grande), niente salti
+    onSchermataIniziale?.(!tipo && !confermato);
+  }, [caricamento, tipo, confermato, onSchermataIniziale]);
+
   const subtotale = cart.reduce((a, c) => a + c.prezzo * c.qty, 0);
   const consegna = tipo === "domicilio" ? COSTO_CONSEGNA_DEFAULT : 0;
   const totale = subtotale + consegna;
@@ -359,9 +451,9 @@ export default function OrdinaFlow({ sedeSlugIniziale }: { sedeSlugIniziale?: st
   // ── Gate registrazione/OTP ───────────────────────────────────
   if (!cliente) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 20 }}>
-        <h1 style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--text)" }}>Ordina online</h1>
-        <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Registrati con il tuo numero di telefono: ci serve per confermarti l'ordine e poterti chiamare in caso di problemi in consegna.</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 420, width: "100%", margin: "0 auto" }}>
+        <h1 style={{ fontFamily: "var(--font-display)", fontSize: 26, color: "var(--text)", textAlign: "center" }}>Ordina online</h1>
+        <p style={{ fontSize: 13.5, color: "var(--text-muted)", textAlign: "center", lineHeight: 1.5 }}>Registrati con il tuo numero di telefono: ci serve per confermarti l'ordine e poterti chiamare in caso di problemi in consegna.</p>
 
         {staffBeta && (
           <div style={{ background: "var(--accent-bg-2)", border: "1px solid var(--accent-border)", borderRadius: 12, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
@@ -394,6 +486,7 @@ export default function OrdinaFlow({ sedeSlugIniziale }: { sedeSlugIniziale?: st
             </button>
           </>
         )}
+        <BottoneInstalla />
       </div>
     );
   }
@@ -401,11 +494,12 @@ export default function OrdinaFlow({ sedeSlugIniziale }: { sedeSlugIniziale?: st
   // ── Scelta ritiro/domicilio ──────────────────────────────────
   if (!tipo) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 20 }}>
-        <h1 style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--text)" }}>Ciao {cliente.nome.split(" ")[0]}</h1>
-        <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Come vuoi ricevere il tuo ordine?</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 420, width: "100%", margin: "0 auto" }}>
+        <h1 style={{ fontFamily: "var(--font-display)", fontSize: 26, color: "var(--text)", textAlign: "center" }}>Ciao {cliente.nome.split(" ")[0]}</h1>
+        <p style={{ fontSize: 14, color: "var(--text-muted)", textAlign: "center" }}>Come vuoi ricevere il tuo ordine?</p>
         <button style={{ ...btnPrimarySt }} onClick={() => setTipo("asporto")}>Ritiro in sede</button>
         <button style={{ ...btnPrimarySt, background: "#fff", color: "var(--text)", border: "1px solid var(--border)" }} onClick={() => setTipo("domicilio")}>Consegna a domicilio</button>
+        <BottoneInstalla />
       </div>
     );
   }
@@ -628,6 +722,29 @@ export default function OrdinaFlow({ sedeSlugIniziale }: { sedeSlugIniziale?: st
           onChiudi={() => setPizzaModal(null)}
           onConferma={(c) => { setCart((p) => [...p, { ...c, cartId: crypto.randomUUID() }]); setPizzaModal(null); }} />
       )}
+    </div>
+  );
+}
+
+
+export default function OrdinaFlow(props: { sedeSlugIniziale?: string }) {
+  const [iniziale, setIniziale] = useState(true);
+
+  useEffect(() => {
+    const catturaInstallazione = (e: Event) => { e.preventDefault(); eventoInstalla = e; };
+    window.addEventListener("beforeinstallprompt", catturaInstallazione);
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw-ordina.js", { scope: "/ordina" }).catch(() => {});
+    return () => window.removeEventListener("beforeinstallprompt", catturaInstallazione);
+  }, []);
+
+  return (
+    <div style={{
+      display: "flex", flexDirection: "column",
+      minHeight: iniziale ? "calc(100dvh - 90px)" : undefined,
+      justifyContent: iniziale ? "center" : "flex-start",
+    }}>
+      <Testata grande={iniziale} />
+      <OrdinaFlowInner {...props} onSchermataIniziale={setIniziale} />
     </div>
   );
 }
