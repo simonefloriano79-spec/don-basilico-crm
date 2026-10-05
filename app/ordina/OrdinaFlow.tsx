@@ -265,7 +265,12 @@ interface IngredienteCl {
   id: string; nome: string; prezzoAggiunta: number | string;
   disabilitatoInSede?: boolean; escludiCompensazione?: boolean;
 }
+interface ImpastoCl { id: string; nome: string; descrizione: string | null; supplemento: number; }
+// Gli impasti speciali si scelgono solo su pizze (non su calzoni, focacce, fritti, bevande).
+const CAT_IMPASTO = ["menu_speciale", "pizze_rosse", "pizze_bianche"];
+
 interface CartItem {
+  impasto?: { id: string; nome: string; supplemento: number };
   cartId: string; menuItemId: string; nome: string; categoria: string;
   prezzo: number; qty: number;
   rimossi: { id: string; nome: string }[];
@@ -288,8 +293,8 @@ const num = (v: number | string | undefined) => parseFloat(String(v ?? 0)) || 0;
 // Finestra di personalizzazione pizza: toglie ingredienti base, aggiunge extra.
 // Stessa regola della cassa: togliere non genera sconto da solo, ma "copre" fino al
 // suo valore gli extra aggiunti (mozzarella/pomodoro e simili non danno credito).
-function PizzaModalCliente({ item, ingredienti, onConferma, onChiudi }: {
-  item: any; ingredienti: IngredienteCl[];
+function PizzaModalCliente({ item, ingredienti, impasti, onConferma, onChiudi }: {
+  item: any; ingredienti: IngredienteCl[]; impasti: ImpastoCl[];
   onConferma: (c: Omit<CartItem, "cartId">) => void; onChiudi: () => void;
 }) {
   const base: IngredienteCl[] = (item.ingredienti ?? []).map((ii: any) => ii.ingrediente ?? ii);
@@ -298,11 +303,14 @@ function PizzaModalCliente({ item, ingredienti, onConferma, onChiudi }: {
   const [nota, setNota] = useState("");
   const [qty, setQty] = useState(1);
   const [cerca, setCerca] = useState("");
+  const [impastoId, setImpastoId] = useState<string | null>(null);
+  const impastiScelta = CAT_IMPASTO.includes(item.categoria) ? impasti : [];
+  const impastoScelto = impastiScelta.find((x) => x.id === impastoId) ?? null;
 
   const prezzoBase = num(item.prezzoEffettivo ?? item.prezzoBase);
   const lordo = Array.from(aggiunti.values()).reduce((a, i) => a + num(i.prezzoAggiunta), 0);
   const credito = base.filter((i) => rimossi.has(i.id) && !i.escludiCompensazione).reduce((a, i) => a + num(i.prezzoAggiunta), 0);
-  const unitario = prezzoBase + Math.max(0, lordo - credito);
+  const unitario = prezzoBase + Math.max(0, lordo - credito) + (impastoScelto?.supplemento ?? 0);
 
   const extra = ingredienti.filter((i) => !rimossi.has(i.id) && !i.disabilitatoInSede
     && i.nome.toLowerCase().includes(cerca.toLowerCase()));
@@ -321,6 +329,22 @@ function PizzaModalCliente({ item, ingredienti, onConferma, onChiudi }: {
           <span className="num" style={{ fontSize: 14, color: "var(--text-2)" }}>{euro(prezzoBase)}</span>
         </div>
         <div style={{ flex: 1, overflowY: "auto", padding: "0 20px 12px" }}>
+          {impastiScelta.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 10.5, letterSpacing: 1.6, textTransform: "uppercase", color: "var(--text-muted)", margin: "6px 0 8px" }}>Impasto</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                <button onClick={() => setImpastoId(null)} style={{ padding: "9px 14px", borderRadius: 12, fontSize: 13, cursor: "pointer", fontFamily: "var(--font-ui)", border: "1.5px solid", ...sceltaSt(impastoId === null) }}>Classico · incluso</button>
+                {impastiScelta.map((x) => (
+                  <button key={x.id} onClick={() => setImpastoId(x.id)} style={{ padding: "9px 14px", borderRadius: 12, fontSize: 13, cursor: "pointer", fontFamily: "var(--font-ui)", border: "1.5px solid", ...sceltaSt(impastoId === x.id) }}>
+                    {x.nome} · +{euro(x.supplemento)}
+                  </button>
+                ))}
+              </div>
+              {impastoScelto?.descrizione && (
+                <div style={{ fontSize: 12.5, color: "var(--text-2)", marginTop: 8, lineHeight: 1.5 }}>{impastoScelto.descrizione}</div>
+              )}
+            </div>
+          )}
           {base.length > 0 && (
             <>
               <div style={{ fontSize: 10.5, letterSpacing: 1.6, textTransform: "uppercase", color: "var(--text-muted)", margin: "6px 0 8px" }}>Ingredienti — tocca per togliere</div>
@@ -364,6 +388,7 @@ function PizzaModalCliente({ item, ingredienti, onConferma, onChiudi }: {
             rimossi: base.filter((i) => rimossi.has(i.id)).map((i) => ({ id: i.id, nome: i.nome })),
             aggiunti: Array.from(aggiunti.values()).map((i) => ({ id: i.id, nome: i.nome })),
             nota: nota.trim(),
+            impasto: impastoScelto ? { id: impastoScelto.id, nome: impastoScelto.nome, supplemento: impastoScelto.supplemento } : undefined,
           })}>Aggiungi · {euro(unitario * qty)}</button>
         </div>
       </div>
@@ -415,6 +440,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   const [confermato, setConfermato] = useState<{ numeroOrdine: number; sede: string; totale: number; oraRitiro: string | null; scontoFedelta?: number } | null>(null);
   const [nomeCitofono, setNomeCitofono] = useState("");
   const [ingredienti, setIngredienti] = useState<IngredienteCl[]>([]);
+  const [impasti, setImpasti] = useState<ImpastoCl[]>([]);
   const [pizzaModal, setPizzaModal] = useState<any>(null);
   const [slotData, setSlotData] = useState<SlotData | null>(null);
   const [orario, setOrario] = useState<string>(""); // "asap" oppure ISO dello slot scelto
@@ -444,6 +470,12 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
       setMenuItems((d.items ?? []).filter((i: any) => i.isAttivo && i.disponibileInSede !== false)));
     fetch(`/api/ingredienti?sedeId=${sedeIdAttiva}`).then((r) => r.json()).then((d) =>
       setIngredienti(Array.isArray(d) ? d : []));
+  }, [sedeIdAttiva]);
+
+  // Impasti speciali che questa pizzeria prepara (se non ne ha, la scheda della pizza non mostra la scelta).
+  useEffect(() => {
+    if (!sedeIdAttiva) { setImpasti([]); return; }
+    fetch(`/api/impasti?sedeId=${sedeIdAttiva}`).then((r) => r.json()).then((d) => setImpasti(d.impasti ?? [])).catch(() => setImpasti([]));
   }, [sedeIdAttiva]);
 
   // Peso del carrello sulla cucina (pizze equivalenti) e orari prenotabili con disponibilità.
@@ -586,6 +618,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
             menuItemId: c.menuItemId, quantita: c.qty,
             ingredientiAggiuntiIds: c.aggiunti.map((i) => i.id),
             ingredientiRimossi: c.rimossi.map((i) => i.id),
+            impastoId: c.impasto?.id,
             note: c.nota || undefined,
           })),
         }),
@@ -851,6 +884,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
             <div key={c.cartId} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13.5, color: "var(--text)" }}>{c.nome}</div>
+                {c.impasto && <div style={{ fontSize: 11, color: "var(--text-2)", fontWeight: 600 }}>Impasto {c.impasto.nome} (+{euro(c.impasto.supplemento)})</div>}
                 {c.rimossi.length > 0 && <div style={{ fontSize: 11, color: "var(--danger)" }}>Senza: {c.rimossi.map((i) => i.nome).join(", ")}</div>}
                 {c.aggiunti.length > 0 && <div style={{ fontSize: 11, color: "var(--accent-ink)" }}>Con: {c.aggiunti.map((i) => i.nome).join(", ")}</div>}
                 {c.nota && <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{c.nota}</div>}
@@ -967,7 +1001,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
       )}
 
       {pizzaModal && (
-        <PizzaModalCliente item={pizzaModal} ingredienti={ingredienti}
+        <PizzaModalCliente item={pizzaModal} ingredienti={ingredienti} impasti={impasti}
           onChiudi={() => setPizzaModal(null)}
           onConferma={(c) => { setCart((p) => [...p, { ...c, cartId: crypto.randomUUID() }]); setPizzaModal(null); }} />
       )}

@@ -36,7 +36,7 @@ export async function generaTicketHTML(ordine: PrintOrdine): Promise<string> {
       (i) => `
       <tr>
         <td style="width:30px;font-weight:bold">${i.qty}x</td>
-        <td>${i.nome}${i.note ? `<br><span style="font-size:14px">${i.note.split("|").map((s) => s.trim()).filter(Boolean).join("<br>")}</span>` : ""}</td>
+        <td>${i.nome}${i.note ? `<br><span style="font-size:14px">${i.note.split("|").map((s) => s.trim()).filter(Boolean).map((s) => (s.startsWith("IMPASTO") ? `<b style="font-size:17px">${s}</b>` : s)).join("<br>")}</span>` : ""}</td>
         <td style="text-align:right">€${(i.prezzo * i.qty).toFixed(2)}</td>
       </tr>`
     )

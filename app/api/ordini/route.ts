@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { CATEGORIE_IMPASTO, impastiDellaSede } from "@/lib/impasti";
 import { prossimoNumeroOrdine } from "@/lib/numero-ordine";
 
 // GET /api/ordini
@@ -89,6 +90,8 @@ export async function POST(req: NextRequest) {
     ingredienteIds.length ? prisma.ingrediente.findMany({ where: { id: { in: ingredienteIds as string[] } } }) : [],
   ]);
 
+  const impastiSede = items.some((i: any) => i.impastoId) ? await impastiDellaSede(sedeId) : [];
+  const impastoMap = new Map(impastiSede.map((x) => [x.id, x]));
   const menuItemMap = new Map(menuItemsDb.map((m) => [m.id, m]));
   const overrideMap = new Map(overrideDb.map((o) => [o.menuItemId, o]));
   const sedeExtraMap = new Map(sedeExtraDb.map((e) => [e.id, e]));
@@ -122,7 +125,11 @@ export async function POST(req: NextRequest) {
           return ing.escludiCompensazione ? acc : acc + parseFloat(ing.prezzoAggiunta.toString());
         }, 0);
         const extra = Math.max(0, extraLordo - credito);
-        prezzoUnitario = base + extra;
+        // Impasto speciale (solo su pizze, solo se la pizzeria lo prepara): il supplemento si somma al prezzo.
+        const impasto = i.impastoId ? impastoMap.get(i.impastoId) : undefined;
+        if (i.impastoId && !impasto) throw new Error("L'impasto scelto non è disponibile in questa pizzeria");
+        if (impasto && !CATEGORIE_IMPASTO.has(menuItem.categoria)) throw new Error(`${menuItem.nome}: l'impasto speciale non è disponibile`);
+        prezzoUnitario = base + extra + (impasto?.supplemento ?? 0);
       } else if (i.sedeExtraId) {
         const sedeExtra = sedeExtraMap.get(i.sedeExtraId);
         if (!sedeExtra) throw new Error(`Prodotto non trovato: ${i.sedeExtraId}`);
@@ -141,6 +148,7 @@ export async function POST(req: NextRequest) {
         prezzoSnapshot: prezzoUnitario,
         quantita,
         noteItem: i.noteItem || null,
+        impasto: i.impastoId ? (impastoMap.get(i.impastoId)?.nome ?? null) : null,
         ingredientiRimossi: i.ingredientiRimossi || [],
       };
     });

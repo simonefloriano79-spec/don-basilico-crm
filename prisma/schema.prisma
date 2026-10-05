@@ -58,25 +58,25 @@ enum CategoriaMenu {
 }
 
 model Sede {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nome           String
-  indirizzo      String
-  citta          String
-  telefono       String?
-  email          String?
-  slug           String   @unique
-  attiva         Boolean  @default(true)
-  orarioApertura String   @default("11:30") @map("orario_apertura")
-  orarioChiusura String   @default("23:00") @map("orario_chiusura")
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome                String
+  indirizzo           String
+  citta               String
+  telefono            String?
+  email               String?
+  slug                String   @unique
+  attiva              Boolean  @default(true)
+  orarioApertura      String   @default("11:30") @map("orario_apertura")
+  orarioChiusura      String   @default("23:00") @map("orario_chiusura")
   // Capienza cucina a peso: max pizze (equivalenti) ogni finestra di N minuti.
   // Limita solo gli slot prenotabili online, non blocca mai cassa/telefono.
-  capacitaPizze       Int @default(15) @map("capacita_pizze")
-  finestraCapacitaMin Int @default(15) @map("finestra_capacita_min")
+  capacitaPizze       Int      @default(15) @map("capacita_pizze")
+  finestraCapacitaMin Int      @default(15) @map("finestra_capacita_min")
   // Interruttore d'emergenza: se false il sito clienti non accetta più ordini per questa sede.
-  ordiniOnlineAttivi  Boolean @default(true) @map("ordini_online_attivi")
-  note           String?
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  ordiniOnlineAttivi  Boolean  @default(true) @map("ordini_online_attivi")
+  note                String?
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
   utenti         Utente[]
   ordini         Ordine[]
@@ -88,6 +88,7 @@ model Sede {
   slotCucina     SlotCucina[]
   interazioni    InterazioneLog[]
   ordiniVocali   OrdineVocale[]
+  impasti        SedeImpasto[]
 
   @@map("sedi")
 }
@@ -133,15 +134,40 @@ model MenuItem {
   @@map("menu_items")
 }
 
+// Impasti speciali (oltre al "classico", che è sempre incluso): elenco unico, attivabile per ogni pizzeria.
+model Impasto {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome        String  @unique
+  descrizione String?
+  supplemento Decimal @default(1) @db.Decimal(10, 2)
+  ordine      Int     @default(0)
+  attivo      Boolean @default(true)
+
+  sedi SedeImpasto[]
+
+  @@map("impasti")
+}
+
+model SedeImpasto {
+  sedeId    String @map("sede_id") @db.Uuid
+  impastoId String @map("impasto_id") @db.Uuid
+
+  sede    Sede    @relation(fields: [sedeId], references: [id], onDelete: Cascade)
+  impasto Impasto @relation(fields: [impastoId], references: [id], onDelete: Cascade)
+
+  @@id([sedeId, impastoId])
+  @@map("sedi_impasti")
+}
+
 model Ingrediente {
-  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nome               String   @unique
-  isAllergene        Boolean  @default(false) @map("is_allergene")
-  prezzoAggiunta     Decimal  @default(0.00) @map("prezzo_aggiunta") @db.Decimal(10, 2)
-  disponibileDefault Boolean  @default(true) @map("disponibile_default")
-  escludiCompensazione Boolean @default(false) @map("escludi_compensazione")
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome                 String   @unique
+  isAllergene          Boolean  @default(false) @map("is_allergene")
+  prezzoAggiunta       Decimal  @default(0.00) @map("prezzo_aggiunta") @db.Decimal(10, 2)
+  disponibileDefault   Boolean  @default(true) @map("disponibile_default")
+  escludiCompensazione Boolean  @default(false) @map("escludi_compensazione")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at")
 
   menuItems    MenuItemIngrediente[]
   disabilitati SedeIngredienteDisabilitato[]
@@ -211,21 +237,21 @@ model SedeMenuExtra {
 }
 
 model Cliente {
-  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nome             String
-  cognome          String?
-  telefono         String?
-  email            String?
-  indirizzoDefault String?  @map("indirizzo_default")
-  note             String?
-  puntiFedelta     Int      @default(0) @map("punti_fedelta")
-  sedePreferita    String?  @map("sede_preferita") @db.Uuid
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome                 String
+  cognome              String?
+  telefono             String?
+  email                String?
+  indirizzoDefault     String?   @map("indirizzo_default")
+  note                 String?
+  puntiFedelta         Int       @default(0) @map("punti_fedelta")
+  sedePreferita        String?   @map("sede_preferita") @db.Uuid
   telefonoVerificatoAt DateTime? @map("telefono_verificato_at")
   // Consensi dati dal cliente nell'app ordini (informativa privacy obbligatoria, marketing facoltativo).
-  privacyAt    DateTime? @map("privacy_at")
-  marketingAt  DateTime? @map("marketing_at")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  privacyAt            DateTime? @map("privacy_at")
+  marketingAt          DateTime? @map("marketing_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
 
   ordini Ordine[]
 
@@ -264,9 +290,9 @@ model Ordine {
   modalitaConsegna      String?   @map("modalita_consegna")
 
   totale          Decimal @default(0) @db.Decimal(10, 2)
-  costoConsegna   Decimal @default(0) @db.Decimal(10, 2) @map("costo_consegna")
+  costoConsegna   Decimal @default(0) @map("costo_consegna") @db.Decimal(10, 2)
   // Sconto della tessera fedeltà applicato all'ordine (già sottratto da `totale`).
-  scontoFedelta   Decimal @default(0) @db.Decimal(10, 2) @map("sconto_fedelta")
+  scontoFedelta   Decimal @default(0) @map("sconto_fedelta") @db.Decimal(10, 2)
   pagato          Boolean @default(false)
   metodoPagamento String? @map("metodo_pagamento")
   stripePaymentId String? @map("stripe_payment_id")
@@ -274,12 +300,12 @@ model Ordine {
   note          String?
   // Note specifiche per la consegna a domicilio (es. "Citofono rotto,
   // chiamare"), separate dalle note generali dell'ordine.
-  noteDomicilio String? @map("note_domicilio")
+  noteDomicilio String?  @map("note_domicilio")
   stampato      Boolean  @default(false)
   // Ordini al tavolo: numero o nome del tavolo (testo libero).
   tavolo        String?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   sede         Sede             @relation(fields: [sedeId], references: [id])
   cliente      Cliente?         @relation(fields: [clienteId], references: [id])
@@ -300,6 +326,7 @@ model OrdineItem {
   prezzoSnapshot     Decimal  @map("prezzo_snapshot") @db.Decimal(10, 2)
   quantita           Int      @default(1)
   ingredientiRimossi String[] @map("ingredienti_rimossi")
+  impasto            String?
   noteItem           String?  @map("note_item")
   createdAt          DateTime @default(now()) @map("created_at")
 
@@ -371,15 +398,15 @@ enum InterazioneEsito {
 }
 
 model SedeCopertura {
-  id        String                                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  sedeId    String                                  @unique @map("sede_id") @db.Uuid
-  lat       Decimal                                 @db.Decimal(9, 6)
-  lng       Decimal                                 @db.Decimal(9, 6)
+  id        String                                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sedeId    String                                       @unique @map("sede_id") @db.Uuid
+  lat       Decimal                                      @db.Decimal(9, 6)
+  lng       Decimal                                      @db.Decimal(9, 6)
   zona      Unsupported("geography(MultiPolygon,4326)")?
-  raggioKm  Decimal?                                @default(5.00) @map("raggio_km") @db.Decimal(5, 2)
-  attiva    Boolean                                 @default(true)
-  createdAt DateTime                                @default(now()) @map("created_at")
-  updatedAt DateTime                                @default(now()) @updatedAt @map("updated_at")
+  raggioKm  Decimal?                                     @default(5.00) @map("raggio_km") @db.Decimal(5, 2)
+  attiva    Boolean                                      @default(true)
+  createdAt DateTime                                     @default(now()) @map("created_at")
+  updatedAt DateTime                                     @default(now()) @updatedAt @map("updated_at")
 
   sede Sede @relation(fields: [sedeId], references: [id], onDelete: Cascade)
 
