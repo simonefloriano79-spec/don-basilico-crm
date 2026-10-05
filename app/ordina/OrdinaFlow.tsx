@@ -314,7 +314,7 @@ function PizzaModalCliente({ item, ingredienti, onConferma, onChiudi }: {
       <div style={{ background: "var(--surface)", borderRadius: "20px 20px 0 0", maxHeight: "92vh", display: "flex", flexDirection: "column", width: "100%", maxWidth: 560, margin: "0 auto", overflow: "hidden" }} onClick={(e) => e.stopPropagation()}>
         {item.immagineUrl && (
           <img src={item.immagineUrl} alt={item.nome} decoding="async"
-            style={{ width: "100%", height: 190, objectFit: "cover", display: "block", flexShrink: 0, background: "var(--border)" }} />
+            style={{ width: "100%", height: 260, objectFit: "cover", display: "block", flexShrink: 0, background: "var(--border)" }} />
         )}
         <div style={{ padding: "18px 20px 10px", display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
           <div style={{ fontFamily: "var(--font-display)", fontSize: 21, color: "var(--text)" }}>{item.nome}</div>
