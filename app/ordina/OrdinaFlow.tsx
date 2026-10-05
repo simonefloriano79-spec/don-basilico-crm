@@ -25,6 +25,90 @@ const sceltaSt = (selezionato: boolean): React.CSSProperties =>
     ? { background: "var(--text)", color: "#fff", borderColor: "var(--text)", fontWeight: 600 }
     : { background: "#fff", color: "var(--text)", borderColor: "#8a897f" };
 
+const STATO_CLIENTE: Record<string, { testo: (tipo: string) => string; colore: string; attivo: boolean }> = {
+  nuovo: { testo: () => "In attesa di conferma", colore: "#b45309", attivo: true },
+  confermato: { testo: () => "Confermato", colore: "#4d7c1c", attivo: true },
+  in_preparazione: { testo: () => "In preparazione", colore: "#4d7c1c", attivo: true },
+  pronto: { testo: (t) => (t === "domicilio" ? "Pronto, sta per partire" : "Pronto da ritirare"), colore: "#4d7c1c", attivo: true },
+  consegnato: { testo: (t) => (t === "domicilio" ? "Consegnato" : "Ritirato"), colore: "#6b6a60", attivo: false },
+  annullato: { testo: () => "Annullato", colore: "#b42318", attivo: false },
+};
+
+function dataOra(d: string): string {
+  return new Date(d).toLocaleString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+// "I miei ordini": ordini fatti dal sito, con lo stato che si aggiorna da solo.
+function MieiOrdini({ onIndietro }: { onIndietro: () => void }) {
+  const [ordini, setOrdini] = useState<any[] | null>(null);
+  const [errore, setErrore] = useState("");
+
+  useEffect(() => {
+    let attivo = true;
+    const carica = () =>
+      fetch("/api/ordina/ordini")
+        .then(async (r) => ({ ok: r.ok, d: await r.json().catch(() => ({})) }))
+        .then(({ ok, d }) => { if (!attivo) return; if (ok) { setOrdini(d.ordini ?? []); setErrore(""); } else setErrore(d.error ?? "Non riesco a caricare gli ordini"); })
+        .catch(() => attivo && setErrore("Non riesco a caricare gli ordini"));
+    carica();
+    const iv = setInterval(carica, 15000);
+    return () => { attivo = false; clearInterval(iv); };
+  }, []);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 520, width: "100%", margin: "0 auto" }}>
+      <button onClick={onIndietro} style={{ alignSelf: "flex-start", background: "none", border: "none", color: "var(--text-muted)", fontSize: 14, cursor: "pointer", padding: "4px 0" }}>← Indietro</button>
+      <h1 style={{ fontFamily: "var(--font-display)", fontSize: 26, color: "var(--text)", textAlign: "center" }}>I miei ordini</h1>
+      {errore && <div style={{ fontSize: 13, color: "var(--danger)", textAlign: "center" }}>{errore}</div>}
+      {ordini === null && !errore && <div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>Carico…</div>}
+      {ordini && ordini.length === 0 && (
+        <div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: 14, lineHeight: 1.5 }}>Non hai ancora fatto ordini dal sito.</div>
+      )}
+      {(ordini ?? []).map((o) => {
+        const st = STATO_CLIENTE[o.stato] ?? { testo: () => o.stato, colore: "#6b6a60", attivo: false };
+        const orario = o.oraConsegnaComunicata ?? o.oraRichiesta;
+        return (
+          <div key={o.id} style={{ background: "#fff", border: `1.5px solid ${st.attivo ? "var(--text)" : "var(--border)"}`, borderRadius: 16, padding: "14px 16px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+              <span style={{ fontFamily: "var(--font-display)", fontSize: 20, color: "var(--text)" }}>#{o.numeroOrdine}</span>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: st.colore }}>{st.testo(o.tipo)}</span>
+            </div>
+            <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 2 }}>
+              {o.sede?.nome?.replace("Don Basilico ", "")} · {o.tipo === "domicilio" ? "Consegna a domicilio" : "Ritiro in sede"} · ordinato il {dataOra(o.createdAt)}
+            </div>
+            {orario && (
+              <div style={{ fontSize: 13.5, color: "var(--text)", marginTop: 6 }}>
+                {o.oraConsegnaComunicata ? (o.tipo === "domicilio" ? "Consegna prevista" : "Ritiro previsto") : (o.tipo === "domicilio" ? "Consegna richiesta" : "Ritiro richiesto")}: <strong>{dataOra(orario)}</strong>
+                {o.stato === "nuovo" && " (da confermare)"}
+              </div>
+            )}
+            {o.tipo === "domicilio" && o.clienteIndirizzo && (
+              <div style={{ fontSize: 12.5, color: "var(--text-2)", marginTop: 4 }}>{o.clienteIndirizzo}</div>
+            )}
+            <div style={{ borderTop: "1px solid var(--border)", marginTop: 10, paddingTop: 8 }}>
+              {(o.items ?? []).map((i: any) => (
+                <div key={i.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13, color: "var(--text-2)", marginBottom: 3 }}>
+                  <span>{i.quantita}× {i.nomeSnapshot}{i.noteItem ? <span style={{ color: "var(--text-muted)" }}> ({i.noteItem})</span> : null}</span>
+                  <span className="num">{euro(parseFloat(i.prezzoSnapshot) * i.quantita)}</span>
+                </div>
+              ))}
+              {parseFloat(o.costoConsegna) > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: "var(--text-muted)" }}><span>Consegna</span><span className="num">{euro(parseFloat(o.costoConsegna))}</span></div>
+              )}
+              {parseFloat(o.scontoFedelta) > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: "var(--accent-ink)" }}><span>Sconto fedeltà</span><span className="num">-{euro(parseFloat(o.scontoFedelta))}</span></div>
+              )}
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontWeight: 700, color: "var(--text)" }}>
+                <span>Totale</span><span className="num">{euro(parseFloat(o.totale))}</span>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // Caselle di consenso: informativa privacy obbligatoria, marketing facoltativo.
 function ConsensiPrivacy({ privacy, setPrivacy, marketing, setMarketing }: { privacy: boolean; setPrivacy: (v: boolean) => void; marketing: boolean; setMarketing: (v: boolean) => void }) {
   const casella: React.CSSProperties = { width: 20, height: 20, marginTop: 1, flexShrink: 0, accentColor: "#1c1d18" };
@@ -282,6 +366,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   const [telefono, setTelefono] = useState("");
   const [nome, setNome] = useState("");
   const [codice, setCodice] = useState("");
+  const [vistaOrdini, setVistaOrdini] = useState(false);
   const [privacy, setPrivacy] = useState(false);
   const [marketing, setMarketing] = useState(false);
   const [tessera, setTessera] = useState<Tessera | null>(null);
@@ -446,8 +531,8 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   // Prime schermate (registrazione e scelta ritiro/domicilio): logo grande al centro.
   useEffect(() => {
     if (caricamento) return; // durante il caricamento resta com'è (logo grande), niente salti
-    onSchermataIniziale?.(!tipo && !confermato);
-  }, [caricamento, tipo, confermato, onSchermataIniziale]);
+    onSchermataIniziale?.(!tipo && !confermato && !vistaOrdini);
+  }, [caricamento, tipo, confermato, vistaOrdini, onSchermataIniziale]);
 
   const subtotale = cart.reduce((a, c) => a + c.prezzo * c.qty, 0);
   const consegna = tipo === "domicilio" ? COSTO_CONSEGNA_DEFAULT : 0;
@@ -501,6 +586,11 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
 
   if (caricamento) return null;
 
+  // ── I miei ordini ────────────────────────────────────────────
+  if (vistaOrdini && cliente) {
+    return <MieiOrdini onIndietro={() => { setVistaOrdini(false); setConfermato(null); }} />;
+  }
+
   // ── Conferma finale ──────────────────────────────────────────
   if (confermato) {
     return (
@@ -525,6 +615,11 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
           Riceverai un SMS al {cliente?.telefono ?? "tuo numero"} con l'orario confermato
           {confermato.oraRitiro ? " (potrebbe variare di poco in base agli ordini in corso)" : ""}.
         </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 360, margin: "26px auto 0" }}>
+          <button style={btnPrimarySt} onClick={() => setVistaOrdini(true)}>Segui il tuo ordine</button>
+          <button style={{ ...btnPrimarySt, background: "transparent", color: "var(--text)", border: "1.5px solid var(--text)" }}
+            onClick={() => { setConfermato(null); setCart([]); setTipo(null); }}>Torna alla home</button>
+        </div>
       </div>
     );
   }
@@ -605,6 +700,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
         <p style={{ fontSize: 14, color: "var(--text-muted)", textAlign: "center" }}>Come vuoi ricevere il tuo ordine?</p>
         <button style={{ ...btnPrimarySt }} onClick={() => setTipo("asporto")}>Ritiro in sede</button>
         <button style={{ ...btnPrimarySt, background: "#fff", color: "var(--text)", border: "1px solid var(--border)" }} onClick={() => setTipo("domicilio")}>Consegna a domicilio</button>
+        <button style={{ ...btnPrimarySt, background: "transparent", color: "var(--text)", border: "1.5px solid var(--text)" }} onClick={() => setVistaOrdini(true)}>I miei ordini</button>
         <BottoneInstalla />
       </div>
     );
