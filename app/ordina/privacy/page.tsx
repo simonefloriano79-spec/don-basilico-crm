@@ -18,7 +18,8 @@ export default function PrivacyPage() {
         Titolare del trattamento: <strong>{TITOLARE.ragioneSociale}</strong>
         {TITOLARE.indirizzo ? `, ${TITOLARE.indirizzo}` : ""}
         {TITOLARE.partitaIva ? `, P.IVA ${TITOLARE.partitaIva}` : ""}.
-        {TITOLARE.emailPrivacy ? ` Per le richieste sulla privacy: ${TITOLARE.emailPrivacy}.` : " Per le richieste sulla privacy puoi rivolgerti a una qualsiasi pizzeria Don Basilico."}
+        {TITOLARE.emailPrivacy ? ` Per le richieste sulla privacy scrivi a ${TITOLARE.emailPrivacy}` : " Per le richieste sulla privacy puoi rivolgerti a una qualsiasi pizzeria Don Basilico"}
+        {TITOLARE.pec ? ` (PEC: ${TITOLARE.pec}).` : "."}
       </p>
 
       <h2 style={h2}>Quali dati e perché</h2>
