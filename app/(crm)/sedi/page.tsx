@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ImpastiSede } from "@/components/sedi/ImpastiSede";
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 
@@ -173,6 +174,7 @@ export default function SediPage() {
                   Menù sede
                 </Link>
               </div>
+              <ImpastiSede sedeId={s.id} />
               <Link href={`/sedi/${s.id}/zona`} style={{ textAlign: "center", textDecoration: "none", background: "#fff", border: "1px solid var(--border)", color: "var(--text-2)", padding: "9px 12px", borderRadius: 9, fontSize: 12.5, fontFamily: "var(--font-ui)" }}>
                 Zona di consegna
               </Link>

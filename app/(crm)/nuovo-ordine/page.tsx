@@ -25,7 +25,11 @@ interface Ingrediente {
   id: string; nome: string; prezzoAggiunta: number;
   isAllergene: boolean; disabilitatoInSede?: boolean; escludiCompensazione?: boolean;
 }
+interface ImpastoCassa { id: string; nome: string; descrizione: string | null; supplemento: number; }
+const CAT_IMPASTO = ["menu_speciale", "pizze_rosse", "pizze_bianche"];
+
 interface CartItem {
+  impasto?: { id: string; nome: string; supplemento: number };
   cartId: string; menuItemId: string; nome: string; prezzoBase: number; qty: number;
   ingredientiRimossi: { id: string; nome: string }[];
   ingredientiAggiunti: { id: string; nome: string; prezzo: number }[];
@@ -33,8 +37,8 @@ interface CartItem {
 }
 
 // ── Modale configurazione pizza ───────────────────────────────
-function PizzaModal({ item, tuttiIngredienti, onConferma, onChiudi }: {
-  item: any; tuttiIngredienti: Ingrediente[];
+function PizzaModal({ item, tuttiIngredienti, sedeId, onConferma, onChiudi }: {
+  item: any; tuttiIngredienti: Ingrediente[]; sedeId: string;
   onConferma: (c: CartItem) => void; onChiudi: () => void;
 }) {
   const baseIngs: Ingrediente[] = (item.ingredienti ?? []).map((ii: any) => ii.ingrediente ?? ii);
@@ -44,6 +48,13 @@ function PizzaModal({ item, tuttiIngredienti, onConferma, onChiudi }: {
   const [nota, setNota] = useState("");
   const [qty, setQty] = useState(1);
   const [search, setSearch] = useState("");
+  const [impasti, setImpasti] = useState<ImpastoCassa[]>([]);
+  const [impastoId, setImpastoId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!sedeId || !CAT_IMPASTO.includes(item.categoria)) return;
+    fetch(`/api/impasti?sedeId=${sedeId}`).then((r) => r.json()).then((d) => setImpasti(d.impasti ?? [])).catch(() => {});
+  }, [sedeId, item.categoria]);
+  const impastoScelto = impasti.find((x) => x.id === impastoId) ?? null;
 
   const extra = tuttiIngredienti.filter((i) => !rimossi.has(i.id) && !i.disabilitatoInSede
     && i.nome.toLowerCase().includes(search.toLowerCase()));
@@ -54,7 +65,8 @@ function PizzaModal({ item, tuttiIngredienti, onConferma, onChiudi }: {
   // carciofi (1€) e aggiungo salsa tartufata (2€): pago solo 1€ di differenza.
   const credito = baseIngs.filter((i) => rimossi.has(i.id) && !i.escludiCompensazione).reduce((a, i) => a + parseFloat(i.prezzoAggiunta?.toString() ?? "0"), 0);
   const prezzoExtra = Math.max(0, prezzoAggiuntiLordo - credito);
-  const totale = (prezzoBase + prezzoExtra) * qty;
+  const supplementoImpasto = impastoScelto?.supplemento ?? 0;
+  const totale = (prezzoBase + prezzoExtra + supplementoImpasto) * qty;
 
   const conferma = () => {
     onConferma({
@@ -62,7 +74,8 @@ function PizzaModal({ item, tuttiIngredienti, onConferma, onChiudi }: {
       prezzoBase, qty,
       ingredientiRimossi: baseIngs.filter((i) => rimossi.has(i.id)).map((i) => ({ id: i.id, nome: i.nome })),
       ingredientiAggiunti: Array.from(aggiunti.values()).map((i) => ({ id: i.id, nome: i.nome, prezzo: parseFloat(i.prezzoAggiunta?.toString() ?? "0") })),
-      noteItem: nota, prezzoTotaleItem: prezzoBase + prezzoExtra,
+      noteItem: nota, prezzoTotaleItem: prezzoBase + prezzoExtra + supplementoImpasto,
+      impasto: impastoScelto ? { id: impastoScelto.id, nome: impastoScelto.nome, supplemento: impastoScelto.supplemento } : undefined,
     });
   };
 
@@ -87,6 +100,17 @@ function PizzaModal({ item, tuttiIngredienti, onConferma, onChiudi }: {
         </div>
 
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
+          {impasti.length > 0 && (
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.7, marginBottom: 8, fontWeight: 500 }}>Impasto</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <button onClick={() => setImpastoId(null)} style={{ padding: "7px 14px", borderRadius: 20, fontSize: 12.5, cursor: "pointer", border: "1.5px solid", background: impastoId === null ? "var(--text)" : "#fff", color: impastoId === null ? "#fff" : "var(--text)", borderColor: impastoId === null ? "var(--text)" : "var(--border)" }}>Classico · incluso</button>
+                {impasti.map((x) => (
+                  <button key={x.id} onClick={() => setImpastoId(x.id)} style={{ padding: "7px 14px", borderRadius: 20, fontSize: 12.5, cursor: "pointer", border: "1.5px solid", background: impastoId === x.id ? "var(--text)" : "#fff", color: impastoId === x.id ? "#fff" : "var(--text)", borderColor: impastoId === x.id ? "var(--text)" : "var(--border)" }}>{x.nome} · +{euro(x.supplemento)}</button>
+                ))}
+              </div>
+            </div>
+          )}
           {baseIngs.length > 0 && (
             <div style={{ marginBottom: 18 }}>
               <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.7, marginBottom: 8, fontWeight: 500 }}>
@@ -439,6 +463,7 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text)" }}>{item.nome}</div>
                 <div className="num" style={{ fontSize: 11.5, color: "var(--text-muted)" }}>{euro(item.prezzoTotaleItem)} cad.</div>
+                {item.impasto && <div style={{ fontSize: 11, color: "var(--text)", fontWeight: 600 }}>Impasto {item.impasto.nome} (+{euro(item.impasto.supplemento)})</div>}
                 {item.ingredientiRimossi.length > 0 && <div style={{ fontSize: 11, color: "var(--danger)" }}>Senza: {item.ingredientiRimossi.map((i) => i.nome).join(", ")}</div>}
                 {item.ingredientiAggiunti.length > 0 && <div style={{ fontSize: 11, color: "var(--accent-ink)" }}>Con: {item.ingredientiAggiunti.map((i) => i.nome).join(", ")}</div>}
               </div>
@@ -601,9 +626,10 @@ export default function NuovoOrdinePage() {
           menuItemId: c.menuItemId,
           nomeSnapshot: c.nome + (c.ingredientiAggiunti.length ? ` +${c.ingredientiAggiunti.map((i) => i.nome).join("+")}` : "") + (c.ingredientiRimossi.length ? ` -${c.ingredientiRimossi.map((i) => i.nome).join("-")}` : ""),
           quantita: c.qty,
-          noteItem: [c.ingredientiRimossi.length ? `Senza: ${c.ingredientiRimossi.map((i) => i.nome).join(", ")}` : "", c.ingredientiAggiunti.length ? `Con: ${c.ingredientiAggiunti.map((i) => i.nome).join(", ")}` : "", c.noteItem].filter(Boolean).join(" | ") || null,
+          noteItem: [c.impasto ? `IMPASTO ${c.impasto.nome.toUpperCase()}` : "", c.ingredientiRimossi.length ? `Senza: ${c.ingredientiRimossi.map((i) => i.nome).join(", ")}` : "", c.ingredientiAggiunti.length ? `Con: ${c.ingredientiAggiunti.map((i) => i.nome).join(", ")}` : "", c.noteItem].filter(Boolean).join(" | ") || null,
           ingredientiRimossi: c.ingredientiRimossi.map((i) => i.id),
           ingredientiAggiuntiIds: c.ingredientiAggiunti.map((i) => i.id),
+          impastoId: c.impasto?.id,
         })),
       }),
     });
@@ -617,6 +643,7 @@ export default function NuovoOrdinePage() {
         items: cart.map((c) => ({
           nome: c.nome, qty: c.qty, prezzo: c.prezzoTotaleItem,
           note: [
+            c.impasto ? `IMPASTO ${c.impasto.nome.toUpperCase()}` : "",
             c.ingredientiRimossi.length ? `Senza: ${c.ingredientiRimossi.map((i) => i.nome).join(", ")}` : "",
             c.ingredientiAggiunti.length ? `Con: ${c.ingredientiAggiunti.map((i) => i.nome).join(", ")}` : "",
             c.noteItem,
@@ -725,7 +752,7 @@ export default function NuovoOrdinePage() {
       </div>
 
       {pizzaModal && (
-        <PizzaModal item={pizzaModal} tuttiIngredienti={ingredienti}
+        <PizzaModal item={pizzaModal} tuttiIngredienti={ingredienti} sedeId={sedeSelezionata}
           onConferma={(c) => { setCart((p) => [...p, c]); setPizzaModal(null); toast.success(`${c.nome} aggiunto`, { duration: 1000 }); }}
           onChiudi={() => setPizzaModal(null)} />
       )}

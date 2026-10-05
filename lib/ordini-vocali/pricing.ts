@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { CATEGORIE_IMPASTO, impastiDellaSede } from "@/lib/impasti";
 
 const CATEGORIE_MAXI = new Set(["pizze_rosse", "pizze_bianche"]);
 
@@ -8,6 +9,7 @@ export interface ArticoloOrdinatoInput {
   taglia?: "normale" | "maxi";
   ingredientiAggiuntiIds?: string[];
   ingredientiRimossi?: string[];
+  impastoId?: string;
   note?: string;
 }
 
@@ -20,6 +22,7 @@ export interface ArticoloPrezzato {
   quantita: number;
   extra: { ingredienteId: string; nome: string; prezzo: number }[];
   rimossi: { ingredienteId: string; nome: string }[];
+  impasto: { id: string; nome: string; supplemento: number } | null;
   note: string | null;
 }
 
@@ -43,6 +46,9 @@ export async function calcolaOrdine(
   const ingredienteIds = Array.from(
     new Set(articoli.flatMap((a) => [...(a.ingredientiAggiuntiIds ?? []), ...(a.ingredientiRimossi ?? [])]))
   );
+
+  const impastiSede = articoli.some((a) => a.impastoId) ? await impastiDellaSede(sedeId) : [];
+  const impastoMap = new Map(impastiSede.map((i) => [i.id, i]));
 
   const [menuItems, ingredienti, maxiConfig, overrides, disabilitati] = await Promise.all([
     prisma.menuItem.findMany({
@@ -104,9 +110,18 @@ export async function calcolaOrdine(
       return { ingredienteId: id, nome: ing.nome, credito: ing.escludiCompensazione ? 0 : parseFloat(ing.prezzoAggiunta.toString()) };
     });
 
+    // Impasto speciale: solo se la pizzeria lo prepara e solo su pizze; il supplemento si somma al prezzo.
+    let impasto: { id: string; nome: string; supplemento: number } | null = null;
+    if (a.impastoId) {
+      const imp = impastoMap.get(a.impastoId);
+      if (!imp) throw new ErrorePricing("L'impasto scelto non è disponibile in questa pizzeria");
+      if (!CATEGORIE_IMPASTO.has(menuItem.categoria)) throw new ErrorePricing(`${menuItem.nome}: l'impasto speciale non è disponibile`);
+      impasto = { id: imp.id, nome: imp.nome, supplemento: imp.supplemento };
+    }
+
     const extraLordo = extra.reduce((acc, e) => acc + e.prezzo, 0);
     const credito = rimossi.reduce((acc, r) => acc + r.credito, 0);
-    const prezzoUnitario = prezzoBase + Math.max(0, extraLordo - credito);
+    const prezzoUnitario = prezzoBase + Math.max(0, extraLordo - credito) + (impasto?.supplemento ?? 0);
     const quantita = Math.max(1, Math.round(a.quantita) || 1);
     totale += prezzoUnitario * quantita;
 
@@ -119,6 +134,7 @@ export async function calcolaOrdine(
       quantita,
       extra,
       rimossi: rimossi.map((r) => ({ ingredienteId: r.ingredienteId, nome: r.nome })),
+      impasto,
       note: a.note ?? null,
     };
   });

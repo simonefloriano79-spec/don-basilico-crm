@@ -7,6 +7,7 @@ import { generaSlot } from "@/lib/slot-ritiro";
 import { disponibilitaSlot, pesoRiga } from "@/lib/capacita-pizze";
 import { COSTO_CONSEGNA_DEFAULT } from "@/lib/consegna";
 import { prossimoNumeroOrdine } from "@/lib/numero-ordine";
+import { testoImpasto } from "@/lib/impasti";
 import { assicuraTessera, statoTessera, usaSconto as usaScontoTessera } from "@/lib/fedelta";
 import { randomUUID } from "crypto";
 
@@ -60,6 +61,7 @@ export async function POST(req: NextRequest) {
     taglia: a?.taglia === "maxi" ? "maxi" : "normale",
     ingredientiAggiuntiIds: lista(a?.ingredientiAggiuntiIds),
     ingredientiRimossi: lista(a?.ingredientiRimossi),
+    impastoId: typeof a?.impastoId === "string" && a.impastoId ? a.impastoId : undefined,
     note: typeof a?.note === "string" && a.note.trim() ? a.note.trim().slice(0, 200) : undefined,
   }));
 
@@ -171,8 +173,10 @@ export async function POST(req: NextRequest) {
               prezzoSnapshot: a.prezzoSnapshot,
               quantita: a.quantita,
               ingredientiRimossi: a.rimossi.map((r) => r.ingredienteId),
+              impasto: a.impasto?.nome ?? null,
               noteItem:
                 [
+                  a.impasto ? testoImpasto(a.impasto.nome) : "",
                   a.rimossi.length ? `Senza: ${a.rimossi.map((r) => r.nome).join(", ")}` : "",
                   a.extra.length ? `Con: ${a.extra.map((e) => e.nome).join(", ")}` : "",
                   a.note ?? "",
