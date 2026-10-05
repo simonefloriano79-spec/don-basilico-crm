@@ -13,6 +13,8 @@ export async function POST(req: NextRequest) {
   const telefono = normalizzaTelefono(String(body.telefono ?? ""));
   const codice = String(body.codice ?? "").trim();
   const nome = String(body.nome ?? "").trim();
+  const privacy = body.privacy === true;
+  const marketing = body.marketing === true;
 
   if (!telefono || !codice) {
     return NextResponse.json({ error: "Telefono e codice sono richiesti" }, { status: 400 });
@@ -36,18 +38,28 @@ export async function POST(req: NextRequest) {
     if (!nome) {
       return NextResponse.json({ error: "Nome richiesto per completare la registrazione" }, { status: 400 });
     }
+    if (!privacy) {
+      return NextResponse.json({ error: "Per continuare devi accettare l'informativa privacy" }, { status: 400 });
+    }
+    const adesso = new Date();
     cliente = await prisma.cliente.create({
-      data: { nome, telefono, telefonoVerificatoAt: new Date() },
+      data: { nome, telefono, telefonoVerificatoAt: adesso, privacyAt: adesso, marketingAt: marketing ? adesso : null },
     });
-  } else if (!cliente.telefonoVerificatoAt) {
+  } else {
+    const adesso = new Date();
     cliente = await prisma.cliente.update({
       where: { id: cliente.id },
-      data: { telefonoVerificatoAt: new Date() },
+      data: {
+        ...(!cliente.telefonoVerificatoAt ? { telefonoVerificatoAt: adesso } : {}),
+        // Cliente già presente (cassa, tessera, vecchio account): con il consenso dato ora si registra la privacy.
+        ...(!cliente.privacyAt && privacy ? { privacyAt: adesso } : {}),
+        ...(!cliente.marketingAt && privacy && marketing ? { marketingAt: adesso } : {}),
+      },
     });
   }
 
   const token = creaTokenSessione(cliente.id);
-  const res = NextResponse.json({ ok: true, cliente: { id: cliente.id, nome: cliente.nome } });
+  const res = NextResponse.json({ ok: true, cliente: { id: cliente.id, nome: cliente.nome, telefono: cliente.telefono, privacyOk: !!cliente.privacyAt } });
   res.cookies.set(CUSTOMER_SESSION_COOKIE, token, {
     httpOnly: true,
     secure: true,

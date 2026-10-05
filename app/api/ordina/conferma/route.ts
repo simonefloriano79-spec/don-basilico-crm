@@ -7,6 +7,8 @@ import { generaSlot } from "@/lib/slot-ritiro";
 import { disponibilitaSlot, pesoRiga } from "@/lib/capacita-pizze";
 import { COSTO_CONSEGNA_DEFAULT } from "@/lib/consegna";
 import { prossimoNumeroOrdine } from "@/lib/numero-ordine";
+import { assicuraTessera, statoTessera, usaSconto as usaScontoTessera } from "@/lib/fedelta";
+import { randomUUID } from "crypto";
 
 const METODI_PAGAMENTO = ["contanti", "carta"];
 
@@ -27,6 +29,10 @@ export async function POST(req: NextRequest) {
   const cliente = await prisma.cliente.findUnique({ where: { id: clienteId } });
   if (!cliente || !cliente.telefono) {
     return NextResponse.json({ error: "Sessione non valida, effettua di nuovo la registrazione" }, { status: 401 });
+  }
+
+  if (!cliente.privacyAt) {
+    return NextResponse.json({ error: "Per ordinare devi accettare l'informativa privacy", esito: "privacy" }, { status: 403 });
   }
 
   const body = await req.json().catch(() => ({}));
@@ -111,54 +117,84 @@ export async function POST(req: NextRequest) {
     tipo === "domicilio" && typeof body.nomeCitofono === "string" && body.nomeCitofono.trim()
       ? body.nomeCitofono.trim().slice(0, 80)
       : null;
-  const totale = Math.round((esito.totale + costoConsegna) * 100) / 100;
+  const totaleLordo = Math.round((esito.totale + costoConsegna) * 100) / 100;
 
   const numeroOrdine = await prossimoNumeroOrdine(esito.sedeId, esito.oraRichiesta);
 
-  const ordine = await prisma.$transaction(async (tx) => {
-    const ordineCreato = await tx.ordine.create({
-      data: {
-        sedeId: esito.sedeId,
-        ...(numeroOrdine !== undefined ? { numeroOrdine } : {}),
-        canale: "online",
-        tipo,
-        stato: "nuovo",
-        clienteId: cliente.id,
-        clienteNome: cliente.nome,
-        clienteTelefono: cliente.telefono,
-        clienteIndirizzo: indirizzoFinale,
-        nomeCitofono,
-        note: richiesta.note ?? null,
-        oraRichiesta: esito.oraRichiesta,
-        totale,
-        costoConsegna,
-        metodoPagamento,
-        items: {
-          create: esito.articoli.map((a) => ({
-            menuItemId: a.menuItemId,
-            nomeSnapshot: a.taglia === "maxi" ? `${a.nomeSnapshot} (Maxi)` : a.nomeSnapshot,
-            prezzoSnapshot: a.prezzoSnapshot,
-            quantita: a.quantita,
-            ingredientiRimossi: a.rimossi.map((r) => r.ingredienteId),
-            noteItem:
-              [
-                a.rimossi.length ? `Senza: ${a.rimossi.map((r) => r.nome).join(", ")}` : "",
-                a.extra.length ? `Con: ${a.extra.map((e) => e.nome).join(", ")}` : "",
-                a.note ?? "",
-              ]
-                .filter(Boolean)
-                .join(" | ") || null,
-          })),
+  // Tessera fedeltà: la si crea al primo ordine (il consenso privacy è già stato dato). Lo sconto, se il cliente lo
+  // vuole usare, viene assegnato DENTRO la transazione che crea l'ordine (tessera bloccata): non si può usare due volte.
+  const vuoleSconto = body.usaSconto === true;
+  const ordineId = randomUUID();
+  let scontoApplicato = 0;
+  let totale = totaleLordo;
+
+  let ordine;
+  try {
+    ordine = await prisma.$transaction(async (tx) => {
+      await assicuraTessera(tx, {
+        nome: cliente.nome, telefono: cliente.telefono!, sedeSlug: sede.slug,
+        marketing: !!cliente.marketingAt, consensoAt: cliente.privacyAt!,
+      });
+
+      if (vuoleSconto) {
+        const stato = await statoTessera(cliente.telefono!, tx, true);
+        if (!stato) throw new Error("SCONTO_NON_DISPONIBILE");
+        const pieno = await usaScontoTessera(tx, stato, ordineId);
+        scontoApplicato = Math.min(pieno, totaleLordo); // se supera il totale l'ordine è gratuito e il resto si perde
+        totale = Math.round((totaleLordo - scontoApplicato) * 100) / 100;
+      }
+
+      const ordineCreato = await tx.ordine.create({
+        data: {
+          id: ordineId,
+          sedeId: esito.sedeId,
+          ...(numeroOrdine !== undefined ? { numeroOrdine } : {}),
+          canale: "online",
+          tipo,
+          stato: "nuovo",
+          clienteId: cliente.id,
+          clienteNome: cliente.nome,
+          clienteTelefono: cliente.telefono,
+          clienteIndirizzo: indirizzoFinale,
+          nomeCitofono,
+          note: richiesta.note ?? null,
+          oraRichiesta: esito.oraRichiesta,
+          totale,
+          costoConsegna,
+          scontoFedelta: scontoApplicato,
+          metodoPagamento,
+          items: {
+            create: esito.articoli.map((a) => ({
+              menuItemId: a.menuItemId,
+              nomeSnapshot: a.taglia === "maxi" ? `${a.nomeSnapshot} (Maxi)` : a.nomeSnapshot,
+              prezzoSnapshot: a.prezzoSnapshot,
+              quantita: a.quantita,
+              ingredientiRimossi: a.rimossi.map((r) => r.ingredienteId),
+              noteItem:
+                [
+                  a.rimossi.length ? `Senza: ${a.rimossi.map((r) => r.nome).join(", ")}` : "",
+                  a.extra.length ? `Con: ${a.extra.map((e) => e.nome).join(", ")}` : "",
+                  a.note ?? "",
+                ]
+                  .filter(Boolean)
+                  .join(" | ") || null,
+            })),
+          },
         },
-      },
-    });
+      });
 
-    await tx.ordineStatoLog.create({
-      data: { ordineId: ordineCreato.id, stato: "nuovo" },
-    });
+      await tx.ordineStatoLog.create({
+        data: { ordineId: ordineCreato.id, stato: "nuovo" },
+      });
 
-    return ordineCreato;
-  });
+      return ordineCreato;
+    });
+  } catch (e: any) {
+    if (e?.message === "SCONTO_NON_DISPONIBILE") {
+      return NextResponse.json({ error: "Lo sconto fedeltà non è più disponibile", esito: "sconto" }, { status: 409 });
+    }
+    throw e;
+  }
 
   return NextResponse.json({
     ok: true,
@@ -166,6 +202,7 @@ export async function POST(req: NextRequest) {
     sede: esito.sedeNome,
     totale,
     costoConsegna,
+    scontoFedelta: scontoApplicato,
     oraRitiro: oraRitiro ? oraRitiro.toISOString() : null,
   });
 }

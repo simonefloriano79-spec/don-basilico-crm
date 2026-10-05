@@ -20,10 +20,12 @@ export async function POST() {
 
   let cliente = await prisma.cliente.findFirst({ where: { telefono } });
   if (!cliente) {
-    cliente = await prisma.cliente.create({ data: { nome, telefono, telefonoVerificatoAt: new Date(), note: "Cliente di prova (modalità staff beta)" } });
+    cliente = await prisma.cliente.create({ data: { nome, telefono, telefonoVerificatoAt: new Date(), privacyAt: new Date(), note: "Cliente di prova (modalità staff beta)" } });
+  } else if (!cliente.privacyAt) {
+    cliente = await prisma.cliente.update({ where: { id: cliente.id }, data: { privacyAt: new Date() } });
   }
 
-  const res = NextResponse.json({ ok: true, cliente: { id: cliente.id, nome: cliente.nome, telefono: cliente.telefono, indirizzoDefault: cliente.indirizzoDefault } });
+  const res = NextResponse.json({ ok: true, cliente: { id: cliente.id, nome: cliente.nome, telefono: cliente.telefono, indirizzoDefault: cliente.indirizzoDefault, privacyOk: true } });
   res.cookies.set(CUSTOMER_SESSION_COOKIE, creaTokenSessione(cliente.id), {
     httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 12 * 60 * 60, // 12 ore: è solo una prova
   });

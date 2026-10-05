@@ -36,6 +36,7 @@ export function ordineApiPerStampa(o: any): PrintOrdine {
     })),
     totale: parseFloat(o.totale),
     costoConsegna: parseFloat(o.costoConsegna ?? 0) || undefined,
+    scontoFedelta: parseFloat(o.scontoFedelta ?? 0) || undefined,
     note: o.note ?? undefined,
     noteDomicilio: o.noteDomicilio ?? undefined,
     oraConsegnaComunicata: o.oraConsegnaComunicata ? quando(o.oraConsegnaComunicata) : undefined,

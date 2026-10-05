@@ -243,6 +243,7 @@ export default function OrdiniPage() {
       items: (ordine.items ?? []).map((i: any) => ({ nome: i.nomeSnapshot, qty: i.quantita, prezzo: parseFloat(i.prezzoSnapshot), note: i.noteItem })),
       totale: parseFloat(ordine.totale),
       costoConsegna: parseFloat(ordine.costoConsegna ?? 0) || undefined,
+      scontoFedelta: parseFloat(ordine.scontoFedelta ?? 0) || undefined,
       note: ordine.note,
       noteDomicilio: ordine.noteDomicilio,
       oraConsegnaComunicata: ordine.oraConsegnaComunicata ? quando(ordine.oraConsegnaComunicata) : undefined,
@@ -498,6 +499,12 @@ export default function OrdiniPage() {
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
                 <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>Consegna</span>
                 <span className="num" style={{ fontSize: 12.5, color: "var(--text-2)" }}>{euro(parseFloat(selezionato.costoConsegna))}</span>
+              </div>
+            )}
+            {parseFloat(selezionato.scontoFedelta ?? 0) > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+                <span style={{ fontSize: 12.5, color: "var(--accent-ink)" }}>Sconto fedeltà</span>
+                <span className="num" style={{ fontSize: 12.5, color: "var(--accent-ink)" }}>-{euro(parseFloat(selezionato.scontoFedelta))}</span>
               </div>
             )}
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border-soft)" }}>

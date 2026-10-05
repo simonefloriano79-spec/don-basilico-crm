@@ -17,6 +17,7 @@ export interface PrintOrdine {
   items: Array<{ nome: string; qty: number; prezzo: number; note?: string }>;
   totale: number;
   costoConsegna?: number;
+  scontoFedelta?: number;
   note?: string;
   noteDomicilio?: string;
   nomeCitofono?: string;
@@ -100,6 +101,7 @@ export async function generaTicketHTML(ordine: PrintOrdine): Promise<string> {
         <tbody>${itemsHtml}</tbody>
       </table>
       ${ordine.costoConsegna ? `<div class="info-row" style="margin-top:6px;border-top:1px dashed #000;padding-top:4px"><span>Consegna:</span><span>€${ordine.costoConsegna.toFixed(2)}</span></div>` : ""}
+      ${ordine.scontoFedelta ? `<div class="info-row" style="margin-top:6px"><span>Sconto fedeltà:</span><span>-€${ordine.scontoFedelta.toFixed(2)}</span></div>` : ""}
       ${ordine.metodoPagamento ? `<div class="info-row" style="margin-top:6px;border-top:1px dashed #000;padding-top:4px"><span>Pagamento:</span><strong>${ordine.metodoPagamento === "pos" || (ordine.metodoPagamento as string) === "carta" ? "POS" : "Contanti"}</strong></div>` : ""}
       ${ordine.note ? `<div style="margin-top:6px;font-size:15px;border-top:1px dashed #000;padding-top:4px"><strong>NOTE:</strong> ${ordine.note}</div>` : ""}
       ${ordine.noteDomicilio ? `<div style="margin-top:6px;font-size:15px;border-top:1px dashed #000;padding-top:4px"><strong>NOTE CONSEGNA:</strong> ${ordine.noteDomicilio}</div>` : ""}

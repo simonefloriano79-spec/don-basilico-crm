@@ -13,9 +13,11 @@ export async function GET(req: NextRequest) {
 
   const cliente = await prisma.cliente.findUnique({
     where: { id: clienteId },
-    select: { id: true, nome: true, telefono: true, indirizzoDefault: true },
+    select: { id: true, nome: true, telefono: true, indirizzoDefault: true, privacyAt: true },
   });
-  return NextResponse.json({ cliente: cliente ?? null, staff });
+  if (!cliente) return NextResponse.json({ cliente: null, staff });
+  const { privacyAt, ...resto } = cliente;
+  return NextResponse.json({ cliente: { ...resto, privacyOk: !!privacyAt }, staff });
 }
 
 // DELETE /api/ordina/sessione — logout.
