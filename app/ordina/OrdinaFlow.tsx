@@ -19,6 +19,12 @@ const btnPrimarySt: React.CSSProperties = {
   padding: 16, borderRadius: 14, fontSize: 15, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)",
 };
 
+// Pulsanti di scelta (pagamento, orario): selezionato = nero con testo bianco, non selezionato = bianco con bordo scuro.
+const sceltaSt = (selezionato: boolean): React.CSSProperties =>
+  selezionato
+    ? { background: "var(--text)", color: "#fff", borderColor: "var(--text)", fontWeight: 600 }
+    : { background: "#fff", color: "var(--text)", borderColor: "#8a897f" };
+
 // Registrazione dell'evento di installazione (arriva una volta sola, spesso prima che il pulsante sia visibile).
 let eventoInstalla: any = null;
 
@@ -430,7 +436,10 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   if (confermato) {
     return (
       <div style={{ textAlign: "center", padding: "40px 0" }}>
-        <div style={{ fontSize: 11, letterSpacing: 1.7, textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 10 }}>Ordine confermato</div>
+        <div style={{
+          display: "inline-block", background: "var(--accent-bg-2)", border: "1px solid var(--accent-border)", borderRadius: 20,
+          padding: "7px 18px", fontSize: 13, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text)", marginBottom: 14,
+        }}>Ordine in attesa di conferma</div>
         <div style={{ fontFamily: "var(--font-display)", fontSize: 40, color: "var(--text)" }}>#{confermato.numeroOrdine}</div>
         <div style={{ fontSize: 14, color: "var(--text-2)", marginTop: 10 }}>{confermato.sede}</div>
         <div style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--text)", marginTop: 14 }}>{euro(confermato.totale)}</div>
@@ -440,7 +449,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
           </div>
         )}
         <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 20, lineHeight: 1.5 }}>
-          Abbiamo ricevuto il tuo ordine, ora è <strong>in attesa di conferma dalla pizzeria</strong>.
+          Abbiamo ricevuto il tuo ordine, ma <strong>non è ancora confermato</strong>: la pizzeria lo sta controllando.
           Riceverai un SMS al {cliente?.telefono ?? "tuo numero"} con l'orario confermato
           {confermato.oraRitiro ? " (potrebbe variare di poco in base agli ordini in corso)" : ""}.
         </p>
@@ -641,9 +650,8 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
               </div>
               {slotData.apertoOra && (
                 <button onClick={() => setOrario("asap")} style={{
-                  width: "100%", marginBottom: 8, padding: "10px", borderRadius: 9, border: "1px solid", cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 13,
-                  background: orario === "asap" ? "var(--accent-bg-2)" : "transparent",
-                  borderColor: orario === "asap" ? "var(--accent-border)" : "var(--border)", color: "var(--text)",
+                  width: "100%", marginBottom: 8, padding: "12px", borderRadius: 12, border: "1.5px solid", cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 13.5,
+                  ...sceltaSt(orario === "asap"),
                 }}>Appena possibile</button>
               )}
               <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
@@ -651,11 +659,9 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
                   const disp = slotData[g].length > 0;
                   return (
                     <button key={g} disabled={!disp} onClick={() => setGiornoSlot(g)} style={{
-                      flex: 1, padding: "8px", borderRadius: 9, border: "1px solid", fontFamily: "var(--font-ui)", fontSize: 12.5,
+                      flex: 1, padding: "11px 8px", borderRadius: 12, border: "1.5px solid", fontFamily: "var(--font-ui)", fontSize: 13.5,
                       cursor: disp ? "pointer" : "default", opacity: disp ? 1 : 0.4,
-                      background: giornoSlot === g ? "var(--text)" : "transparent",
-                      borderColor: giornoSlot === g ? "var(--text)" : "var(--border)",
-                      color: giornoSlot === g ? "#fff" : "var(--text-3)",
+                      ...sceltaSt(giornoSlot === g),
                     }}>{g === "oggi" ? "Oggi" : "Domani"}</button>
                   );
                 })}
@@ -663,11 +669,10 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, maxHeight: 150, overflowY: "auto" }}>
                 {slotData[giornoSlot].map((sl) => (
                   <button key={sl.iso} disabled={sl.pieno} onClick={() => setOrario(sl.iso)} style={{
-                    padding: "8px 0", borderRadius: 8, border: "1px solid", fontFamily: "var(--font-ui)", fontSize: 12.5,
+                    padding: "10px 0", borderRadius: 10, border: "1.5px solid", fontFamily: "var(--font-ui)", fontSize: 13,
                     cursor: sl.pieno ? "default" : "pointer", opacity: sl.pieno ? 0.35 : 1,
                     textDecoration: sl.pieno ? "line-through" : "none",
-                    background: orario === sl.iso ? "var(--accent-bg-2)" : "transparent",
-                    borderColor: orario === sl.iso ? "var(--accent-border)" : "var(--border)", color: "var(--text)",
+                    ...sceltaSt(orario === sl.iso),
                   }}>{sl.ora}</button>
                 ))}
               </div>
@@ -681,10 +686,8 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
             <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
               {(["contanti", "carta"] as const).map((m) => (
                 <button key={m} onClick={() => setMetodoPagamento(m)} style={{
-                  flex: 1, padding: "9px", borderRadius: 9, border: "1px solid", cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 12.5,
-                  background: metodoPagamento === m ? "var(--accent-bg-2)" : "transparent",
-                  borderColor: metodoPagamento === m ? "var(--accent-border)" : "var(--border)",
-                  color: metodoPagamento === m ? "var(--text)" : "var(--text-3)",
+                  flex: 1, padding: "13px 8px", borderRadius: 12, border: "1.5px solid", cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 13.5,
+                  ...sceltaSt(metodoPagamento === m),
                 }}>{m === "contanti" ? "Contanti alla consegna" : "Carta (POS a domicilio)"}</button>
               ))}
             </div>
