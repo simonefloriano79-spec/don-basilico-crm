@@ -1,8 +1,8 @@
-// Dati del titolare per l'informativa privacy dell'app ordini. COMPLETARE i campi vuoti con i dati reali
-// (indirizzo sede legale, P.IVA, email per le richieste privacy): le righe vuote non vengono mostrate.
+// Dati del titolare per l'informativa privacy dell'app ordini. Le righe vuote non vengono mostrate.
 export const TITOLARE = {
-  ragioneSociale: "Pitta S.r.l. (Don Basilico)",
-  indirizzo: "",
-  partitaIva: "",
-  emailPrivacy: "",
+  ragioneSociale: "PITTA S.r.l. (Don Basilico)",
+  indirizzo: "Viale G. Bovio, 168 - 65123 Pescara (PE)",
+  partitaIva: "02189270685",
+  emailPrivacy: "pitta.donbasilico@gmail.com",
+  pec: "pitta@pecditta.com",
 };
