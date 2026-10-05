@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { timbraOrdine, ripristinaSconto } from "@/lib/fedelta";
 
 // GET /api/ordini/[id]
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -83,6 +84,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         note,
       },
     });
+  }
+
+  // Tessera fedeltà (ordini del sito): timbro quando l'ordine è pronto/consegnato; se l'ordine viene annullato
+  // lo sconto eventualmente usato torna disponibile. Best-effort: non deve mai bloccare il cambio di stato.
+  if (stato === "pronto" || stato === "consegnato") {
+    await timbraOrdine(params.id).catch((e) => console.error("Timbro fedeltà non assegnato", e));
+  } else if (stato === "annullato") {
+    await ripristinaSconto(params.id).catch((e) => console.error("Sconto fedeltà non ripristinato", e));
   }
 
   return NextResponse.json(ordineAggiornato);

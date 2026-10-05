@@ -25,6 +25,51 @@ const sceltaSt = (selezionato: boolean): React.CSSProperties =>
     ? { background: "var(--text)", color: "#fff", borderColor: "var(--text)", fontWeight: 600 }
     : { background: "#fff", color: "var(--text)", borderColor: "#8a897f" };
 
+// Caselle di consenso: informativa privacy obbligatoria, marketing facoltativo.
+function ConsensiPrivacy({ privacy, setPrivacy, marketing, setMarketing }: { privacy: boolean; setPrivacy: (v: boolean) => void; marketing: boolean; setMarketing: (v: boolean) => void }) {
+  const casella: React.CSSProperties = { width: 20, height: 20, marginTop: 1, flexShrink: 0, accentColor: "#1c1d18" };
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10, textAlign: "left" }}>
+      <label style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13, color: "var(--text-2)", lineHeight: 1.45, cursor: "pointer" }}>
+        <input type="checkbox" checked={privacy} onChange={(e) => setPrivacy(e.target.checked)} style={casella} />
+        <span>Ho letto l'<a href="/ordina/privacy" target="_blank" rel="noreferrer" style={{ color: "var(--accent-ink)", textDecoration: "underline" }}>informativa privacy</a> e accetto il trattamento dei miei dati per gestire l'ordine e la tessera fedeltà. <strong>(obbligatorio)</strong></span>
+      </label>
+      <label style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13, color: "var(--text-2)", lineHeight: 1.45, cursor: "pointer" }}>
+        <input type="checkbox" checked={marketing} onChange={(e) => setMarketing(e.target.checked)} style={casella} />
+        <span>Voglio ricevere offerte e novità da Don Basilico. <span style={{ color: "var(--text-muted)" }}>(facoltativo)</span></span>
+      </label>
+    </div>
+  );
+}
+
+// Tessera fedeltà: cerchietti dei timbri e messaggio.
+function CartaFedelta({ tessera }: { tessera: Tessera | null }) {
+  const timbri = tessera?.timbri ?? 0;
+  return (
+    <div style={{ border: "1px solid var(--border)", background: "#fff", borderRadius: 16, padding: "14px 16px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <span style={{ fontSize: 11, letterSpacing: 1.6, textTransform: "uppercase", color: "var(--text-muted)", fontWeight: 600 }}>Tessera fedeltà</span>
+        <span className="num" style={{ fontSize: 12.5, color: "var(--text-2)" }}>{timbri} di {TIMBRI_PER_CICLO}</span>
+      </div>
+      <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 10 }}>
+        {Array.from({ length: TIMBRI_PER_CICLO }).map((_, i) => (
+          <span key={i} style={{
+            width: 30, height: 30, borderRadius: "50%", border: "1.5px solid", display: "inline-block",
+            background: i < timbri ? "var(--accent)" : "transparent", borderColor: i < timbri ? "var(--accent)" : "#8a897f",
+          }} />
+        ))}
+      </div>
+      <div style={{ fontSize: 12.5, color: "var(--text-2)", textAlign: "center", lineHeight: 1.45 }}>
+        {tessera?.scontoDisponibile
+          ? <>Hai maturato uno sconto di <strong>{euro(tessera.importoSconto)}</strong>: lo trovi al riepilogo del prossimo ordine.</>
+          : tessera
+            ? <>Ancora {TIMBRI_PER_CICLO - timbri} {TIMBRI_PER_CICLO - timbri === 1 ? "ordine" : "ordini"} e ottieni il 10% di sconto sulla spesa.</>
+            : <>Ogni ordine è un timbro: ogni {TIMBRI_PER_CICLO} ottieni il 10% di sconto sulla spesa (la consegna non conta). La tessera si attiva con il tuo primo ordine.</>}
+      </div>
+    </div>
+  );
+}
+
 // Registrazione dell'evento di installazione (arriva una volta sola, spesso prima che il pulsante sia visibile).
 let eventoInstalla: any = null;
 
@@ -118,7 +163,9 @@ function euro(n: number) {
 const fmtOrario = (iso: string) =>
   new Date(iso).toLocaleString("it-IT", { timeZone: "Europe/Rome", weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
-interface Cliente { id: string; nome: string; telefono: string | null; }
+interface Cliente { id: string; nome: string; telefono: string | null; privacyOk?: boolean; }
+interface Tessera { token: string; timbri: number; totaleCiclo: number; scontoDisponibile: boolean; importoSconto: number; }
+const TIMBRI_PER_CICLO = 5;
 interface IngredienteCl {
   id: string; nome: string; prezzoAggiunta: number | string;
   disabilitatoInSede?: boolean; escludiCompensazione?: boolean;
@@ -235,6 +282,11 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   const [telefono, setTelefono] = useState("");
   const [nome, setNome] = useState("");
   const [codice, setCodice] = useState("");
+  const [privacy, setPrivacy] = useState(false);
+  const [marketing, setMarketing] = useState(false);
+  const [tessera, setTessera] = useState<Tessera | null>(null);
+  // Sconto fedeltà: null = il cliente non ha ancora scelto, true = lo usa su questo ordine, false = lo tiene per un altro.
+  const [usaSconto, setUsaSconto] = useState<boolean | null>(null);
   const [inviandoOtp, setInviandoOtp] = useState(false);
   const [erroreGate, setErroreGate] = useState("");
 
@@ -259,7 +311,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   const [note, setNote] = useState("");
   const [invio, setInvio] = useState(false);
   const [erroreInvio, setErroreInvio] = useState("");
-  const [confermato, setConfermato] = useState<{ numeroOrdine: number; sede: string; totale: number; oraRitiro: string | null } | null>(null);
+  const [confermato, setConfermato] = useState<{ numeroOrdine: number; sede: string; totale: number; oraRitiro: string | null; scontoFedelta?: number } | null>(null);
   const [nomeCitofono, setNomeCitofono] = useState("");
   const [ingredienti, setIngredienti] = useState<IngredienteCl[]>([]);
   const [pizzaModal, setPizzaModal] = useState<any>(null);
@@ -330,6 +382,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   const richiediOtp = async () => {
     setErroreGate("");
     if (!telefono.trim() || !nome.trim()) { setErroreGate("Inserisci nome e telefono"); return; }
+    if (!privacy) { setErroreGate("Per continuare devi accettare l'informativa privacy"); return; }
     setInviandoOtp(true);
     const res = await fetch("/api/ordina/otp/richiedi", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono }),
@@ -345,7 +398,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
     if (!codice.trim()) { setErroreGate("Inserisci il codice ricevuto via SMS"); return; }
     setInviandoOtp(true);
     const res = await fetch("/api/ordina/otp/verifica", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono, codice, nome }),
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono, codice, nome, privacy, marketing }),
     });
     setInviandoOtp(false);
     const data = await res.json();
@@ -384,6 +437,12 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
     });
   };
 
+  // Tessera fedeltà del cliente collegato (timbri e sconto maturato).
+  useEffect(() => {
+    if (!cliente?.privacyOk) { setTessera(null); return; }
+    fetch("/api/ordina/tessera").then((r) => r.json()).then((d) => setTessera(d.tessera ?? null)).catch(() => setTessera(null));
+  }, [cliente?.id, cliente?.privacyOk]);
+
   // Prime schermate (registrazione e scelta ritiro/domicilio): logo grande al centro.
   useEffect(() => {
     if (caricamento) return; // durante il caricamento resta com'è (logo grande), niente salti
@@ -392,13 +451,22 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
 
   const subtotale = cart.reduce((a, c) => a + c.prezzo * c.qty, 0);
   const consegna = tipo === "domicilio" ? COSTO_CONSEGNA_DEFAULT : 0;
-  const totale = subtotale + consegna;
+  const lordo = subtotale + consegna;
+  const scontoMaturato = tessera?.scontoDisponibile ? tessera.importoSconto : 0;
+  // Lo sconto si applica ai prodotti: la consegna resta sempre da pagare e non conta per la tessera.
+  const scontoApplicato = usaSconto === true ? Math.min(scontoMaturato, subtotale) : 0;
+  const totale = lordo - scontoApplicato;
+  // Se lo sconto sta nel totale lo si propone già attivo; se lo supera il cliente deve scegliere lui (si perderebbe il resto).
+  useEffect(() => {
+    if (scontoMaturato > 0 && usaSconto === null && subtotale >= scontoMaturato) setUsaSconto(true);
+  }, [scontoMaturato, subtotale, usaSconto]);
 
   const inviaOrdine = async () => {
     setErroreInvio("");
     if (!cart.length) { setErroreInvio("Il carrello è vuoto"); return; }
     if (tipo === "domicilio" && !metodoPagamento) { setErroreInvio("Scegli come pagare"); return; }
     if (!orario) { setErroreInvio("Scegli l'orario di ritiro"); return; }
+    if (scontoMaturato > 0 && usaSconto === null) { setErroreInvio("Scegli se usare ora lo sconto fedeltà"); return; }
     setInvio(true);
     const sedeAsporto = sedi.find((s) => s.id === sedeSelezionata);
     try {
@@ -411,6 +479,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
           metodoPagamento: tipo === "domicilio" ? metodoPagamento : undefined,
           nomeCitofono: tipo === "domicilio" ? nomeCitofono || undefined : undefined,
           oraRitiro: orario === "asap" ? undefined : orario,
+          usaSconto: scontoMaturato > 0 && usaSconto === true,
           note: note || undefined,
           articoli: cart.map((c) => ({
             menuItemId: c.menuItemId, quantita: c.qty,
@@ -422,7 +491,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { setErroreInvio(data.error ?? "Non siamo riusciti a inviare l'ordine, riprova tra un momento"); return; }
-      setConfermato({ numeroOrdine: data.numeroOrdine, sede: data.sede, totale: data.totale, oraRitiro: data.oraRitiro });
+      setConfermato({ numeroOrdine: data.numeroOrdine, sede: data.sede, totale: data.totale, oraRitiro: data.oraRitiro, scontoFedelta: data.scontoFedelta });
     } catch {
       setErroreInvio("Connessione assente o server non raggiungibile, riprova");
     } finally {
@@ -443,6 +512,9 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
         <div style={{ fontFamily: "var(--font-display)", fontSize: 40, color: "var(--text)" }}>#{confermato.numeroOrdine}</div>
         <div style={{ fontSize: 14, color: "var(--text-2)", marginTop: 10 }}>{confermato.sede}</div>
         <div style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--text)", marginTop: 14 }}>{euro(confermato.totale)}</div>
+        {!!confermato.scontoFedelta && (
+          <div style={{ fontSize: 13.5, color: "var(--accent-ink)", marginTop: 6, fontWeight: 600 }}>Sconto fedeltà applicato: -{euro(confermato.scontoFedelta)}</div>
+        )}
         {confermato.oraRitiro && (
           <div style={{ fontSize: 14, color: "var(--text-2)", marginTop: 10 }}>
             {tipo === "domicilio" ? "Consegna richiesta" : "Ritiro richiesto"}: <strong>{fmtOrario(confermato.oraRitiro)}</strong>
@@ -477,6 +549,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
           <>
             <input style={fieldSt} placeholder="Il tuo nome" value={nome} onChange={(e) => setNome(e.target.value)} />
             <input style={fieldSt} placeholder="Numero di telefono" value={telefono} onChange={(e) => setTelefono(e.target.value)} />
+            <ConsensiPrivacy privacy={privacy} setPrivacy={setPrivacy} marketing={marketing} setMarketing={setMarketing} />
             {erroreGate && <div style={{ fontSize: 12.5, color: "var(--danger)" }}>{erroreGate}</div>}
             <button style={btnPrimarySt} onClick={richiediOtp} disabled={inviandoOtp}>
               {inviandoOtp ? "Invio…" : "Invia codice via SMS"}
@@ -500,11 +573,35 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
     );
   }
 
+  // ── Cliente già registrato che deve ancora accettare l'informativa ──
+  if (cliente.privacyOk === false) {
+    const accetta = async () => {
+      setErroreGate("");
+      if (!privacy) { setErroreGate("Per continuare devi accettare l'informativa privacy"); return; }
+      const res = await fetch("/api/ordina/privacy", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ privacy, marketing }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { setErroreGate(d.error ?? "Errore, riprova"); return; }
+      setCliente({ ...cliente, privacyOk: true });
+    };
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 420, width: "100%", margin: "0 auto" }}>
+        <h1 style={{ fontFamily: "var(--font-display)", fontSize: 26, color: "var(--text)", textAlign: "center" }}>Ciao {cliente.nome.split(" ")[0]}</h1>
+        <p style={{ fontSize: 13.5, color: "var(--text-muted)", textAlign: "center", lineHeight: 1.5 }}>Prima di ordinare, ci serve il tuo consenso al trattamento dei dati.</p>
+        <ConsensiPrivacy privacy={privacy} setPrivacy={setPrivacy} marketing={marketing} setMarketing={setMarketing} />
+        {erroreGate && <div style={{ fontSize: 12.5, color: "var(--danger)" }}>{erroreGate}</div>}
+        <button style={btnPrimarySt} onClick={accetta}>Accetta e continua</button>
+      </div>
+    );
+  }
+
   // ── Scelta ritiro/domicilio ──────────────────────────────────
   if (!tipo) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 420, width: "100%", margin: "0 auto" }}>
         <h1 style={{ fontFamily: "var(--font-display)", fontSize: 26, color: "var(--text)", textAlign: "center" }}>Ciao {cliente.nome.split(" ")[0]}</h1>
+        <CartaFedelta tessera={tessera} />
         <p style={{ fontSize: 14, color: "var(--text-muted)", textAlign: "center" }}>Come vuoi ricevere il tuo ordine?</p>
         <button style={{ ...btnPrimarySt }} onClick={() => setTipo("asporto")}>Ritiro in sede</button>
         <button style={{ ...btnPrimarySt, background: "#fff", color: "var(--text)", border: "1px solid var(--border)" }} onClick={() => setTipo("domicilio")}>Consegna a domicilio</button>
@@ -693,10 +790,35 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
             </div>
           )}
 
+          {scontoMaturato > 0 && (
+            <div style={{ marginBottom: 12, padding: "12px 14px", border: "1.5px solid var(--accent-border)", background: "var(--accent-bg-2)", borderRadius: 14 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Hai uno sconto fedeltà di {euro(scontoMaturato)}</div>
+              <div style={{ fontSize: 12, color: "var(--text-2)", margin: "2px 0 10px", lineHeight: 1.45 }}>
+                È il 10% di quanto hai speso nei tuoi ultimi {TIMBRI_PER_CICLO} ordini (consegna esclusa).
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => setUsaSconto(true)} style={{ flex: 1, padding: "11px 6px", borderRadius: 12, border: "1.5px solid", cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 13, ...sceltaSt(usaSconto === true) }}>Usalo ora</button>
+                <button onClick={() => setUsaSconto(false)} style={{ flex: 1, padding: "11px 6px", borderRadius: 12, border: "1.5px solid", cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 13, ...sceltaSt(usaSconto === false) }}>Tienilo per un altro ordine</button>
+              </div>
+              {usaSconto === false && (
+                <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 8, lineHeight: 1.45 }}>Questo ordine verrà pagato a prezzo pieno e <strong>non darà un timbro</strong>: lo sconto resta sulla tessera.</div>
+              )}
+              {scontoMaturato > subtotale && subtotale > 0 && (
+                <div style={{ fontSize: 12, color: "var(--danger)", marginTop: 8, lineHeight: 1.45 }}>Lo sconto supera la spesa in prodotti: se lo usi ora i prodotti sono gratis (la consegna resta da pagare) e <strong>la parte che avanza va persa</strong>.</div>
+              )}
+            </div>
+          )}
+
           {consegna > 0 && (
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
               <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>Consegna</span>
               <span className="num" style={{ fontSize: 12.5, color: "var(--text-2)" }}>{euro(consegna)}</span>
+            </div>
+          )}
+          {scontoApplicato > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+              <span style={{ fontSize: 12.5, color: "var(--accent-ink)" }}>Sconto fedeltà</span>
+              <span className="num" style={{ fontSize: 12.5, color: "var(--accent-ink)" }}>-{euro(scontoApplicato)}</span>
             </div>
           )}
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { ripristinaSconto } from "@/lib/fedelta";
 import { inviaSmsDettaglio } from "@/lib/customer-auth/sms";
 import { caricaOrdineStaff } from "@/lib/ordini-online";
 
@@ -20,6 +21,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       data: { ordineId: ordine.id, stato: "annullato", utenteId: user.id, note: "Rifiutato dalla pizzeria" },
     }),
   ]);
+
+  // Se l'ordine aveva usato lo sconto fedeltà, lo sconto torna disponibile al cliente.
+  await ripristinaSconto(ordine.id).catch((e) => console.error("Sconto fedeltà non ripristinato", e));
 
   let smsInviato = false;
   let smsErrore: string | undefined;
