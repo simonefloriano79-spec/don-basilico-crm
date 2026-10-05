@@ -140,7 +140,8 @@ export async function POST(req: NextRequest) {
         const stato = await statoTessera(cliente.telefono!, tx, true);
         if (!stato) throw new Error("SCONTO_NON_DISPONIBILE");
         const pieno = await usaScontoTessera(tx, stato, ordineId);
-        scontoApplicato = Math.min(pieno, totaleLordo); // se supera il totale l'ordine è gratuito e il resto si perde
+        // Lo sconto si applica ai prodotti (la consegna non conta nella spesa): se li supera i prodotti sono gratis e il resto si perde.
+        scontoApplicato = Math.min(pieno, esito.totale);
         totale = Math.round((totaleLordo - scontoApplicato) * 100) / 100;
       }
 

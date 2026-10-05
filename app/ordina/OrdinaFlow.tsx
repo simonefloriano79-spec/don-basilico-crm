@@ -64,7 +64,7 @@ function CartaFedelta({ tessera }: { tessera: Tessera | null }) {
           ? <>Hai maturato uno sconto di <strong>{euro(tessera.importoSconto)}</strong>: lo trovi al riepilogo del prossimo ordine.</>
           : tessera
             ? <>Ancora {TIMBRI_PER_CICLO - timbri} {TIMBRI_PER_CICLO - timbri === 1 ? "ordine" : "ordini"} e ottieni il 10% di sconto sulla spesa.</>
-            : <>Ogni ordine è un timbro: ogni {TIMBRI_PER_CICLO} ottieni il 10% di sconto sulla spesa. La tessera si attiva con il tuo primo ordine.</>}
+            : <>Ogni ordine è un timbro: ogni {TIMBRI_PER_CICLO} ottieni il 10% di sconto sulla spesa (la consegna non conta). La tessera si attiva con il tuo primo ordine.</>}
       </div>
     </div>
   );
@@ -453,12 +453,13 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   const consegna = tipo === "domicilio" ? COSTO_CONSEGNA_DEFAULT : 0;
   const lordo = subtotale + consegna;
   const scontoMaturato = tessera?.scontoDisponibile ? tessera.importoSconto : 0;
-  const scontoApplicato = usaSconto === true ? Math.min(scontoMaturato, lordo) : 0;
+  // Lo sconto si applica ai prodotti: la consegna resta sempre da pagare e non conta per la tessera.
+  const scontoApplicato = usaSconto === true ? Math.min(scontoMaturato, subtotale) : 0;
   const totale = lordo - scontoApplicato;
   // Se lo sconto sta nel totale lo si propone già attivo; se lo supera il cliente deve scegliere lui (si perderebbe il resto).
   useEffect(() => {
-    if (scontoMaturato > 0 && usaSconto === null && lordo >= scontoMaturato) setUsaSconto(true);
-  }, [scontoMaturato, lordo, usaSconto]);
+    if (scontoMaturato > 0 && usaSconto === null && subtotale >= scontoMaturato) setUsaSconto(true);
+  }, [scontoMaturato, subtotale, usaSconto]);
 
   const inviaOrdine = async () => {
     setErroreInvio("");
@@ -793,7 +794,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
             <div style={{ marginBottom: 12, padding: "12px 14px", border: "1.5px solid var(--accent-border)", background: "var(--accent-bg-2)", borderRadius: 14 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Hai uno sconto fedeltà di {euro(scontoMaturato)}</div>
               <div style={{ fontSize: 12, color: "var(--text-2)", margin: "2px 0 10px", lineHeight: 1.45 }}>
-                È il 10% di quanto hai speso nei tuoi ultimi {TIMBRI_PER_CICLO} ordini.
+                È il 10% di quanto hai speso nei tuoi ultimi {TIMBRI_PER_CICLO} ordini (consegna esclusa).
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={() => setUsaSconto(true)} style={{ flex: 1, padding: "11px 6px", borderRadius: 12, border: "1.5px solid", cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 13, ...sceltaSt(usaSconto === true) }}>Usalo ora</button>
@@ -802,8 +803,8 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
               {usaSconto === false && (
                 <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 8, lineHeight: 1.45 }}>Questo ordine verrà pagato a prezzo pieno e <strong>non darà un timbro</strong>: lo sconto resta sulla tessera.</div>
               )}
-              {scontoMaturato > lordo && lordo > 0 && (
-                <div style={{ fontSize: 12, color: "var(--danger)", marginTop: 8, lineHeight: 1.45 }}>Lo sconto supera il totale dell'ordine: se lo usi ora l'ordine è gratuito e <strong>la parte che avanza va persa</strong>.</div>
+              {scontoMaturato > subtotale && subtotale > 0 && (
+                <div style={{ fontSize: 12, color: "var(--danger)", marginTop: 8, lineHeight: 1.45 }}>Lo sconto supera la spesa in prodotti: se lo usi ora i prodotti sono gratis (la consegna resta da pagare) e <strong>la parte che avanza va persa</strong>.</div>
               )}
             </div>
           )}
