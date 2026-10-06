@@ -38,10 +38,10 @@ export default function ConsultaMenu() {
     fetch("/api/sedi").then((r) => r.json()).then((d) => {
       const lista: Sede[] = (Array.isArray(d) ? d : []).map((s: any) => ({ id: s.id, nome: s.nome, slug: s.slug }));
       setSedi(lista);
-      // preselezione: la pizzeria scelta l'ultima volta, altrimenti la prima
+      // preselezione: la pizzeria scelta l'ultima volta, altrimenti Viale Bovio (centro)
       let salvata = "";
       try { salvata = localStorage.getItem("db_menu_sede") ?? ""; } catch {}
-      setSedeId(lista.find((s) => s.id === salvata)?.id ?? lista[0]?.id ?? "");
+      setSedeId(lista.find((s) => s.id === salvata)?.id ?? lista.find((s) => s.slug === "centro")?.id ?? lista[0]?.id ?? "");
     }).catch(() => setErrore("Non riesco a caricare il menù, riprova tra poco."));
   }, []);
 
