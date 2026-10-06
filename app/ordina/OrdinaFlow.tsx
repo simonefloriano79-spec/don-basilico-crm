@@ -7,7 +7,7 @@ import PaginaTessera from "./PaginaTessera";
 const CAT_LABEL: Record<string, string> = {
   pizze: "Pizze", pizze_rosse: "Pizze rosse", pizze_bianche: "Pizze bianche",
   calzoni: "Calzoni", fritti: "Fritti", bevande: "Bevande", dolci: "Dolci",
-  extra: "Extra", menu_speciale: "Speciali",
+  extra: "Extra", menu_speciale: "Speciali", focacce: "Focacce",
 };
 
 const fieldSt: React.CSSProperties = {
@@ -251,6 +251,11 @@ function BottoneInstalla() {
   );
 }
 
+// Prezzo come si legge nel menù: «8» oppure «8,50», senza il simbolo €.
+function prezzoMenu(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(".", ",");
+}
+
 function euro(n: number) {
   return `€ ${n.toFixed(2).replace(".", ",")}`;
 }
@@ -286,7 +291,7 @@ interface SlotData {
 // Categorie che aprono la finestra di personalizzazione (e che pesano sulla capienza cucina).
 const CAT_PIZZA = ["menu_speciale", "pizze_rosse", "pizze_bianche", "calzoni"];
 // Ordine delle sezioni del menù: speciali, rosse, bianche, calzoni, fritti, dolci, bevande.
-const ORDINE_CAT = ["menu_speciale", "pizze", "pizze_rosse", "pizze_bianche", "calzoni", "fritti", "dolci", "bevande", "extra"];
+const ORDINE_CAT = ["menu_speciale", "pizze", "pizze_rosse", "pizze_bianche", "calzoni", "focacce", "fritti", "dolci", "bevande", "extra"];
 const posCat = (c: string) => { const i = ORDINE_CAT.indexOf(c); return i < 0 ? ORDINE_CAT.length : i; };
 const num = (v: number | string | undefined) => parseFloat(String(v ?? 0)) || 0;
 
@@ -326,7 +331,7 @@ function PizzaModalCliente({ item, ingredienti, impasti, onConferma, onChiudi }:
         )}
         <div style={{ padding: "18px 20px 10px", display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
           <div style={{ fontFamily: "var(--font-display)", fontSize: 21, color: "var(--text)" }}>{item.nome}</div>
-          <span className="num" style={{ fontSize: 14, color: "var(--text-2)" }}>{euro(prezzoBase)}</span>
+          <span className="num" style={{ fontSize: 15, fontWeight: 600, color: "var(--text-2)" }}>{prezzoMenu(prezzoBase)}</span>
         </div>
         <div style={{ flex: 1, overflowY: "auto", padding: "0 20px 12px" }}>
           {impastiScelta.length > 0 && (
@@ -872,7 +877,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
                 <div style={{ fontFamily: "var(--font-display)", fontSize: 16, color: "var(--text)" }}>{item.nome}</div>
                 {item.descrizione && <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 3 }}>{item.descrizione}</div>}
               </div>
-              <span className="num" style={{ fontSize: 14, fontWeight: 500, color: "var(--text)", flexShrink: 0 }}>{euro(prezzo)}</span>
+              <span className="num" style={{ fontSize: 15, fontWeight: 600, color: "var(--text)", flexShrink: 0 }}>{prezzoMenu(prezzo)}</span>
             </div>
           );
         })}
