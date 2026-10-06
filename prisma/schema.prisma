@@ -53,6 +53,7 @@ enum CategoriaMenu {
   dolci
   extra
   menu_speciale
+  focacce
 
   @@map("categoria_menu")
 }

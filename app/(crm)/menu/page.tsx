@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 const CAT_LABEL: Record<string, string> = {
   pizze: "Pizze", pizze_rosse: "Pizze rosse", pizze_bianche: "Pizze bianche",
   calzoni: "Calzoni", fritti: "Fritti", bevande: "Bevande", dolci: "Dolci",
-  extra: "Extra", menu_speciale: "Speciali",
+  extra: "Extra", menu_speciale: "Speciali", focacce: "Focacce",
 };
 
 const fieldSt: React.CSSProperties = {
@@ -224,7 +224,7 @@ export default function MenuPage() {
               <div>
                 <label style={labelSt}>Categoria *</label>
                 <select style={fieldSt} value={form.categoria} onChange={(e) => setForm((p) => ({ ...p, categoria: e.target.value }))}>
-                  {["pizze_rosse", "pizze_bianche", "calzoni", "menu_speciale", "fritti", "bevande", "dolci", "extra"].map((c) => <option key={c} value={c}>{CAT_LABEL[c]}</option>)}
+                  {["pizze_rosse", "pizze_bianche", "calzoni", "focacce", "menu_speciale", "fritti", "bevande", "dolci", "extra"].map((c) => <option key={c} value={c}>{CAT_LABEL[c]}</option>)}
                 </select>
               </div>
               <div>
