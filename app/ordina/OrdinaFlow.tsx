@@ -725,6 +725,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
             </button>
           </>
         )}
+        <a href="/ordina/menu" style={{ ...btnPrimarySt, display: "block", textAlign: "center", textDecoration: "none", background: "transparent", color: "var(--text)", border: "1.5px solid var(--text)" }}>Consulta il menù</a>
         <BottoneInstalla />
       </div>
     );
@@ -763,6 +764,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
         <button style={{ ...btnPrimarySt }} onClick={() => setTipo("asporto")}>Ritiro in sede</button>
         <button style={{ ...btnPrimarySt, background: "#fff", color: "var(--text)", border: "1px solid var(--border)" }} onClick={() => setTipo("domicilio")}>Consegna a domicilio</button>
         <button style={{ ...btnPrimarySt, background: "transparent", color: "var(--text)", border: "1.5px solid var(--text)" }} onClick={() => setVistaOrdini(true)}>I miei ordini</button>
+        <a href="/ordina/menu" style={{ ...btnPrimarySt, display: "block", textAlign: "center", textDecoration: "none", background: "transparent", color: "var(--text)", border: "1.5px solid var(--text)" }}>Consulta il menù</a>
         <BottoneInstalla />
       </div>
     );
