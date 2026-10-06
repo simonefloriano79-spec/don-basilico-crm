@@ -148,7 +148,7 @@ export default function ConsultaMenu() {
 
           <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.6, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
             <div>* Prodotto surgelato.</div>
-            <div>Per allergie o intolleranze chiedi al personale prima di ordinare. Le nostre pizzerie non hanno ambienti separati: possono essere presenti tracce di allergeni.</div>
+            <div>Per allergie o intolleranze chiedi al personale prima di ordinare.</div>
           </div>
         </>
       )}
