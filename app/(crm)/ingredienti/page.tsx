@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { ALLERGENI, ETICHETTA_ALLERGENE } from "@/lib/allergeni";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 
@@ -13,7 +14,7 @@ export default function IngredientiPage() {
   const [ingredienti, setIngredienti] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ nome: "", prezzoAggiunta: "", isAllergene: false, escludiCompensazione: false });
+  const [editForm, setEditForm] = useState<{ nome: string; prezzoAggiunta: string; isAllergene: boolean; escludiCompensazione: boolean; allergeni: string[]; allergeniDaVerificare: boolean }>({ nome: "", prezzoAggiunta: "", isAllergene: false, escludiCompensazione: false, allergeni: [], allergeniDaVerificare: false });
   const [showNuovo, setShowNuovo] = useState(false);
   const [nuovoForm, setNuovoForm] = useState({ nome: "", prezzoAggiunta: "0.00", isAllergene: false, escludiCompensazione: false });
   const user = session?.user as any;
@@ -32,7 +33,7 @@ export default function IngredientiPage() {
   const salvaPrezzoAdmin = async (id: string) => {
     const res = await fetch(`/api/ingredienti/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nome: editForm.nome, prezzoAggiunta: parseFloat(editForm.prezzoAggiunta), isAllergene: editForm.isAllergene, escludiCompensazione: editForm.escludiCompensazione }),
+      body: JSON.stringify({ nome: editForm.nome, prezzoAggiunta: parseFloat(editForm.prezzoAggiunta), allergeni: editForm.allergeni, allergeniDaVerificare: editForm.allergeniDaVerificare, escludiCompensazione: editForm.escludiCompensazione }),
     });
     if (res.ok) { toast.success("Ingrediente aggiornato"); setEditingId(null); carica(); }
     else toast.error("Errore nel salvataggio");
@@ -71,7 +72,7 @@ export default function IngredientiPage() {
 
   const startEdit = (ing: any) => {
     setEditingId(ing.id);
-    setEditForm({ nome: ing.nome, prezzoAggiunta: ing.prezzoAggiunta?.toString() ?? "0.00", isAllergene: ing.isAllergene, escludiCompensazione: ing.escludiCompensazione ?? false });
+    setEditForm({ nome: ing.nome, prezzoAggiunta: ing.prezzoAggiunta?.toString() ?? "0.00", isAllergene: ing.isAllergene, escludiCompensazione: ing.escludiCompensazione ?? false, allergeni: ing.allergeni ?? [], allergeniDaVerificare: !!ing.allergeniDaVerificare });
   };
 
   return (
@@ -104,7 +105,7 @@ export default function IngredientiPage() {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "var(--surface-muted)" }}>
-              {["Ingrediente", "Prezzo aggiunta", "Allergene", ...(isSuperAdmin ? ["Compensazione", "Disponibile", "Azioni"] : ["Disponibile in sede"])].map((h) => (
+              {["Ingrediente", "Prezzo aggiunta", "Allergeni", ...(isSuperAdmin ? ["Compensazione", "Disponibile", "Azioni"] : ["Disponibile in sede"])].map((h) => (
                 <th key={h} style={{ padding: "11px 14px", textAlign: "left", fontSize: 9.5, letterSpacing: 1.7, textTransform: "uppercase", color: "var(--text-muted)", fontWeight: 500 }}>{h}</th>
               ))}
             </tr>
@@ -141,14 +142,29 @@ export default function IngredientiPage() {
                 </td>
                 <td style={{ padding: "12px 14px" }}>
                   {editingId === ing.id ? (
-                    <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12.5, color: "var(--text-2)" }}>
-                      <input type="checkbox" checked={editForm.isAllergene} onChange={(e) => setEditForm((p) => ({ ...p, isAllergene: e.target.checked }))} />
-                      Sì
-                    </label>
-                  ) : ing.isAllergene ? (
-                    <span style={{ fontSize: 11, fontWeight: 500, background: "var(--danger-bg)", color: "var(--danger)", padding: "3px 10px", borderRadius: 20 }}>Sì</span>
+                    <div style={{ minWidth: 260 }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                        {ALLERGENI.map((a) => {
+                          const on = editForm.allergeni.includes(a.codice);
+                          return (
+                            <button key={a.codice} type="button" onClick={() => setEditForm((p) => ({ ...p, allergeni: on ? p.allergeni.filter((x) => x !== a.codice) : [...p.allergeni, a.codice] }))}
+                              style={{ padding: "3px 9px", borderRadius: 20, fontSize: 11.5, cursor: "pointer", border: "1.5px solid", fontFamily: "var(--font-ui)", background: on ? "var(--text)" : "#fff", color: on ? "#fff" : "var(--text-3)", borderColor: on ? "var(--text)" : "var(--border)" }}>{a.etichetta}</button>
+                          );
+                        })}
+                      </div>
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: "var(--text-2)", marginTop: 6 }}>
+                        <input type="checkbox" checked={editForm.allergeniDaVerificare} onChange={(e) => setEditForm((p) => ({ ...p, allergeniDaVerificare: e.target.checked }))} />
+                        Da verificare con la scheda del fornitore
+                      </label>
+                    </div>
                   ) : (
-                    <span style={{ fontSize: 13, color: "var(--text-faint)" }}>—</span>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
+                      {(ing.allergeni ?? []).length === 0 && !ing.allergeniDaVerificare && <span style={{ fontSize: 13, color: "var(--text-faint)" }}>—</span>}
+                      {(ing.allergeni ?? []).map((c: string) => (
+                        <span key={c} style={{ fontSize: 11, fontWeight: 500, background: "var(--danger-bg)", color: "var(--danger)", padding: "2px 9px", borderRadius: 20 }}>{ETICHETTA_ALLERGENE[c] ?? c}</span>
+                      ))}
+                      {ing.allergeniDaVerificare && <span style={{ fontSize: 10.5, fontWeight: 600, background: "#fff3d6", color: "#8a5a00", padding: "2px 9px", borderRadius: 20 }}>da verificare</span>}
+                    </div>
                   )}
                 </td>
 

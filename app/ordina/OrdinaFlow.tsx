@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { COSTO_CONSEGNA_DEFAULT } from "@/lib/consegna";
 import PaginaTessera from "./PaginaTessera";
+import { allergeniProdotto, testoAllergeni } from "@/lib/allergeni";
 
 const CAT_LABEL: Record<string, string> = {
   pizze: "Pizze", pizze_rosse: "Pizze rosse", pizze_bianche: "Pizze bianche",
@@ -380,6 +381,15 @@ function PizzaModalCliente({ item, ingredienti, impasti, onConferma, onChiudi }:
               );
             })}
           </div>
+          {(() => {
+            const al = allergeniProdotto(item, { rimossi, aggiunti: Array.from(aggiunti.values()) as any[] });
+            return (
+              <div style={{ margin: "0 0 12px", padding: "10px 12px", background: "#fff", border: "1px solid var(--border)", borderRadius: 12, fontSize: 12.5, color: "var(--text-2)", lineHeight: 1.5 }}>
+                <strong style={{ color: "var(--text)" }}>Allergeni di questa pizza:</strong> {testoAllergeni(al)}
+                {al.daConfermare && <div style={{ color: "var(--text-muted)", marginTop: 2 }}>Elenco da confermare: chiedi al personale prima di ordinare.</div>}
+              </div>
+            );
+          })()}
           <textarea style={{ ...fieldSt, resize: "none" } as any} rows={2} placeholder="Note per questa pizza (opzionale)" value={nota} onChange={(e) => setNota(e.target.value)} />
         </div>
         <div style={{ padding: "12px 20px 16px", borderTop: "1px solid var(--border-soft)", display: "flex", alignItems: "center", gap: 12 }}>

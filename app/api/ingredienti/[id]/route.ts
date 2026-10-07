@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ALLERGENI } from "@/lib/allergeni";
 
 // PATCH /api/ingredienti/[id]
 // Admin: modifica prezzo_aggiunta, nome, is_allergene
@@ -18,7 +19,11 @@ export async function PATCH(
 
   if (user.ruolo === "super_admin") {
     // Admin: modifica globale
-    const { nome, prezzoAggiunta, isAllergene, disponibileDefault, escludiCompensazione } = body;
+    const { nome, prezzoAggiunta, isAllergene, disponibileDefault, escludiCompensazione, allergeni, allergeniDaVerificare } = body;
+    const codiciValidi = new Set(ALLERGENI.map((a) => a.codice));
+    const allergeniPuliti: string[] | undefined = Array.isArray(allergeni)
+      ? Array.from(new Set(allergeni.filter((x: unknown): x is string => typeof x === "string" && codiciValidi.has(x))))
+      : undefined;
 
     const updated = await prisma.ingrediente.update({
       where: { id: params.id },
@@ -26,6 +31,8 @@ export async function PATCH(
         ...(nome !== undefined && { nome }),
         ...(prezzoAggiunta !== undefined && { prezzoAggiunta }),
         ...(isAllergene !== undefined && { isAllergene }),
+        ...(allergeniPuliti !== undefined && { allergeni: allergeniPuliti, isAllergene: allergeniPuliti.length > 0 }),
+        ...(allergeniDaVerificare !== undefined && { allergeniDaVerificare: !!allergeniDaVerificare }),
         ...(disponibileDefault !== undefined && { disponibileDefault }),
         ...(escludiCompensazione !== undefined && { escludiCompensazione }),
       },

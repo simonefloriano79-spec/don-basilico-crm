@@ -125,6 +125,9 @@ model MenuItem {
   disponibileDefault    Boolean       @default(true) @map("disponibile_default")
   ordineVisualizzazione Int           @default(0) @map("ordine_visualizzazione")
   isAttivo              Boolean       @default(true) @map("is_attivo")
+  // Allergeni propri del prodotto (per quelli senza ingredienti: fritti, dolci, bevande) e stato di verifica.
+  allergeniExtra        String[]      @default([]) @map("allergeni_extra")
+  allergeniDaVerificare Boolean       @default(false) @map("allergeni_da_verificare")
   createdAt             DateTime      @default(now()) @map("created_at")
   updatedAt             DateTime      @updatedAt @map("updated_at")
 
@@ -167,6 +170,9 @@ model Ingrediente {
   prezzoAggiunta       Decimal  @default(0.00) @map("prezzo_aggiunta") @db.Decimal(10, 2)
   disponibileDefault   Boolean  @default(true) @map("disponibile_default")
   escludiCompensazione Boolean  @default(false) @map("escludi_compensazione")
+  // Allergeni dell'ingrediente (codici dei 14 allergeni UE) e se la lista va ancora confermata con la scheda del fornitore.
+  allergeni             String[] @default([])
+  allergeniDaVerificare Boolean  @default(false) @map("allergeni_da_verificare")
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @default(now()) @updatedAt @map("updated_at")
 
