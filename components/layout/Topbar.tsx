@@ -18,6 +18,7 @@ const PAGES: Record<string, { title: string; subtitle: string }> = {
   "/sedi":          { title: "Sedi",          subtitle: "punti vendita" },
   "/utenti":        { title: "Utenti",        subtitle: "accessi e ruoli" },
   "/profilo":       { title: "Profilo",       subtitle: "account e password" },
+  "/pannello":      { title: "Online",        subtitle: "ordini dal sito" },
 };
 
 const OGGI = new Date().toLocaleDateString("it-IT", { day: "numeric", month: "long" });
@@ -113,7 +114,7 @@ export function Topbar({ session }: { session: Session }) {
         )}
 
         <button
-          onClick={() => signOut({ callbackUrl: "/login" })}
+          onClick={() => signOut({ callbackUrl: pathname === "/pannello" ? "/login?da=/pannello" : "/login" })}
           style={{
             background: "#fff", border: "1px solid var(--border)",
             color: "var(--text-2)", padding: "7px 14px", borderRadius: 8, fontSize: 12.5,
