@@ -464,6 +464,9 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   // la barretta in basso serve solo a raggiungerlo e sparisce quando è già visibile.
   const riepilogoRef = useRef<HTMLDivElement | null>(null);
   const [riepilogoVisibile, setRiepilogoVisibile] = useState(false);
+  const [domandaAperta, setDomandaAperta] = useState<string | null>(null);
+  const [domandeFatte, setDomandeFatte] = useState<string[]>([]);
+  const categorieRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch("/api/ordina/sessione").then((r) => r.json()).then((d) => { setCliente(d.cliente ?? null); setStaffBeta(!!d.staff); setCaricamento(false); });
@@ -837,8 +840,35 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   const itemsFiltrati = menuLista.filter((m) => m.categoria === filtro).sort((a, b) => a.nome.localeCompare(b.nome, "it", { sensitivity: "base" }));
 
   // «Completa il tuo ordine»: bevande e fritti proposti nel riepilogo,.
+  // Premendo «Vai al riepilogo»: se nel carrello non c'è un fritto / una bevanda, prima si chiede (sì → apre quella pagina
+  // del menù; no → si passa alla domanda successiva e infine al riepilogo). Ogni domanda si fa una volta sola.
+  const DOMANDE: Record<string, { testo: string; sub: string }> = {
+    fritti: { testo: "Vuoi aggiungere un fritto da sgranocchiare?", sub: "Olive ascolane, supplì, patatine…" },
+    bevande: { testo: "Gradisci qualcosa da bere?", sub: "Acqua, bibite, birra…" },
+  };
+  const prossimaDomanda = (chiesti: string[]) =>
+    (["fritti", "bevande"] as const).find((cat) =>
+      !chiesti.includes(cat) && !cart.some((c) => c.categoria === cat) && menuLista.some((m) => m.categoria === cat));
+  const vaiAlRiepilogo = () => {
+    const cat = prossimaDomanda(domandeFatte);
+    if (cat) setDomandaAperta(cat);
+    else riepilogoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const rispondiDomanda = (cat: string, si: boolean) => {
+    const fatte = [...domandeFatte, cat];
+    setDomandeFatte(fatte);
+    setDomandaAperta(null);
+    if (si) {
+      setCatFiltro(cat);
+      setTimeout(() => categorieRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+      return;
+    }
+    const prossima = prossimaDomanda(fatte);
+    if (prossima) setDomandaAperta(prossima);
+    else setTimeout(() => riepilogoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  };
   const qtaNelCarrello = (id: string) => cart.reduce((a, c) => a + (c.menuItemId === id ? c.qty : 0), 0);
-  const catSuggerite = (["bevande", "fritti"] as const)
+  const catSuggerite = (["fritti", "bevande"] as const)
     .map((cat) => ({
       cat,
       items: menuLista.filter((m) => m.categoria === cat).sort((a, b) => a.nome.localeCompare(b.nome, "it", { sensitivity: "base" })),
@@ -871,7 +901,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
         </button>
       )}
 
-      <div style={{ display: "flex", gap: 6, overflowX: "auto" }}>
+      <div ref={categorieRef} style={{ display: "flex", gap: 6, overflowX: "auto", scrollMarginTop: 70 }}>
         {catsPresenti.map((c) => (
           <button key={c} onClick={() => setCatFiltro(c)} style={{
             flexShrink: 0, padding: "8px 15px", borderRadius: 20, fontSize: 12.5, cursor: "pointer",
@@ -1048,10 +1078,31 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
         </div>
       )}
 
+      {domandaAperta && DOMANDE[domandaAperta] && (
+        <div onClick={() => rispondiDomanda(domandaAperta, false)} style={{
+          position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+        }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 18, padding: "24px 20px 20px", width: "100%", maxWidth: 360, textAlign: "center" }}>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 20, color: "var(--text)", lineHeight: 1.25 }}>{DOMANDE[domandaAperta].testo}</div>
+            <div style={{ fontSize: 13, color: "var(--text-muted)", margin: "6px 0 18px" }}>{DOMANDE[domandaAperta].sub}</div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => rispondiDomanda(domandaAperta, false)} style={{
+                flex: 1, padding: "14px 8px", borderRadius: 12, border: "1.5px solid var(--border)", background: "#fff", color: "var(--text-2)",
+                fontFamily: "var(--font-ui)", fontSize: 14.5, cursor: "pointer",
+              }}>No, grazie</button>
+              <button onClick={() => rispondiDomanda(domandaAperta, true)} style={{
+                flex: 1, padding: "14px 8px", borderRadius: 12, border: "1.5px solid var(--text)", background: "var(--text)", color: "#fff",
+                fontFamily: "var(--font-ui)", fontSize: 14.5, fontWeight: 600, cursor: "pointer",
+              }}>Sì</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {cart.length > 0 && !riepilogoVisibile && (
         <div style={{ position: "sticky", bottom: 10, zIndex: 20 }}>
           <button
-            onClick={() => riepilogoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            onClick={vaiAlRiepilogo}
             style={{ ...btnPrimarySt, display: "flex", justifyContent: "space-between", boxShadow: "0 4px 14px rgba(0,0,0,0.18)" }}
           >
             <span>{cart.reduce((a, c) => a + c.qty, 0)} {cart.reduce((a, c) => a + c.qty, 0) === 1 ? "prodotto" : "prodotti"}</span>
