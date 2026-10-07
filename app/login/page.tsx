@@ -11,6 +11,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  // Dopo l'accesso torna dove si era (solo percorsi interni, es. /pannello).
+  const daParam = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("da") : null;
+  const da = daParam && daParam.startsWith("/") && !daParam.startsWith("//") ? daParam : null;
 
   const handleLogin = async () => {
     if (!email) return;
@@ -24,7 +27,7 @@ export default function LoginPage() {
 
     if (res?.ok) {
       toast.success("Accesso effettuato!");
-      router.push("/dashboard");
+      router.push(da || "/dashboard");
     } else {
       toast.error("Credenziali non valide");
     }

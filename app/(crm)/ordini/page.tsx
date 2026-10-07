@@ -73,7 +73,8 @@ const arrotonda10 = (d: Date) => new Date(Math.ceil(d.getTime() / 600000) * 6000
 export default function OrdiniPage() {
   const { data: session } = useSession();
   const searchParams = useSearchParams();
-  const soloOnline = usePathname() === "/online";
+  const percorso = usePathname();
+  const soloOnline = percorso === "/online" || percorso === "/pannello";
   const sedeParam = searchParams.get("sede") ?? "";
   const user = session?.user as any;
   const isSuperAdmin = user?.ruolo === "super_admin";
