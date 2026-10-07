@@ -836,6 +836,15 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   const filtro = catFiltro || catsPresenti[0] || "";
   const itemsFiltrati = menuLista.filter((m) => m.categoria === filtro).sort((a, b) => a.nome.localeCompare(b.nome, "it", { sensitivity: "base" }));
 
+  // «Completa il tuo ordine»: bevande e fritti proposti nel riepilogo,.
+  const qtaNelCarrello = (id: string) => cart.reduce((a, c) => a + (c.menuItemId === id ? c.qty : 0), 0);
+  const catSuggerite = (["bevande", "fritti"] as const)
+    .map((cat) => ({
+      cat,
+      items: menuLista.filter((m) => m.categoria === cat).sort((a, b) => a.nome.localeCompare(b.nome, "it", { sensitivity: "base" })),
+    }))
+    .filter((g) => g.items.length > 0);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 12 }}>
       {tipo === "domicilio" && sedeAssegnata && (
@@ -912,6 +921,40 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
               <span className="num" style={{ fontSize: 13, fontWeight: 500, minWidth: 56, textAlign: "right" }}>{euro(c.prezzo * c.qty)}</span>
             </div>
           ))}
+
+          {catSuggerite.length > 0 && (
+            <div style={{ margin: "14px 0 12px", paddingTop: 14, borderTop: "1px solid var(--border)" }}>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 17, color: "var(--text)" }}>Completa il tuo ordine</div>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2, marginBottom: 10 }}>Aggiungi qualcosa da bere o da sgranocchiare</div>
+              {catSuggerite.map((g) => (
+                <div key={g.cat} style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 10.5, letterSpacing: 1.6, textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 6 }}>{CAT_LABEL[g.cat] ?? g.cat}</div>
+                  <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
+                    {g.items.map((m) => {
+                      const q = qtaNelCarrello(m.id);
+                      return (
+                        <div key={m.id} style={{
+                          flex: "0 0 138px", background: "#fff", border: `1.5px solid ${q ? "var(--text)" : "var(--border)"}`, borderRadius: 12,
+                          padding: 10, display: "flex", flexDirection: "column", gap: 6,
+                        }}>
+                          {m.immagineUrl && (
+                            <img src={m.immagineUrl} alt={m.nome} loading="lazy" decoding="async"
+                              style={{ width: "100%", height: 70, borderRadius: 8, objectFit: "cover", background: "var(--border)" }} />
+                          )}
+                          <div style={{ fontFamily: "var(--font-display)", fontSize: 13.5, color: "var(--text)", lineHeight: 1.25, flex: 1 }}>{m.nome}</div>
+                          <div className="num" style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{prezzoMenu(parseFloat(m.prezzoEffettivo ?? m.prezzoBase))}</div>
+                          <button onClick={() => aggiungiAlCarrello(m)} style={{
+                            padding: "8px 6px", borderRadius: 9, border: "1.5px solid var(--text)", cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 12.5, fontWeight: 500,
+                            background: q ? "var(--text)" : "#fff", color: q ? "#fff" : "var(--text)",
+                          }}>{q ? `Aggiunto ×${q} · +1` : "+ Aggiungi"}</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           <textarea style={{ ...fieldSt, resize: "none", marginTop: 6, marginBottom: 10 } as any} rows={2} placeholder="Note (opzionale)" value={note} onChange={(e) => setNote(e.target.value)} />
 
