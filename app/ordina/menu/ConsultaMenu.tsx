@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { allergeniProdotto, testoAllergeni, type AllergeniCalcolati } from "@/lib/allergeni";
 
 interface Sede { id: string; nome: string; slug: string; }
-interface Prodotto { id: string; nome: string; categoria: string; descrizione: string | null; immagineUrl: string | null; prezzo: number; }
+interface Prodotto { id: string; nome: string; categoria: string; descrizione: string | null; immagineUrl: string | null; prezzo: number; allergeni: AllergeniCalcolati; }
 interface Impasto { id: string; nome: string; descrizione: string | null; supplemento: number; }
 
 // Sezioni nell'ordine del menù e come si chiamano. «Crea la tua pizza» è un prodotto speciale e va in evidenza.
@@ -59,6 +60,7 @@ export default function ConsultaMenu() {
           .map((x: any) => ({
             id: x.id, nome: x.nome, categoria: x.categoria, descrizione: x.descrizione, immagineUrl: x.immagineUrl,
             prezzo: parseFloat(x.prezzoEffettivo ?? x.prezzoBase),
+            allergeni: allergeniProdotto(x),
           }))
       );
       setImpasti(i.impasti ?? []);
@@ -105,6 +107,7 @@ export default function ConsultaMenu() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--text)" }}>Crea la tua pizza</div>
                 <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 2, lineHeight: 1.45 }}>{crea.descrizione}</div>
+                <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 3 }}>Gli allergeni dipendono dagli ingredienti che scegli.</div>
               </div>
               <span className="num" style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: "nowrap" }}>da {prezzoMenu(crea.prezzo)}</span>
             </div>
@@ -121,6 +124,11 @@ export default function ConsultaMenu() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontFamily: "var(--font-display)", fontSize: 17, color: "var(--text)" }}>{p.nome}</div>
                       {p.descrizione && <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 2, lineHeight: 1.45 }}>{p.descrizione}</div>}
+                      {p.categoria !== "bevande" && (
+                        <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 3, lineHeight: 1.4 }}>
+                          Allergeni: {testoAllergeni(p.allergeni)}{p.allergeni.daConfermare ? " · elenco da confermare, chiedi al personale" : ""}
+                        </div>
+                      )}
                     </div>
                     <span className="num" style={{ fontSize: 15, fontWeight: 600, color: "var(--text)", flexShrink: 0 }}>{prezzoMenu(p.prezzo)}</span>
                   </div>
