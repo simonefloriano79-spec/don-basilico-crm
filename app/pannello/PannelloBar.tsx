@@ -5,8 +5,11 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { Session } from "next-auth";
 import { AutoStampa } from "@/components/layout/AutoStampa";
-import { impostaSuonoMuto, suonaNuovoOrdine, suonoMuto } from "@/lib/suono-ordine";
+import { fermaSquillo, impostaSuonoMuto, suonaNuovoOrdine, suonaSquillo, suonoMuto } from "@/lib/suono-ordine";
 
+// Nuovo ordine: suoneria continua per 20 s; poi, finché resta da accettare, un richiamo di 6 s ogni 25 s.
+const SQUILLO_NUOVO_SEC = 20;
+const SQUILLO_RICHIAMO_SEC = 6;
 const RIPETI_OGNI_MS = 25000;
 
 // Barra del pannello ordini online: sede, contatore "da accettare", suono (che si ripete finché c'è
@@ -42,18 +45,23 @@ export function PannelloBar({ session }: { session: Session }) {
       fetch("/api/ordini/da-accettare").then((r) => (r.ok ? r.json() : null)).then((d) => {
         if (!attivo || !d) return;
         const adesso = Date.now();
-        const nuovo = precedente.current !== null && d.n > precedente.current;
-        if (d.n > 0 && (nuovo || adesso - ultimoSuono.current >= RIPETI_OGNI_MS)) {
-          suonaNuovoOrdine();
-          ultimoSuono.current = adesso;
+        const nuovo = d.n > (precedente.current ?? 0);
+        if (d.n === 0) {
+          fermaSquillo();
+        } else if (nuovo) {
+          suonaSquillo(SQUILLO_NUOVO_SEC);
+          ultimoSuono.current = adesso + SQUILLO_NUOVO_SEC * 1000;
+        } else if (adesso - ultimoSuono.current >= RIPETI_OGNI_MS) {
+          suonaSquillo(SQUILLO_RICHIAMO_SEC);
+          ultimoSuono.current = adesso + SQUILLO_RICHIAMO_SEC * 1000;
         }
         precedente.current = d.n;
         setDaAccettare(d.n);
         setSospese(Array.isArray(d.sospese) ? d.sospese.map((s: any) => s.nome) : []);
       }).catch(() => {});
     carica();
-    const iv = setInterval(carica, 10000);
-    return () => { attivo = false; clearInterval(iv); };
+    const iv = setInterval(carica, 5000);
+    return () => { attivo = false; clearInterval(iv); fermaSquillo(); };
   }, []);
 
   // Titolo della scheda col numero: si vede anche con la scheda in background.
@@ -129,7 +137,7 @@ export function PannelloBar({ session }: { session: Session }) {
             <span style={{ ...btn, background: "var(--surface-muted)", cursor: "default" }}>{user.sedeNome}</span>
           ) : null}
 
-          <button style={btn} onClick={() => { const v = !muto; setMuto(v); impostaSuonoMuto(v); if (!v) suonaNuovoOrdine(true); }}>
+          <button style={btn} onClick={() => { const v = !muto; setMuto(v); impostaSuonoMuto(v); if (v) fermaSquillo(); else suonaNuovoOrdine(true); }}>
             {muto ? "🔕 Suono spento" : "🔔 Suono acceso"}
           </button>
           <button style={btn} onClick={() => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.()}>
