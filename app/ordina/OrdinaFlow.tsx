@@ -181,8 +181,9 @@ function CartaFedelta({ tessera, onApri }: { tessera: Tessera | null; onApri: ()
 // Registrazione dell'evento di installazione (arriva una volta sola, spesso prima che il pulsante sia visibile).
 let eventoInstalla: any = null;
 
-type ModoLogo = "grande" | "home" | "piccolo";
+type ModoLogo = "grande" | "home" | "piccolo" | "nascosto";
 function Testata({ modo }: { modo: ModoLogo }) {
+  if (modo === "nascosto") return null;
   return (
     <img
       src="/brand/don-basilico-logo.png"
@@ -296,6 +297,89 @@ function BottoneCondividi({ stile }: { stile: React.CSSProperties }) {
   );
 }
 
+const senzaMarca = (nome: string) => String(nome ?? "").replace(/^Don Basilico\s+/i, "");
+const nomeSedeBreve = (sd: any) => {
+  let n = senzaMarca(sd.nome);
+  const c = String(sd.citta ?? "");
+  if (c && n.toLowerCase().startsWith(c.toLowerCase() + " ")) n = n.slice(c.length + 1);
+  return n || String(sd.nome);
+};
+
+// Intestazione delle schermate interne: indietro rotondo, logo piccolo, (carrello con badge).
+function IntestazioneInterna({ onIndietro, carrello }: { onIndietro: () => void; carrello?: { n: number; onClick: () => void } }) {
+  return (
+    <header style={{ display: "grid", gridTemplateColumns: "44px 1fr 44px", alignItems: "center", padding: "0 0 8px" }}>
+      <button type="button" aria-label="Indietro" onClick={onIndietro} style={{
+        width: 44, height: 44, borderRadius: "50%", border: "1px solid #DADBD2", background: "#FFFFFF", color: "#1B1E17",
+        display: "flex", alignItems: "center", justifyContent: "center", padding: 0, cursor: "pointer",
+      }}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 12H5" /><path d="M11 18l-6-6 6-6" /></svg>
+      </button>
+      <div style={{ display: "flex", justifyContent: "center" }}>
+        <img src="/brand/don-basilico-logo.png" alt="Don Basilico" style={{ width: 104, height: "auto", display: "block" }} />
+      </div>
+      {carrello ? (
+        <button type="button" aria-label={`Carrello, ${carrello.n} ${carrello.n === 1 ? "articolo" : "articoli"}`} onClick={carrello.onClick} style={{
+          width: 44, height: 44, borderRadius: "50%", border: "none", background: "#1B1E17", color: "#FFFFFF",
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 0, position: "relative", cursor: "pointer",
+        }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2z" /><path d="M9 8V6.5a3 3 0 0 1 6 0V8" /></svg>
+          {carrello.n > 0 && (
+            <span style={{ position: "absolute", top: -2, right: -2, minWidth: 20, height: 20, borderRadius: 10, background: "#7ECE25", color: "#1B1E17", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{carrello.n}</span>
+          )}
+        </button>
+      ) : <span />}
+    </header>
+  );
+}
+
+// Etichetta con pallino verde sopra il titolo («CONSEGNA A DOMICILIO» / «RITIRO IN SEDE»).
+function EtichettaPercorso({ testo }: { testo: string }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12, fontWeight: 600, letterSpacing: 2, color: "#4E6B1C" }}>
+      <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#7ECE25" }} />{testo}
+    </span>
+  );
+}
+
+// CTA fissa in basso: nera, alta 56px (grigia se non attiva).
+function BarraCta({ attivo, onClick, children, freccia = true }: { attivo: boolean; onClick: () => void; children: React.ReactNode; freccia?: boolean }) {
+  return (
+    <div style={{ position: "sticky", bottom: 0, margin: "auto -16px 0", padding: "14px 16px 20px", background: "#F6F6F1", borderTop: "1px solid #E4E5DD", zIndex: 30 }}>
+      <button type="button" disabled={!attivo} aria-disabled={!attivo} onClick={onClick} style={{
+        width: "100%", height: 56, border: "none", borderRadius: 18, fontSize: 17, fontWeight: 600, fontFamily: "var(--font-ui)",
+        background: attivo ? "#1B1E17" : "#D9DAD2", color: attivo ? "#FFFFFF" : "#5F6457", cursor: attivo ? "pointer" : "not-allowed",
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+      }}>
+        {children}
+        {attivo && freccia && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="M13 6l6 6-6 6" /></svg>}
+      </button>
+    </div>
+  );
+}
+
+function SchedaSede({ sd, nome, selezionata, onScegli, compatta }: { sd: any; nome: string; selezionata: boolean; onScegli: () => void; compatta?: boolean }) {
+  const sospesa = sd.ordiniOnlineAttivi === false;
+  return (
+    <button type="button" aria-pressed={selezionata} disabled={sospesa} onClick={onScegli} style={{
+      minHeight: 66, borderRadius: 18, background: "#FFFFFF", color: "#1B1E17", textAlign: "left", fontFamily: "var(--font-ui)",
+      border: selezionata ? "2px solid #1B1E17" : "1px solid #E4E5DD", padding: selezionata ? (compatta ? "0 13px" : "0 15px") : (compatta ? "0 14px" : "0 16px"),
+      display: "flex", alignItems: "center", gap: 12, cursor: sospesa ? "default" : "pointer", opacity: sospesa ? 0.6 : 1,
+    }}>
+      <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2, padding: "10px 0" }}>
+        <span style={{ fontSize: compatta ? 16 : 17, fontWeight: 600 }}>{nome}</span>
+        <span style={{ fontSize: compatta ? 13 : 14, color: "#5F6457" }}>{sd.indirizzo}</span>
+        {sospesa && <span style={{ fontSize: 12.5, color: "#B3261E", marginTop: 2 }}>Ordini online sospesi al momento: riprova tra poco o chiamaci</span>}
+      </span>
+      {!compatta && (
+        <span style={{ width: 22, height: 22, borderRadius: "50%", boxSizing: "border-box", flexShrink: 0, background: selezionata ? "#7ECE25" : "transparent", border: selezionata ? "none" : "1.5px solid #A5A99C", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {selezionata && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1B1E17" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10" /></svg>}
+        </span>
+      )}
+    </button>
+  );
+}
+
 // Prezzo come si legge nel menù: «8» oppure «8,50», senza il simbolo €.
 function prezzoMenu(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(".", ",");
@@ -353,7 +437,9 @@ function PizzaModalCliente({ item, ingredienti, impasti, onConferma, onChiudi }:
   const [nota, setNota] = useState("");
   const [qty, setQty] = useState(1);
   const [cerca, setCerca] = useState("");
+  const [tuttiIng, setTuttiIng] = useState(false);
   const [impastoId, setImpastoId] = useState<string | null>(null);
+  const inizioSwipe = useRef<number | null>(null);
   const impastiScelta = CAT_IMPASTO.includes(item.categoria) ? impasti : [];
   const impastoScelto = impastiScelta.find((x) => x.id === impastoId) ?? null;
 
@@ -364,93 +450,169 @@ function PizzaModalCliente({ item, ingredienti, impasti, onConferma, onChiudi }:
 
   const extra = ingredienti.filter((i) => !rimossi.has(i.id) && !i.disabilitatoInSede
     && i.nome.toLowerCase().includes(cerca.toLowerCase()));
+  // Senza ricerca si mostrano i primi 6 (più quelli già scelti); «Mostra tutti» o la ricerca li aprono.
+  const extraVisibili = tuttiIng || cerca.trim() ? extra : extra.filter((i, idx) => idx < 6 || aggiunti.has(i.id));
+  const nascosti = extra.length - extraVisibili.length;
 
   const toggle = <T,>(set: Set<T>, v: T) => { const n = new Set(set); n.has(v) ? n.delete(v) : n.add(v); return n; };
+  const nomiRimossi = base.filter((i) => rimossi.has(i.id)).map((i) => i.nome);
+  const nomiAggiunti = Array.from(aggiunti.values()).map((i) => i.nome);
+  const etichetta: React.CSSProperties = { margin: 0, fontSize: 13, fontWeight: 600, letterSpacing: 1.8, textTransform: "uppercase" };
+  const piu = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>;
+  const meno = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M5 12h14" /></svg>;
+  const spunta = (colore: string, w = 16, sw = 3) => <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke={colore} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10" /></svg>;
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end" }} onClick={onChiudi}>
-      <div style={{ background: "var(--surface)", borderRadius: "20px 20px 0 0", maxHeight: "92vh", display: "flex", flexDirection: "column", width: "100%", maxWidth: 560, margin: "0 auto", overflow: "hidden" }} onClick={(e) => e.stopPropagation()}>
-        {item.immagineUrl && (
-          <img src={item.immagineUrl} alt={item.nome} decoding="async"
-            style={{ width: "100%", height: 260, objectFit: "cover", display: "block", flexShrink: 0, background: "var(--border)" }} />
-        )}
-        <div style={{ padding: "18px 20px 10px", display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: 21, color: "var(--text)" }}>{item.nome}</div>
-          <span className="num" style={{ fontSize: 15, fontWeight: 600, color: "var(--text-2)" }}>{prezzoMenu(prezzoBase)}</span>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(27,30,23,0.55)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end" }} onClick={onChiudi}>
+      <section role="dialog" aria-modal="true" aria-label={item.nome} onClick={(e) => e.stopPropagation()}
+        style={{ background: "#F6F6F1", borderRadius: "28px 28px 0 0", maxHeight: "94vh", display: "flex", flexDirection: "column", width: "100%", maxWidth: 560, margin: "0 auto", overflow: "hidden", fontFamily: "var(--font-ui)", color: "#1B1E17" }}>
+        <div
+          onTouchStart={(e) => { inizioSwipe.current = e.touches[0].clientY; }}
+          onTouchEnd={(e) => { if (inizioSwipe.current !== null && e.changedTouches[0].clientY - inizioSwipe.current > 80) onChiudi(); inizioSwipe.current = null; }}>
+          <div style={{ display: "flex", justifyContent: "center", paddingTop: 10 }}><span style={{ width: 40, height: 5, borderRadius: 3, background: "#C9CBC1" }} /></div>
+          <div style={{ padding: "8px 20px 0", display: "flex", gap: 12, alignItems: "flex-start" }}>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
+              <h2 style={{ margin: 0, fontFamily: "'Playfair Display', var(--font-display)", fontWeight: 800, fontSize: 28, lineHeight: 1.1 }}>{item.nome}</h2>
+              {item.descrizione && <p style={{ margin: 0, fontSize: 14, lineHeight: 1.4, color: "#5F6457" }}>{item.descrizione}</p>}
+              <span className="num" style={{ fontSize: 15, fontWeight: 600, color: "#3E4237" }}>{prezzoMenu(prezzoBase)}</span>
+            </div>
+            <button type="button" aria-label="Chiudi" onClick={onChiudi} style={{ width: 44, height: 44, borderRadius: "50%", border: "1px solid #DADBD2", background: "#FFFFFF", color: "#1B1E17", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, flex: "none", cursor: "pointer" }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+            </button>
+          </div>
         </div>
-        <div style={{ flex: 1, overflowY: "auto", padding: "0 20px 12px" }}>
-          {impastiScelta.length > 0 && (
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 10.5, letterSpacing: 1.6, textTransform: "uppercase", color: "var(--text-muted)", margin: "6px 0 8px" }}>Impasto</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                <button onClick={() => setImpastoId(null)} style={{ padding: "9px 14px", borderRadius: 12, fontSize: 13, cursor: "pointer", fontFamily: "var(--font-ui)", border: "1.5px solid", ...sceltaSt(impastoId === null) }}>Classico · incluso</button>
-                {impastiScelta.map((x) => (
-                  <button key={x.id} onClick={() => setImpastoId(x.id)} style={{ padding: "9px 14px", borderRadius: 12, fontSize: 13, cursor: "pointer", fontFamily: "var(--font-ui)", border: "1.5px solid", ...sceltaSt(impastoId === x.id) }}>
-                    {x.nome} · +{euro(x.supplemento)}
-                  </button>
-                ))}
-              </div>
-              {impastoScelto?.descrizione && (
-                <div style={{ fontSize: 12.5, color: "var(--text-2)", marginTop: 8, lineHeight: 1.5 }}>{impastoScelto.descrizione}</div>
-              )}
+
+        <div style={{ flex: 1, overflowY: "auto", padding: "4px 0 12px" }}>
+          {item.immagineUrl && (
+            <div style={{ padding: "14px 20px 0" }}>
+              <img src={item.immagineUrl} alt="" decoding="async" style={{ width: "100%", height: 180, objectFit: "cover", display: "block", borderRadius: 18, background: "var(--border)" }} />
             </div>
           )}
-          {base.length > 0 && (
-            <>
-              <div style={{ fontSize: 10.5, letterSpacing: 1.6, textTransform: "uppercase", color: "var(--text-muted)", margin: "6px 0 8px" }}>Ingredienti — tocca per togliere</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
-                {base.map((i) => (
-                  <button key={i.id} onClick={() => setRimossi((p) => toggle(p, i.id))} style={{
-                    padding: "7px 13px", borderRadius: 20, fontSize: 13, cursor: "pointer", fontFamily: "var(--font-ui)",
-                    border: `1px solid ${rimossi.has(i.id) ? "var(--danger-border)" : "var(--border)"}`,
-                    background: rimossi.has(i.id) ? "var(--danger-bg)" : "#fff",
-                    color: rimossi.has(i.id) ? "var(--danger)" : "var(--text)",
-                    textDecoration: rimossi.has(i.id) ? "line-through" : "none",
-                  }}>{i.nome}</button>
-                ))}
+
+          {impastiScelta.length > 0 && (
+            <fieldset style={{ margin: 0, border: "none", padding: "22px 20px 0" }}>
+              <legend style={{ ...etichetta, padding: 0, marginBottom: 10 }}>Impasto</legend>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {[{ id: null as string | null, nome: "Classico", sub: "incluso" }, ...impastiScelta.map((x) => ({ id: x.id as string | null, nome: x.nome, sub: `+${euro(x.supplemento)}` }))].map((o) => {
+                  const on = impastoId === o.id;
+                  return (
+                    <button key={o.id ?? "classico"} type="button" aria-pressed={on} onClick={() => setImpastoId(o.id)} style={{
+                      minHeight: 52, borderRadius: 14, padding: "6px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, textAlign: "left", cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 15,
+                      border: on ? "2px solid #1B1E17" : "1px solid #DADBD2", background: on ? "#1B1E17" : "#FFFFFF", color: on ? "#FFFFFF" : "#1B1E17", fontWeight: on ? 600 : 400,
+                    }}>
+                      <span style={{ minWidth: 0 }}>{o.nome}</span>
+                      <span style={{ fontSize: 13, fontWeight: 500, color: on ? "#7ECE25" : "#5F6457", whiteSpace: "nowrap" }}>{o.sub}</span>
+                    </button>
+                  );
+                })}
               </div>
-            </>
+              {impastoScelto?.descrizione && (
+                <div style={{ fontSize: 13.5, color: "#3E4237", marginTop: 10, lineHeight: 1.5 }}>{impastoScelto.descrizione}</div>
+              )}
+            </fieldset>
           )}
-          <div style={{ fontSize: 10.5, letterSpacing: 1.6, textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 8 }}>Aggiungi</div>
-          <input style={{ ...fieldSt, marginBottom: 8 }} placeholder="Cerca ingrediente…" value={cerca} onChange={(e) => setCerca(e.target.value)} />
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14, maxHeight: 190, overflowY: "auto" }}>
-            {extra.map((i) => {
-              const on = aggiunti.has(i.id);
-              return (
-                <button key={i.id} onClick={() => setAggiunti((p) => { const n = new Map(p); on ? n.delete(i.id) : n.set(i.id, i); return n; })} style={{
-                  padding: "7px 13px", borderRadius: 20, fontSize: 13, cursor: "pointer", fontFamily: "var(--font-ui)",
-                  border: `1px solid ${on ? "var(--accent-border)" : "var(--border)"}`,
-                  background: on ? "var(--accent-bg-2)" : "#fff", color: "var(--text)",
-                }}>{on ? "✓ " : "+ "}{i.nome}{num(i.prezzoAggiunta) > 0 ? ` (${euro(num(i.prezzoAggiunta))})` : ""}</button>
-              );
-            })}
-          </div>
-          {(() => {
-            const al = allergeniProdotto(item, { rimossi, aggiunti: Array.from(aggiunti.values()) as any[] });
-            return (
-              <div style={{ margin: "0 0 12px", padding: "10px 12px", background: "#fff", border: "1px solid var(--border)", borderRadius: 12, fontSize: 12.5, color: "var(--text-2)", lineHeight: 1.5 }}>
-                <strong style={{ color: "var(--text)" }}>Allergeni di {item.categoria === "focacce" ? "questa focaccia" : "questa pizza"}:</strong> {testoAllergeni(al)}
-                {al.daConfermare && <div style={{ color: "var(--text-muted)", marginTop: 2 }}>Elenco da confermare: chiedi al personale prima di ordinare.</div>}
+
+          {base.length > 0 && (
+            <div style={{ padding: "24px 20px 0", display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <h3 style={etichetta}>Ingredienti</h3>
+                <span style={{ fontSize: 13, color: "#5F6457" }}>Tocca per togliere</span>
               </div>
-            );
-          })()}
-          <textarea style={{ ...fieldSt, resize: "none" } as any} rows={2} placeholder={`Note per ${item.categoria === "focacce" ? "questa focaccia" : "questa pizza"} (opzionale)`} value={nota} onChange={(e) => setNota(e.target.value)} />
-        </div>
-        <div style={{ padding: "12px 20px 16px", borderTop: "1px solid var(--border-soft)", display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button onClick={() => setQty((q) => Math.max(1, q - 1))} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid var(--border)", background: "#fff", cursor: "pointer", fontSize: 16 }}>−</button>
-            <span className="num" style={{ minWidth: 18, textAlign: "center" }}>{qty}</span>
-            <button onClick={() => setQty((q) => q + 1)} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid var(--border)", background: "#fff", cursor: "pointer", fontSize: 16 }}>+</button>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {base.map((i) => {
+                  const tolto = rimossi.has(i.id);
+                  return (
+                    <button key={i.id} type="button" aria-pressed={!tolto} onClick={() => setRimossi((p) => toggle(p, i.id))} style={{
+                      minHeight: 44, borderRadius: 999, padding: "0 14px 0 10px", display: "flex", alignItems: "center", gap: 6, fontSize: 15, cursor: "pointer", fontFamily: "var(--font-ui)",
+                      border: tolto ? "1.5px solid #B3261E" : "1px solid #DADBD2", background: tolto ? "#FBEAE8" : "#FFFFFF", color: tolto ? "#8C1D18" : "#1B1E17", fontWeight: tolto ? 500 : 400,
+                    }}>
+                      {tolto
+                        ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+                        : spunta("#3F7A0E")}
+                      <span style={{ textDecoration: tolto ? "line-through" : "none" }}>{i.nome}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div style={{ padding: "24px 20px 0", display: "flex", flexDirection: "column", gap: 10 }}>
+            <h3 style={etichetta}>Aggiungi</h3>
+            <div style={{ position: "relative" }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5F6457" strokeWidth="2" strokeLinecap="round" style={{ position: "absolute", left: 16, top: 16 }} aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>
+              <input type="search" aria-label="Cerca ingrediente" placeholder="Cerca ingrediente…" value={cerca} onChange={(e) => setCerca(e.target.value)}
+                style={{ width: "100%", height: 50, boxSizing: "border-box", borderRadius: 16, border: "1px solid #DADBD2", background: "#FFFFFF", padding: "0 16px 0 44px", fontSize: 16, color: "#1B1E17", fontFamily: "var(--font-ui)", outline: "none" }} />
+            </div>
+            {extraVisibili.length > 0 && (
+              <div style={{ background: "#FFFFFF", border: "1px solid #E4E5DD", borderRadius: 20, overflow: "hidden" }}>
+                {extraVisibili.map((i, idx) => {
+                  const on = aggiunti.has(i.id);
+                  const prezzoExtra = num(i.prezzoAggiunta);
+                  return (
+                    <div key={i.id} style={{ minHeight: 52, padding: "0 6px 0 16px", display: "flex", alignItems: "center", gap: 10, background: on ? "#F3F9EA" : "#FFFFFF", borderBottom: idx < extraVisibili.length - 1 ? "1px solid #EEEEE8" : "none" }}>
+                      <span style={{ flex: 1, fontSize: 16, fontWeight: on ? 600 : 400 }}>{i.nome}</span>
+                      <span className="num" style={{ fontSize: 14, color: prezzoExtra > 0 ? (on ? "#1B1E17" : "#5F6457") : "#3F7A0E" }}>{prezzoExtra > 0 ? `+${euro(prezzoExtra)}` : "gratis"}</span>
+                      <button type="button" aria-pressed={on} aria-label={`${on ? "Togli" : "Aggiungi"} ${i.nome}`}
+                        onClick={() => setAggiunti((p) => { const n = new Map(p); on ? n.delete(i.id) : n.set(i.id, i); return n; })}
+                        style={{ width: 44, height: 44, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, cursor: "pointer", border: on ? "none" : "1px solid #DADBD2", background: on ? "#7ECE25" : "#FFFFFF", color: "#1B1E17" }}>
+                        {on ? spunta("currentColor", 18) : piu}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {extra.length === 0 && <div style={{ fontSize: 14, color: "#5F6457" }}>Nessun ingrediente trovato.</div>}
+            {!tuttiIng && !cerca.trim() && nascosti > 0 && (
+              <button type="button" onClick={() => setTuttiIng(true)} style={{ height: 48, borderRadius: 14, border: "1px solid #DADBD2", background: "#FFFFFF", color: "#1B1E17", fontSize: 15, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer", fontFamily: "var(--font-ui)" }}>
+                Mostra tutti gli ingredienti
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+              </button>
+            )}
           </div>
-          <button style={{ ...btnPrimarySt, flex: 1 }} onClick={() => onConferma({
-            menuItemId: item.id, nome: item.nome, categoria: item.categoria, prezzo: unitario, qty,
-            rimossi: base.filter((i) => rimossi.has(i.id)).map((i) => ({ id: i.id, nome: i.nome })),
-            aggiunti: Array.from(aggiunti.values()).map((i) => ({ id: i.id, nome: i.nome })),
-            nota: nota.trim(),
-            impasto: impastoScelto ? { id: impastoScelto.id, nome: impastoScelto.nome, supplemento: impastoScelto.supplemento } : undefined,
-          })}>Aggiungi · {euro(unitario * qty)}</button>
+
+          <div style={{ padding: "20px 20px 0", display: "flex", flexDirection: "column", gap: 12 }}>
+            {(() => {
+              const al = allergeniProdotto(item, { rimossi, aggiunti: Array.from(aggiunti.values()) as any[] });
+              return (
+                <div style={{ padding: "12px 14px", background: "#FFFFFF", border: "1px solid #E4E5DD", borderRadius: 16, fontSize: 13.5, color: "#3E4237", lineHeight: 1.5 }}>
+                  <strong style={{ color: "#1B1E17" }}>Allergeni di {item.categoria === "focacce" ? "questa focaccia" : "questa pizza"}:</strong> {testoAllergeni(al)}
+                  {al.daConfermare && <div style={{ color: "#5F6457", marginTop: 2 }}>Elenco da confermare: chiedi al personale prima di ordinare.</div>}
+                </div>
+              );
+            })()}
+            <textarea style={{ width: "100%", boxSizing: "border-box", resize: "none", borderRadius: 16, border: "1px solid #DADBD2", background: "#FFFFFF", padding: "12px 16px", fontSize: 16, color: "#1B1E17", fontFamily: "var(--font-ui)", outline: "none" }}
+              rows={2} placeholder={`Note per ${item.categoria === "focacce" ? "questa focaccia" : "questa pizza"} (opzionale)`} value={nota} onChange={(e) => setNota(e.target.value)} />
+          </div>
         </div>
-      </div>
+
+        <div style={{ background: "#FFFFFF", borderTop: "1px solid #E4E5DD", padding: "12px 20px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+          {(nomiRimossi.length > 0 || nomiAggiunti.length > 0) && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, fontSize: 13 }}>
+              {nomiRimossi.map((n) => <span key={"r" + n} style={{ borderRadius: 999, background: "#FBEAE8", color: "#8C1D18", padding: "4px 10px", fontWeight: 500 }}>Senza {n.toLowerCase()}</span>)}
+              {nomiAggiunti.map((n) => <span key={"a" + n} style={{ borderRadius: 999, background: "#EEF6E2", color: "#2D4A0B", padding: "4px 10px", fontWeight: 500 }}>+ {n}</span>)}
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 10 }}>
+            <span style={{ height: 56, borderRadius: 18, border: "1px solid #DADBD2", background: "#FFFFFF", display: "flex", alignItems: "center", padding: "0 4px" }}>
+              <button type="button" aria-label="Diminuisci quantità" onClick={() => setQty((q) => Math.max(1, q - 1))} style={{ width: 44, height: 44, border: "none", background: "transparent", color: "#1B1E17", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, cursor: "pointer" }}>{meno}</button>
+              <span className="num" style={{ minWidth: 20, textAlign: "center", fontSize: 17, fontWeight: 600 }}>{qty}</span>
+              <button type="button" aria-label="Aumenta quantità" onClick={() => setQty((q) => q + 1)} style={{ width: 44, height: 44, border: "none", background: "transparent", color: "#1B1E17", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, cursor: "pointer" }}>{piu}</button>
+            </span>
+            <button type="button" style={{ flex: 1, height: 56, border: "none", borderRadius: 18, background: "#1B1E17", color: "#FFFFFF", fontSize: 17, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 18px", cursor: "pointer", fontFamily: "var(--font-ui)" }}
+              onClick={() => onConferma({
+                menuItemId: item.id, nome: item.nome, categoria: item.categoria, prezzo: unitario, qty,
+                rimossi: base.filter((i) => rimossi.has(i.id)).map((i) => ({ id: i.id, nome: i.nome })),
+                aggiunti: Array.from(aggiunti.values()).map((i) => ({ id: i.id, nome: i.nome })),
+                nota: nota.trim(),
+                impasto: impastoScelto ? { id: impastoScelto.id, nome: impastoScelto.nome, supplemento: impastoScelto.supplemento } : undefined,
+              })}>
+              <span>Aggiungi</span><span className="num">{euro(unitario * qty)}</span>
+            </button>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
@@ -511,6 +673,21 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   const [domandaAperta, setDomandaAperta] = useState<string | null>(null);
   const [domandeFatte, setDomandeFatte] = useState<string[]>([]);
   const categorieRef = useRef<HTMLDivElement>(null);
+  const [sedeScelta, setSedeScelta] = useState("");   // sede evidenziata nella scelta (si conferma con «Continua»)
+  const [toccati, setToccati] = useState<Record<string, boolean>>({});
+
+  // Ricorda l'ultima sede e l'ultimo indirizzo usati su questo telefono, per precompilarli.
+  useEffect(() => {
+    try {
+      const ultimaSede = localStorage.getItem("db_ultima_sede");
+      if (ultimaSede) setSedeScelta((x) => x || ultimaSede);
+      const a = JSON.parse(localStorage.getItem("db_ultimo_indirizzo") ?? "null");
+      if (a && typeof a === "object") {
+        setCittaConsegna((x) => x || a.citta || ""); setVia((x) => x || a.via || ""); setCivico((x) => x || a.civico || "");
+        setCap((x) => x || a.cap || ""); setNomeCitofono((x) => x || a.citofono || "");
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
     fetch("/api/ordina/sessione").then((r) => r.json()).then((d) => { setCliente(d.cliente ?? null); setStaffBeta(!!d.staff); setCaricamento(false); });
@@ -616,6 +793,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
     if (data.coperto) {
       setSedeAssegnata({ id: data.sedeId, nome: data.sedeNome });
       setStatoIndirizzo("ok");
+      try { localStorage.setItem("db_ultimo_indirizzo", JSON.stringify({ citta: cittaConsegna, via: via.trim(), civico: civico.trim(), cap: cap.trim(), citofono: nomeCitofono })); } catch {}
     } else {
       setStatoIndirizzo("errore");
       setErroreIndirizzo(data.motivo ?? "Indirizzo non coperto");
@@ -644,7 +822,8 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
     if (caricamento) return; // durante il caricamento resta com'è (logo grande), niente salti
     const sulleIniziali = !tipo && !confermato && !vistaOrdini && !vistaTessera;
     const inHome = sulleIniziali && !!cliente && cliente.privacyOk !== false;
-    onSchermataIniziale?.(inHome ? "home" : sulleIniziali ? "grande" : "piccolo");
+    const interna = !!tipo && !confermato && !vistaOrdini && !vistaTessera;
+    onSchermataIniziale?.(inHome ? "home" : sulleIniziali ? "grande" : interna ? "nascosto" : "piccolo");
   }, [caricamento, tipo, confermato, vistaOrdini, vistaTessera, cliente, onSchermataIniziale]);
 
   const subtotale = cart.reduce((a, c) => a + c.prezzo * c.qty, 0);
@@ -883,48 +1062,130 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   }
 
   if (tipo === "asporto" && !sedeSelezionata) {
+    const gruppi: { citta: string; lista: any[] }[] = [];
+    sedi.forEach((sd: any) => {
+      const c = String(sd.citta ?? "");
+      let g = gruppi.find((x) => x.citta === c);
+      if (!g) { g = { citta: c, lista: [] }; gruppi.push(g); }
+      g.lista.push(sd);
+    });
+    gruppi.sort((a, b) => b.lista.length - a.lista.length);
+    const piene = gruppi.filter((g) => g.lista.length > 1);
+    const singole = gruppi.filter((g) => g.lista.length === 1);
+    const evidenziata = sedi.find((sd: any) => sd.id === sedeScelta && sd.ordiniOnlineAttivi !== false);
+    const etichetta = { fontSize: 12, fontWeight: 600, letterSpacing: 1.5, color: "#5F6457", textTransform: "uppercase" } as React.CSSProperties;
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 20 }}>
-        <button onClick={() => setTipo(null)} style={{ alignSelf: "flex-start", background: "none", border: "none", color: "var(--text-muted)", fontSize: 12.5, cursor: "pointer" }}>← Indietro</button>
-        <h2 style={{ fontFamily: "var(--font-display)", fontSize: 19, color: "var(--text)" }}>Scegli la sede</h2>
-        {sedi.map((s) => (
-          <button key={s.id} onClick={() => s.ordiniOnlineAttivi !== false && setSedeSelezionata(s.id)} disabled={s.ordiniOnlineAttivi === false} style={{
-            textAlign: "left", background: "#fff", border: "1px solid var(--border)", borderRadius: 10,
-            padding: "12px 14px", cursor: s.ordiniOnlineAttivi === false ? "default" : "pointer", fontFamily: "var(--font-ui)",
-            opacity: s.ordiniOnlineAttivi === false ? 0.55 : 1,
-          }}>
-            <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text)" }}>{s.nome}</div>
-            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{s.indirizzo}, {s.citta}</div>
-            {s.ordiniOnlineAttivi === false && (
-              <div style={{ fontSize: 12, color: "var(--danger)", marginTop: 4 }}>Ordini online sospesi al momento: riprova tra poco o chiamaci</div>
-            )}
-          </button>
-        ))}
+      <div style={{ display: "flex", flexDirection: "column", minHeight: "calc(100dvh - 30px)", maxWidth: 430, width: "100%", margin: "0 auto" }}>
+        <IntestazioneInterna onIndietro={() => setTipo(null)} />
+        <div style={{ flex: 1, paddingTop: 14, display: "flex", flexDirection: "column", gap: 16, paddingBottom: 16 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <EtichettaPercorso testo="RITIRO IN SEDE" />
+            <h1 style={{ margin: 0, fontFamily: "'Playfair Display', var(--font-display)", fontWeight: 800, fontSize: 28, lineHeight: 1.15, color: "#1B1E17" }}>Dove passi a prenderla?</h1>
+          </div>
+          {piene.map((g) => (
+            <div key={g.citta} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <span style={etichetta}>{g.citta}</span>
+              {g.lista.map((sd: any) => (
+                <SchedaSede key={sd.id} sd={sd} nome={nomeSedeBreve(sd)} selezionata={sedeScelta === sd.id} onScegli={() => setSedeScelta(sd.id)} />
+              ))}
+            </div>
+          ))}
+          {singole.length > 0 && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, alignItems: "start" }}>
+              {singole.map((g) => (
+                <div key={g.citta} style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
+                  <span style={etichetta}>{g.citta}</span>
+                  <SchedaSede sd={g.lista[0]} nome={nomeSedeBreve(g.lista[0]) || g.citta} compatta selezionata={sedeScelta === g.lista[0].id} onScegli={() => setSedeScelta(g.lista[0].id)} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <BarraCta attivo={!!evidenziata} onClick={() => { if (!evidenziata) return; try { localStorage.setItem("db_ultima_sede", evidenziata.id); } catch {} setSedeSelezionata(evidenziata.id); }}>
+          {evidenziata ? `Continua con ${senzaMarca(evidenziata.nome)}` : "Scegli una sede"}
+        </BarraCta>
       </div>
     );
   }
 
   if (tipo === "domicilio" && statoIndirizzo !== "ok") {
+    const capValido = !cap.trim() || /^\d{5}$/.test(cap.trim());
+    const errCitta = !cittaConsegna ? "Scegli la città" : "";
+    const errVia = !via.trim() ? "Inserisci la via" : "";
+    const errCivico = !civico.trim() ? "Inserisci il civico" : "";
+    const errCap = !capValido ? "Il CAP ha 5 cifre" : "";
+    const tutto = !errCitta && !errVia && !errCivico && !errCap;
+    const tocca = (k: string) => setToccati((t) => ({ ...t, [k]: true }));
+    const campo = (errore: string, k: string): React.CSSProperties => ({
+      height: 54, boxSizing: "border-box", width: "100%", minWidth: 0, borderRadius: 16, background: "#FFFFFF", fontSize: 16, color: "#1B1E17", fontFamily: "var(--font-ui)", outline: "none",
+      border: errore && toccati[k] ? "2px solid #B3261E" : "1px solid #DADBD2", padding: errore && toccati[k] ? "0 15px" : "0 16px",
+    });
+    const etichettaCampo = (testo: string, obbligatorio: boolean, facoltativo?: boolean) => (
+      <span style={{ fontSize: 14, fontWeight: 500 }}>{testo}{obbligatorio && <span style={{ color: "#B3261E" }}> *</span>}{facoltativo && <span style={{ fontWeight: 400, color: "#5F6457" }}> (facoltativo)</span>}</span>
+    );
+    const messaggio = (errore: string, k: string) => errore && toccati[k] ? (
+      <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#B3261E" }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 8v5" /><path d="M12 16.5v.01" /></svg>{errore}
+      </span>
+    ) : null;
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 20 }}>
-        <button onClick={() => setTipo(null)} style={{ alignSelf: "flex-start", background: "none", border: "none", color: "var(--text-muted)", fontSize: 12.5, cursor: "pointer" }}>← Indietro</button>
-        <h2 style={{ fontFamily: "var(--font-display)", fontSize: 19, color: "var(--text)" }}>Indirizzo di consegna</h2>
-        <select style={fieldSt} value={cittaConsegna} onChange={(e) => setCittaConsegna(e.target.value)}>
-          <option value="">Città *</option>
-          {Array.from(new Set(sedi.map((s: any) => s.citta as string).filter(Boolean))).sort((a, b) => a.localeCompare(b, "it")).map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
-        <input style={fieldSt} placeholder="Via / piazza *" value={via} onChange={(e) => setVia(e.target.value)} />
-        <div style={{ display: "flex", gap: 10 }}>
-          <input style={{ ...fieldSt, flex: 1, minWidth: 0 }} placeholder="N. civico *" value={civico} onChange={(e) => setCivico(e.target.value)} />
-          <input style={{ ...fieldSt, flex: 1, minWidth: 0 }} placeholder="CAP (facoltativo)" inputMode="numeric" maxLength={5} value={cap} onChange={(e) => setCap(e.target.value.replace(/\D/g, ""))} />
+      <div style={{ display: "flex", flexDirection: "column", minHeight: "calc(100dvh - 30px)", maxWidth: 430, width: "100%", margin: "0 auto" }}>
+        <IntestazioneInterna onIndietro={() => setTipo(null)} />
+        <div style={{ flex: 1, paddingTop: 18, display: "flex", flexDirection: "column", gap: 22, paddingBottom: 16 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <EtichettaPercorso testo="CONSEGNA A DOMICILIO" />
+            <h1 style={{ margin: 0, fontFamily: "'Playfair Display', var(--font-display)", fontWeight: 800, fontSize: 28, lineHeight: 1.15, color: "#1B1E17" }}>Dove te la portiamo?</h1>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {etichettaCampo("Città", true)}
+              <div style={{ position: "relative" }}>
+                <select style={{ ...campo(errCitta, "citta"), padding: "0 44px 0 16px", appearance: "none", WebkitAppearance: "none" } as React.CSSProperties}
+                  value={cittaConsegna} onChange={(e) => setCittaConsegna(e.target.value)} onBlur={() => tocca("citta")}>
+                  <option value="">Scegli la città</option>
+                  {Array.from(new Set(sedi.map((sd: any) => sd.citta as string).filter(Boolean))).sort((a, b) => a.localeCompare(b, "it")).map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B1E17" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", right: 16, top: 18, pointerEvents: "none" }} aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+              </div>
+              {messaggio(errCitta, "citta")}
+            </label>
+
+            <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {etichettaCampo("Via / piazza", true)}
+              <input style={campo(errVia, "via")} placeholder="Es. Viale Marconi" value={via} onChange={(e) => setVia(e.target.value)} onBlur={() => tocca("via")} />
+              {messaggio(errVia, "via")}
+            </label>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <label style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+                {etichettaCampo("N. civico", true)}
+                <input style={campo(errCivico, "civico")} placeholder="Es. 148" value={civico} onChange={(e) => setCivico(e.target.value)} onBlur={() => tocca("civico")} />
+                {messaggio(errCivico, "civico")}
+              </label>
+              <label style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+                {etichettaCampo("CAP", false, true)}
+                <input style={campo(errCap, "cap")} placeholder="65100" inputMode="numeric" maxLength={5} value={cap} onChange={(e) => setCap(e.target.value.replace(/\D/g, ""))} onBlur={() => tocca("cap")} />
+                {messaggio(errCap, "cap")}
+              </label>
+            </div>
+
+            <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {etichettaCampo("Nome sul citofono", false)}
+              <input style={campo("", "citofono")} placeholder="Così il rider ti trova subito" value={nomeCitofono} onChange={(e) => setNomeCitofono(e.target.value)} />
+            </label>
+          </div>
+
+          <p style={{ margin: 0, fontSize: 13, color: "#5F6457" }}>* Campi obbligatori</p>
+          {statoIndirizzo === "errore" && erroreIndirizzo && (
+            <div role="alert" style={{ borderRadius: 16, background: "#FBEAE8", border: "1px solid #F0C4C0", padding: "12px 14px", fontSize: 14, lineHeight: 1.4, color: "#8C1D18" }}>{erroreIndirizzo}</div>
+          )}
         </div>
-        <input style={fieldSt} placeholder="Cognome / nome sul citofono" value={nomeCitofono} onChange={(e) => setNomeCitofono(e.target.value)} />
-        {statoIndirizzo === "errore" && <div style={{ fontSize: 12.5, color: "var(--danger)" }}>{erroreIndirizzo}</div>}
-        <button style={btnPrimarySt} onClick={verificaIndirizzo} disabled={statoIndirizzo === "verificando"}>
-          {statoIndirizzo === "verificando" ? "Verifica…" : "Continua"}
-        </button>
+        <BarraCta attivo={tutto && statoIndirizzo !== "verificando"} onClick={verificaIndirizzo} freccia={tutto && statoIndirizzo !== "verificando"}>
+          {statoIndirizzo === "verificando" ? "Verifica…" : tutto ? "Continua al menù" : "Compila i campi obbligatori"}
+        </BarraCta>
       </div>
     );
   }
@@ -938,7 +1199,6 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   const filtro = catFiltro || catsPresenti[0] || "";
   const itemsFiltrati = menuLista.filter((m) => m.categoria === filtro).sort((a, b) => a.nome.localeCompare(b.nome, "it", { sensitivity: "base" }));
 
-  // «Completa il tuo ordine»: bevande e fritti proposti nel riepilogo,.
   // Premendo «Vai al riepilogo»: se nel carrello non c'è un fritto / una bevanda, prima si chiede (sì → apre quella pagina
   // del menù; no → si passa alla domanda successiva e infine al riepilogo). Ogni domanda si fa una volta sola.
   const DOMANDE: Record<string, { testo: string; sub: string }> = {
@@ -974,67 +1234,106 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
     }))
     .filter((g) => g.items.length > 0);
 
+  const nProdotti = cart.reduce((a, c) => a + c.qty, 0);
+  const sedeAttiva = sedi.find((sd: any) => sd.id === sedeIdAttiva);
+  // «Cambia» (e la freccia indietro del menù): torna alla scelta della sede / dell'indirizzo. Il carrello si svuota perché
+  // menù, prezzi e orari dipendono dalla pizzeria.
+  const cambiaModalita = () => {
+    if (cart.length > 0 && !confirm("Se cambi sede o indirizzo il carrello si svuota, perché menù e prezzi possono cambiare. Vuoi continuare?")) return;
+    setCart([]); setOrario(""); setDomandeFatte([]); setDomandaAperta(null);
+    if (tipo === "asporto") { setSedeScelta(sedeSelezionata); setSedeSelezionata(""); }
+    else { setStatoIndirizzo("idle"); setSedeAssegnata(null); }
+  };
+  const iconaModalita = tipo === "domicilio"
+    ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1B1E17" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flex: "none" }} aria-hidden="true"><circle cx="5.5" cy="17.5" r="2.5" /><circle cx="18.5" cy="17.5" r="2.5" /><path d="M8 17.5h7.5l2-6H13" /><path d="M15 6h2.5l1.5 5.5" /></svg>
+    : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1B1E17" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flex: "none" }} aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2z" /><path d="M9 8V6.5a3 3 0 0 1 6 0V8" /></svg>;
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 12 }}>
-      {tipo === "domicilio" && sedeAssegnata && (
-        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Consegna da <strong style={{ color: "var(--text-2)" }}>{sedeAssegnata.nome}</strong></div>
-      )}
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 430, width: "100%", margin: "0 auto" }}>
+      <IntestazioneInterna onIndietro={cambiaModalita} carrello={{ n: nProdotti, onClick: vaiAlRiepilogo }} />
+
+      <div style={{ minHeight: 52, boxSizing: "border-box", borderRadius: 16, background: "#FFFFFF", border: "1px solid #E4E5DD", padding: "6px 8px 6px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+        {iconaModalita}
+        <span style={{ flex: 1, minWidth: 0, fontSize: 15, lineHeight: 1.25 }}>
+          {tipo === "domicilio" ? (
+            <>
+              <span style={{ fontWeight: 600 }}>Consegna</span> · {indirizzo}
+              {sedeAssegnata && <span style={{ display: "block", fontSize: 12.5, color: "#5F6457" }}>da {senzaMarca(sedeAssegnata.nome)}</span>}
+            </>
+          ) : (
+            <><span style={{ fontWeight: 600 }}>Ritiro</span> · {sedeAttiva ? senzaMarca(sedeAttiva.nome) : ""}</>
+          )}
+        </span>
+        <button type="button" onClick={cambiaModalita} style={{ height: 44, padding: "0 12px", border: "none", borderRadius: 12, background: "transparent", color: "#1B1E17", fontSize: 15, fontWeight: 600, textDecoration: "underline", cursor: "pointer", fontFamily: "var(--font-ui)" }}>Cambia</button>
+      </div>
 
       {slotData && !slotData.apertoOra && (
-        <div style={{ background: "var(--accent-bg-2)", border: "1px solid var(--accent-border)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "var(--text)" }}>
-          Al momento siamo chiusi (orario {slotData.apertura}–{slotData.chiusura}). Puoi comunque ordinare scegliendo l'orario di
-          {" "}{tipo === "domicilio" ? "consegna" : "ritiro"}{slotData.primoGiorno === "domani" ? ": gli orari disponibili sono per domani" : ""}.
+        <div style={{ borderRadius: 16, background: "#EEF6E2", border: "1px solid #D3E8B5", padding: "12px 14px", display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3F5A12" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flex: "none", marginTop: 1 }} aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.4, color: "#2D3324" }}>
+            <span style={{ fontWeight: 600 }}>Ora siamo chiusi, apriamo alle {slotData.apertura}.</span>{" "}
+            Puoi già ordinare e scegliere l'orario di {tipo === "domicilio" ? "consegna" : "ritiro"}.{slotData.primoGiorno === "domani" ? " Gli orari disponibili sono per domani." : ""}
+          </p>
         </div>
       )}
 
       {creaItem && (
-        <button onClick={() => setPizzaModal(creaItem)} style={{
-          display: "flex", alignItems: "center", gap: 14, textAlign: "left", cursor: "pointer", fontFamily: "var(--font-ui)",
-          background: "var(--accent-bg-2)", border: "1.5px solid var(--accent-border)", borderRadius: 14, padding: "14px 16px",
+        <button type="button" onClick={() => setPizzaModal(creaItem)} style={{
+          border: "none", borderRadius: 22, background: "#1B1E17", color: "#FFFFFF", padding: 18, display: "flex", alignItems: "center", gap: 14, textAlign: "left", cursor: "pointer", fontFamily: "var(--font-ui)",
         }}>
-          <span style={{ flex: 1, minWidth: 0 }}>
-            <span style={{ display: "block", fontFamily: "var(--font-display)", fontSize: 17, color: "var(--text)" }}>Crea la tua pizza</span>
-            <span style={{ display: "block", fontSize: 12.5, color: "var(--text-2)", marginTop: 2 }}>Parti da pomodoro e mozzarella e aggiungi gli ingredienti che vuoi</span>
+          <span style={{ width: 52, height: 52, borderRadius: 16, background: "#7ECE25", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1B1E17" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 3v18" /><path d="M4.5 7.5l15 9" /><circle cx="8.5" cy="13.5" r="1" /><circle cx="15" cy="9" r="1" /></svg>
           </span>
-          <span className="num" style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)", whiteSpace: "nowrap" }}>da {euro(parseFloat(creaItem.prezzoEffettivo ?? creaItem.prezzoBase))}</span>
+          <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3 }}>
+            <span style={{ fontFamily: "'Playfair Display', var(--font-display)", fontWeight: 700, fontSize: 20, lineHeight: 1.15 }}>Crea la tua pizza</span>
+            <span style={{ fontSize: 14, lineHeight: 1.35, color: "#C9CCC2" }}>Parti da pomodoro e mozzarella e aggiungi gli ingredienti che vuoi</span>
+          </span>
+          <span style={{ flex: "none", display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+            <span style={{ fontSize: 12, color: "#C9CCC2" }}>da</span>
+            <span className="num" style={{ fontSize: 17, fontWeight: 600, color: "#7ECE25" }}>{euro(parseFloat(creaItem.prezzoEffettivo ?? creaItem.prezzoBase))}</span>
+          </span>
         </button>
       )}
 
-      <div ref={categorieRef} style={{ display: "flex", gap: 6, overflowX: "auto", scrollMarginTop: 70 }}>
+      <nav ref={categorieRef} className="db-scroll-x" aria-label="Categorie" style={{ position: "sticky", top: 0, zIndex: 25, background: "#F6F6F1", margin: "0 -16px", padding: "10px 16px", display: "flex", gap: 8, overflowX: "auto", scrollMarginTop: 0 }}>
         {catsPresenti.map((c) => (
-          <button key={c} onClick={() => setCatFiltro(c)} style={{
-            flexShrink: 0, padding: "8px 15px", borderRadius: 20, fontSize: 12.5, cursor: "pointer",
-            border: `1px solid ${filtro === c ? "var(--text)" : "var(--border)"}`,
-            background: filtro === c ? "var(--text)" : "#fff",
-            color: filtro === c ? "#fff" : "var(--text-3)", fontFamily: "var(--font-ui)", whiteSpace: "nowrap",
+          <button key={c} type="button" aria-pressed={filtro === c} onClick={() => setCatFiltro(c)} style={{
+            flex: "none", height: 44, padding: "0 18px", borderRadius: 999, fontSize: 15, cursor: "pointer", fontFamily: "var(--font-ui)", whiteSpace: "nowrap",
+            border: filtro === c ? "none" : "1px solid #DADBD2", background: filtro === c ? "#1B1E17" : "#FFFFFF",
+            color: filtro === c ? "#FFFFFF" : "#1B1E17", fontWeight: filtro === c ? 500 : 400,
           }}>{CAT_LABEL[c] ?? c}</button>
         ))}
-      </div>
+      </nav>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <h2 style={{ margin: "4px 0 2px", fontFamily: "'Playfair Display', var(--font-display)", fontWeight: 800, fontSize: 24, color: "#1B1E17" }}>{CAT_LABEL[filtro] ?? filtro}</h2>
         {itemsFiltrati.map((item) => {
           const prezzo = parseFloat(item.prezzoEffettivo ?? item.prezzoBase);
+          const q = qtaNelCarrello(item.id);
           return (
-            <div key={item.id} onClick={() => aggiungiAlCarrello(item)} style={{
-              background: "#fff", border: "1px solid var(--border)", borderRadius: 10, padding: "12px 14px", cursor: "pointer",
-              display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12,
-            }}>
+            <div key={item.id} role="button" tabIndex={0} aria-label={`${item.nome}, ${prezzoMenu(prezzo)}${q ? `, nel carrello: ${q}` : ""}`}
+              onClick={() => aggiungiAlCarrello(item)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); aggiungiAlCarrello(item); } }}
+              style={{ background: "#FFFFFF", border: q ? "1.5px solid #1B1E17" : "1px solid #E4E5DD", borderRadius: 20, padding: 14, cursor: "pointer", display: "flex", gap: 12, alignItems: "flex-start" }}>
               {item.immagineUrl && (
-                <img src={item.immagineUrl} alt={item.nome} loading="lazy" decoding="async"
-                  style={{ width: 78, height: 78, borderRadius: 12, objectFit: "cover", flexShrink: 0, background: "var(--border)" }} />
+                <img src={item.immagineUrl} alt="" loading="lazy" decoding="async"
+                  style={{ width: 76, height: 76, borderRadius: 14, objectFit: "cover", flex: "none", background: "var(--border)" }} />
               )}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: "var(--font-display)", fontSize: 16, color: "var(--text)" }}>{item.nome}</div>
-                {item.descrizione && <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 3 }}>{item.descrizione}</div>}
+              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+                <h3 style={{ margin: 0, fontFamily: "'Playfair Display', var(--font-display)", fontWeight: 700, fontSize: 19, lineHeight: 1.2, color: "#1B1E17" }}>{item.nome}</h3>
+                {item.descrizione && <p style={{ margin: 0, fontSize: 14, lineHeight: 1.4, color: "#5F6457" }}>{item.descrizione}</p>}
               </div>
-              <span className="num" style={{ fontSize: 15, fontWeight: 600, color: "var(--text)", flexShrink: 0 }}>{prezzoMenu(prezzo)}</span>
+              <div style={{ flex: "none", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+                <span className="num" style={{ fontSize: 16, fontWeight: 600, whiteSpace: "nowrap" }}>{prezzoMenu(prezzo)}</span>
+                {q > 0 && <span style={{ minWidth: 28, height: 24, padding: "0 8px", borderRadius: 12, background: "#1B1E17", color: "#7ECE25", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center" }}>×{q}</span>}
+              </div>
             </div>
           );
         })}
-      </div>
+      </section>
 
       {cart.length > 0 && (
-        <div ref={riepilogoRef} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 16 }}>
+        <div ref={riepilogoRef} style={{ background: "#FFFFFF", border: "1px solid #E4E5DD", borderRadius: 20, padding: 16 }}>
           {cart.map((c) => (
             <div key={c.cartId} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -1053,7 +1352,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
 
           {catSuggerite.length > 0 && (
             <div style={{ margin: "14px 0 12px", paddingTop: 14, borderTop: "1px solid var(--border)" }}>
-              <div style={{ fontFamily: "var(--font-display)", fontSize: 17, color: "var(--text)" }}>Completa il tuo ordine</div>
+              <div style={{ fontFamily: "'Playfair Display', var(--font-display)", fontWeight: 700, fontSize: 19, color: "var(--text)" }}>Completa il tuo ordine</div>
               <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2, marginBottom: 10 }}>Aggiungi qualcosa da bere o da sgranocchiare</div>
               {catSuggerite.map((g) => (
                 <div key={g.cat} style={{ marginBottom: 10 }}>
@@ -1199,13 +1498,14 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
       )}
 
       {cart.length > 0 && !riepilogoVisibile && (
-        <div style={{ position: "sticky", bottom: 10, zIndex: 20 }}>
-          <button
-            onClick={vaiAlRiepilogo}
-            style={{ ...btnPrimarySt, display: "flex", justifyContent: "space-between", boxShadow: "0 4px 14px rgba(0,0,0,0.18)" }}
-          >
-            <span>{cart.reduce((a, c) => a + c.qty, 0)} {cart.reduce((a, c) => a + c.qty, 0) === 1 ? "prodotto" : "prodotti"}</span>
-            <span className="num">Vai al riepilogo · {euro(totale)}</span>
+        <div style={{ position: "sticky", bottom: 0, zIndex: 30, margin: "0 -16px", padding: "12px 16px 20px", background: "#F6F6F1", borderTop: "1px solid #E4E5DD" }}>
+          <button type="button" onClick={vaiAlRiepilogo} style={{
+            width: "100%", height: 60, border: "none", borderRadius: 18, background: "#1B1E17", color: "#FFFFFF", padding: "0 8px 0 18px",
+            display: "flex", alignItems: "center", gap: 12, cursor: "pointer", fontFamily: "var(--font-ui)",
+          }}>
+            <span style={{ minWidth: 28, height: 28, borderRadius: 14, background: "#7ECE25", color: "#1B1E17", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 6px" }}>{nProdotti}</span>
+            <span style={{ flex: 1, textAlign: "left", fontSize: 17, fontWeight: 600 }}>Vai al riepilogo</span>
+            <span className="num" style={{ height: 44, padding: "0 14px", borderRadius: 12, background: "#2E3228", display: "flex", alignItems: "center", fontSize: 17, fontWeight: 600 }}>{euro(totale)}</span>
           </button>
         </div>
       )}
