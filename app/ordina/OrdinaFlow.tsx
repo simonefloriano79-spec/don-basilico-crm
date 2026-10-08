@@ -268,6 +268,34 @@ function BottoneInstalla({ discreto = false }: { discreto?: boolean }) {
   );
 }
 
+// «Condividila con chi vuoi»: apre il foglio di condivisione del telefono (WhatsApp, messaggi…); dove non c'è
+// (computer) copia il link. Il link porta alla home dell'app ordini, senza dati personali.
+function BottoneCondividi({ stile }: { stile: React.CSSProperties }) {
+  const [copiato, setCopiato] = useState(false);
+  const clic = async () => {
+    const url = `${window.location.origin}/ordina`;
+    const dati = { title: "Don Basilico", text: "Ordina la pizza di Don Basilico: ritiro in sede o consegna a domicilio.", url };
+    try {
+      if (navigator.share) { await navigator.share(dati); return; }
+    } catch (e: any) {
+      if (e?.name === "AbortError") return; // l'utente ha chiuso il foglio di condivisione
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiato(true);
+      setTimeout(() => setCopiato(false), 2500);
+    } catch {
+      window.prompt("Copia il link e mandalo a chi vuoi:", url);
+    }
+  };
+  return (
+    <button type="button" onClick={clic} style={{ ...stile, gridColumn: "1 / -1" }}>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="M8.6 10.6l6.8-4M8.6 13.4l6.8 4" /></svg>
+      {copiato ? "Link copiato!" : "Condividila con chi vuoi"}
+    </button>
+  );
+}
+
 // Prezzo come si legge nel menù: «8» oppure «8,50», senza il simbolo €.
 function prezzoMenu(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(".", ",");
@@ -846,6 +874,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z" /><path d="M4 19V5" /><path d="M9 8h6" /></svg>
             Il menù
           </a>
+          <BottoneCondividi stile={secondario} />
         </div>
 
         <BottoneInstalla discreto />
