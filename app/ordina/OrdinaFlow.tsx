@@ -11,6 +11,8 @@ const CAT_LABEL: Record<string, string> = {
   extra: "Extra", menu_speciale: "Speciali", focacce: "Focacce",
 };
 
+import { TIMBRI_PER_CICLO, PERCENTUALE_SCONTO, PERCENTUALE_SCONTO_INTERA } from "@/lib/fedelta-regole";
+
 const fieldSt: React.CSSProperties = {
   width: "100%", background: "#fff", border: "1px solid var(--border)",
   color: "var(--text)", padding: "14px 16px", borderRadius: 14, fontSize: 16,
@@ -132,7 +134,7 @@ function ConsensiPrivacy({ privacy, setPrivacy, marketing, setMarketing }: { pri
 function CartaFedelta({ tessera, onApri }: { tessera: Tessera | null; onApri: () => void }) {
   const timbri = tessera?.timbri ?? 0;
   const mancano = TIMBRI_PER_CICLO - timbri;
-  const scontoAccumulato = tessera ? Math.round(tessera.totaleCiclo * 0.1 * 100) / 100 : 0;
+  const scontoAccumulato = tessera ? Math.round(tessera.totaleCiclo * PERCENTUALE_SCONTO * 100) / 100 : 0;
   return (
     <section style={{ background: "#FFFFFF", border: "1px solid #E4E5DD", borderRadius: 22, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -152,8 +154,8 @@ function CartaFedelta({ tessera, onApri }: { tessera: Tessera | null; onApri: ()
           {tessera?.scontoDisponibile
             ? "Hai uno sconto pronto: lo usi al prossimo ordine"
             : tessera
-              ? `Ancora ${mancano} ${mancano === 1 ? "ordine" : "ordini"} per il 10% di sconto`
-              : `Ogni ${TIMBRI_PER_CICLO} ordini ottieni il 10% di sconto`}
+              ? `Ancora ${mancano} ${mancano === 1 ? "ordine" : "ordini"} per il ${PERCENTUALE_SCONTO_INTERA}% di sconto`
+              : `Ogni ${TIMBRI_PER_CICLO} ordini ottieni il ${PERCENTUALE_SCONTO_INTERA}% di sconto`}
         </span>
       </div>
       <div style={{ height: 1, background: "#ECECE5" }} />
@@ -181,7 +183,7 @@ function CartaFedelta({ tessera, onApri }: { tessera: Tessera | null; onApri: ()
 // Registrazione dell'evento di installazione (arriva una volta sola, spesso prima che il pulsante sia visibile).
 let eventoInstalla: any = null;
 
-type ModoLogo = "grande" | "home" | "piccolo" | "nascosto";
+type ModoLogo = "grande" | "registrazione" | "home" | "piccolo" | "nascosto";
 function Testata({ modo }: { modo: ModoLogo }) {
   if (modo === "nascosto") return null;
   return (
@@ -190,6 +192,8 @@ function Testata({ modo }: { modo: ModoLogo }) {
       alt="Don Basilico — Naturalmente Pizza"
       style={modo === "grande"
         ? { display: "block", width: "min(80vw, 340px)", height: "auto", margin: "10px auto 26px" }
+        : modo === "registrazione"
+          ? { display: "block", width: 168, height: "auto", margin: "6px auto 8px" }
         : modo === "home"
           ? { display: "block", width: 186, height: "auto", margin: "10px auto 22px" }
           : { display: "block", width: 118, height: "auto", margin: "4px auto 16px" }}
@@ -394,7 +398,6 @@ const fmtOrario = (iso: string) =>
 
 interface Cliente { id: string; nome: string; telefono: string | null; privacyOk?: boolean; }
 interface Tessera { token: string; timbri: number; totaleCiclo: number; scontoDisponibile: boolean; importoSconto: number; }
-const TIMBRI_PER_CICLO = 5;
 interface IngredienteCl {
   id: string; nome: string; prezzoAggiunta: number | string;
   disabilitatoInSede?: boolean; escludiCompensazione?: boolean;
@@ -754,13 +757,18 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
     setCliente(data.cliente);
   };
 
+  // Cellulare italiano: il +39 è fisso nella schermata; spazi, trattini e un eventuale +39/0039 incollato si tolgono qui.
+  const cellulare = telefono.trim().replace(/[\s\-().]/g, "").replace(/^(\+39|0039)/, "");
+  const cellulareValido = /^3\d{8,9}$/.test(cellulare);
+  const telefonoE164 = cellulareValido ? `+39${cellulare}` : "";
   const richiediOtp = async () => {
     setErroreGate("");
     if (!telefono.trim() || !nome.trim()) { setErroreGate("Inserisci nome e telefono"); return; }
+    if (!cellulareValido) { setErroreGate("Inserisci un numero di cellulare valido"); return; }
     if (!privacy) { setErroreGate("Per continuare devi accettare l'informativa privacy"); return; }
     setInviandoOtp(true);
     const res = await fetch("/api/ordina/otp/richiedi", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono }),
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono: telefonoE164 }),
     });
     setInviandoOtp(false);
     const data = await res.json();
@@ -773,7 +781,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
     if (!codice.trim()) { setErroreGate("Inserisci il codice ricevuto via SMS"); return; }
     setInviandoOtp(true);
     const res = await fetch("/api/ordina/otp/verifica", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono, codice, nome, privacy, marketing }),
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono: telefonoE164, codice, nome, privacy, marketing }),
     });
     setInviandoOtp(false);
     const data = await res.json();
@@ -826,7 +834,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
     const sulleIniziali = !tipo && !confermato && !vistaOrdini && !vistaTessera;
     const inHome = sulleIniziali && !!cliente && cliente.privacyOk !== false;
     const interna = !!tipo && !confermato && !vistaOrdini && !vistaTessera;
-    onSchermataIniziale?.(inHome ? "home" : sulleIniziali ? "grande" : interna ? "nascosto" : "piccolo");
+    onSchermataIniziale?.(inHome ? "home" : sulleIniziali ? (!cliente ? "registrazione" : "grande") : interna ? "nascosto" : "piccolo");
   }, [caricamento, tipo, confermato, vistaOrdini, vistaTessera, cliente, onSchermataIniziale]);
 
   const subtotale = cart.reduce((a, c) => a + c.prezzo * c.qty, 0);
@@ -933,45 +941,123 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
 
   // ── Gate registrazione/OTP ───────────────────────────────────
   if (!cliente) {
+    const nomeValido = nome.trim().length >= 2;
+    const errNome = !nomeValido ? "Inserisci il tuo nome (almeno 2 lettere)" : "";
+    const errTel = !cellulareValido ? "Inserisci un numero di cellulare valido" : "";
+    const tutto = nomeValido && cellulareValido && privacy;
+    const tocca = (k: string) => setToccati((t) => ({ ...t, [k]: true }));
+    const bordo = (errore: string, k: string): React.CSSProperties => ({
+      border: errore && toccati[k] ? "2px solid #B3261E" : "1px solid #DADBD2", padding: errore && toccati[k] ? "0 15px" : "0 16px",
+    });
+    const campoBase: React.CSSProperties = { height: 54, boxSizing: "border-box", borderRadius: 16, background: "#FFFFFF", fontSize: 16, color: "#1B1E17", fontFamily: "var(--font-ui)", outline: "none" };
+    const etichetta = (testo: string) => <span style={{ fontSize: 14, fontWeight: 500 }}>{testo} <span style={{ color: "#B3261E" }}>*</span></span>;
+    const messaggio = (errore: string, k: string) => errore && toccati[k] ? (
+      <span role="alert" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#B3261E" }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 8v5" /><path d="M12 16.5v.01" /></svg>{errore}
+      </span>
+    ) : null;
+    const scatola: React.CSSProperties = { background: "#FFFFFF", border: "1px solid #E4E5DD", borderRadius: 16, padding: "12px 6px", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, textAlign: "center" };
+    const testoScatola: React.CSSProperties = { fontSize: 13, lineHeight: 1.2, fontWeight: 500 };
+    const casella: React.CSSProperties = { width: 24, height: 24, margin: 0, flex: "none", accentColor: "#1B1E17", cursor: "pointer" };
+    const pallino = (pieno: boolean) => <span style={{ width: 9, height: 9, borderRadius: "50%", boxSizing: "border-box", background: pieno ? "#7ECE25" : "transparent", border: pieno ? "none" : "1.5px solid #A5A99C" }} />;
+
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 420, width: "100%", margin: "0 auto" }}>
-        <h1 style={{ fontFamily: "var(--font-display)", fontSize: 26, color: "var(--text)", textAlign: "center" }}>Ordina online</h1>
-        <p style={{ fontSize: 13.5, color: "var(--text-muted)", textAlign: "center", lineHeight: 1.5 }}>Registrati con il tuo numero di telefono: ci serve per confermarti l'ordine e poterti chiamare in caso di problemi in consegna.</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 20, minHeight: "calc(100dvh - 130px)", maxWidth: 430, width: "100%", margin: "0 auto", padding: "0 4px 8px", color: "#1B1E17" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, textAlign: "center" }}>
+          <h1 style={{ margin: 0, fontFamily: "'Playfair Display', var(--font-display)", fontWeight: 800, fontSize: 29, lineHeight: 1.15 }}>
+            {passoGate === "telefono" ? "La tua pizza, a un tap" : "Controlla i tuoi SMS"}
+          </h1>
+          <p style={{ margin: 0, fontSize: 15, lineHeight: 1.4, color: "#555950" }}>
+            {passoGate === "telefono" ? "Registrati una volta sola e ordina quando vuoi." : `Abbiamo mandato un codice al +39 ${cellulare}.`}
+          </p>
+        </div>
 
         {staffBeta && (
-          <div style={{ background: "var(--accent-bg-2)", border: "1px solid var(--accent-border)", borderRadius: 12, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ fontSize: 13, color: "var(--text)" }}>
+          <div style={{ background: "#EEF6E2", border: "1px solid #D3E8B5", borderRadius: 16, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ fontSize: 14, lineHeight: 1.4, color: "#2D3324" }}>
               <strong>Sei del team?</strong> Sei collegato al CRM: puoi provare l'ordine online senza codice SMS. L'ordine comparirà nel CRM come "PROVA …": ricordati di annullarlo dopo la prova.
             </div>
-            <button style={btnPrimarySt} onClick={entraComeStaff} disabled={inviandoOtp}>Entra in modalità prova (staff)</button>
+            <button type="button" onClick={entraComeStaff} disabled={inviandoOtp} style={{ height: 48, border: "none", borderRadius: 14, background: "#1B1E17", color: "#FFFFFF", fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-ui)" }}>Entra in modalità prova (staff)</button>
           </div>
         )}
 
         {passoGate === "telefono" ? (
           <>
-            <input style={fieldSt} placeholder="Il tuo nome" value={nome} onChange={(e) => setNome(e.target.value)} />
-            <input style={fieldSt} placeholder="Numero di telefono" value={telefono} onChange={(e) => setTelefono(e.target.value)} />
-            <ConsensiPrivacy privacy={privacy} setPrivacy={setPrivacy} marketing={marketing} setMarketing={setMarketing} />
-            {erroreGate && <div style={{ fontSize: 12.5, color: "var(--danger)" }}>{erroreGate}</div>}
-            <button style={btnPrimarySt} onClick={richiediOtp} disabled={inviandoOtp}>
-              {inviandoOtp ? "Invio…" : "Invia codice via SMS"}
-            </button>
+            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+              <li style={scatola}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1B1E17" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="5.5" cy="17.5" r="2.5" /><circle cx="18.5" cy="17.5" r="2.5" /><path d="M8 17.5h7.5l2-6H13" /><path d="M15 6h2.5l1.5 5.5" /><path d="M3 12h7v3H3z" /></svg>
+                <span style={testoScatola}>Consegna a domicilio</span>
+              </li>
+              <li style={scatola}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1B1E17" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2z" /><path d="M9 8V6.5a3 3 0 0 1 6 0V8" /></svg>
+                <span style={testoScatola}>Ritiro in sede</span>
+              </li>
+              <li style={scatola}>
+                <span style={{ display: "flex", gap: 3, height: 24, alignItems: "center" }}>{pallino(true)}{pallino(true)}{pallino(false)}</span>
+                <span style={testoScatola}>{PERCENTUALE_SCONTO_INTERA}% di sconto ogni {TIMBRI_PER_CICLO} ordini</span>
+              </li>
+            </ul>
+
+            <form onSubmit={(e) => { e.preventDefault(); if (tutto && !inviandoOtp) richiediOtp(); }} style={{ display: "flex", flexDirection: "column", gap: 14 }} noValidate>
+              <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {etichetta("Nome")}
+                <input type="text" autoComplete="given-name" placeholder="Come ti chiami?" value={nome} onChange={(e) => setNome(e.target.value)} onBlur={() => tocca("nome")}
+                  style={{ ...campoBase, ...bordo(errNome, "nome") }} />
+                {messaggio(errNome, "nome")}
+              </label>
+
+              <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {etichetta("Cellulare")}
+                <span style={{ ...campoBase, display: "flex", alignItems: "center", overflow: "hidden", border: errTel && toccati.tel ? "2px solid #B3261E" : "1px solid #DADBD2" }}>
+                  <span style={{ height: "100%", padding: "0 12px 0 16px", display: "flex", alignItems: "center", fontSize: 16, fontWeight: 500, borderRight: "1px solid #E4E5DD" }}>+39</span>
+                  <input type="tel" inputMode="tel" autoComplete="tel-national" placeholder="333 123 4567" value={telefono} onChange={(e) => setTelefono(e.target.value)} onBlur={() => tocca("tel")}
+                    style={{ flex: 1, minWidth: 0, height: "100%", border: "none", background: "transparent", padding: "0 14px", fontSize: 16, color: "#1B1E17", outline: "none", fontFamily: "var(--font-ui)" }} />
+                </span>
+                {messaggio(errTel, "tel")}
+                <span style={{ fontSize: 13, lineHeight: 1.35, color: "#5F6457" }}>Ti mandiamo un codice via SMS. Lo usiamo solo per l'ordine e per chiamarti se serve.</span>
+              </label>
+
+              <label style={{ display: "flex", gap: 12, alignItems: "flex-start", cursor: "pointer", paddingTop: 2 }}>
+                <input type="checkbox" checked={privacy} onChange={(e) => setPrivacy(e.target.checked)} style={casella} />
+                <span style={{ fontSize: 14, lineHeight: 1.4 }}>Ho letto l'<a href="/ordina/privacy" target="_blank" rel="noreferrer" style={{ color: "#3F7A0E", textDecoration: "underline" }}>informativa privacy</a> e accetto il trattamento dei dati per ordini e tessera fedeltà. <span style={{ color: "#B3261E" }}>*</span></span>
+              </label>
+
+              <label style={{ display: "flex", gap: 12, alignItems: "flex-start", cursor: "pointer" }}>
+                <input type="checkbox" checked={marketing} onChange={(e) => setMarketing(e.target.checked)} style={casella} />
+                <span style={{ fontSize: 14, lineHeight: 1.4 }}>Voglio ricevere offerte e novità <span style={{ color: "#5F6457" }}>(facoltativo)</span></span>
+              </label>
+            </form>
           </>
         ) : (
-          <>
-            <p style={{ fontSize: 12.5, color: "var(--text-2)" }}>Codice inviato a {telefono}</p>
-            <input style={fieldSt} placeholder="Codice ricevuto" value={codice} onChange={(e) => setCodice(e.target.value)} />
-            {erroreGate && <div style={{ fontSize: 12.5, color: "var(--danger)" }}>{erroreGate}</div>}
-            <button style={btnPrimarySt} onClick={verificaOtp} disabled={inviandoOtp}>
-              {inviandoOtp ? "Verifica…" : "Conferma"}
-            </button>
-            <button onClick={() => setPassoGate("telefono")} style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: 12.5, cursor: "pointer" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <span style={{ fontSize: 14, fontWeight: 500 }}>Codice ricevuto</span>
+              <input type="text" inputMode="numeric" autoComplete="one-time-code" placeholder="123456" value={codice} onChange={(e) => setCodice(e.target.value)}
+                style={{ ...campoBase, padding: "0 16px", letterSpacing: 4, fontSize: 20 }} />
+            </label>
+            <button type="button" onClick={() => setPassoGate("telefono")} style={{ alignSelf: "center", minHeight: 44, background: "none", border: "none", color: "#555950", fontSize: 14, textDecoration: "underline", cursor: "pointer", fontFamily: "var(--font-ui)" }}>
               Numero sbagliato? Torna indietro
             </button>
-          </>
+          </div>
         )}
-        <a href="/ordina/menu" style={{ ...btnPrimarySt, display: "block", textAlign: "center", textDecoration: "none", background: "transparent", color: "var(--text)", border: "1.5px solid var(--text)" }}>Consulta il menù</a>
-        <BottoneInstalla />
+
+        <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
+          {erroreGate && <div role="alert" style={{ borderRadius: 16, background: "#FBEAE8", border: "1px solid #F0C4C0", padding: "12px 14px", fontSize: 14, lineHeight: 1.4, color: "#8C1D18" }}>{erroreGate}</div>}
+          {passoGate === "telefono" ? (
+            <>
+              <button type="button" disabled={!tutto || inviandoOtp} aria-disabled={!tutto || inviandoOtp} onClick={richiediOtp} style={{
+                width: "100%", height: 56, border: "none", borderRadius: 18, fontSize: 17, fontWeight: 600, fontFamily: "var(--font-ui)",
+                background: tutto ? "#1B1E17" : "#D9DAD2", color: tutto ? "#FFFFFF" : "#5F6457", cursor: tutto && !inviandoOtp ? "pointer" : "not-allowed",
+              }}>{inviandoOtp ? "Invio…" : "Invia codice via SMS"}</button>
+              {!tutto && <p style={{ margin: 0, textAlign: "center", fontSize: 13, color: "#5F6457" }}>Compila i campi con * per continuare</p>}
+            </>
+          ) : (
+            <button type="button" disabled={inviandoOtp || !codice.trim()} aria-disabled={inviandoOtp || !codice.trim()} onClick={verificaOtp} style={{
+              width: "100%", height: 56, border: "none", borderRadius: 18, fontSize: 17, fontWeight: 600, fontFamily: "var(--font-ui)",
+              background: codice.trim() ? "#1B1E17" : "#D9DAD2", color: codice.trim() ? "#FFFFFF" : "#5F6457", cursor: codice.trim() && !inviandoOtp ? "pointer" : "not-allowed",
+            }}>{inviandoOtp ? "Verifica…" : "Conferma"}</button>
+          )}
+        </div>
       </div>
     );
   }
@@ -1485,7 +1571,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
             <div style={{ marginBottom: 12, padding: "12px 14px", border: "1.5px solid var(--accent-border)", background: "var(--accent-bg-2)", borderRadius: 14 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Hai uno sconto fedeltà di {euro(scontoMaturato)}</div>
               <div style={{ fontSize: 12, color: "var(--text-2)", margin: "2px 0 10px", lineHeight: 1.45 }}>
-                È il 10% di quanto hai speso nei tuoi ultimi {TIMBRI_PER_CICLO} ordini (consegna esclusa).
+                È il {PERCENTUALE_SCONTO_INTERA}% di quanto hai speso nei tuoi ultimi {TIMBRI_PER_CICLO} ordini (consegna esclusa).
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={() => setUsaSconto(true)} style={{ flex: 1, padding: "11px 6px", borderRadius: 12, border: "1.5px solid", cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 13, ...sceltaSt(usaSconto === true) }}>Usalo ora</button>
@@ -1566,7 +1652,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
 
 
 export default function OrdinaFlow(props: { sedeSlugIniziale?: string }) {
-  const [modoLogo, setModoLogo] = useState<ModoLogo>("grande");
+  const [modoLogo, setModoLogo] = useState<ModoLogo>("registrazione");
   const iniziale = modoLogo === "grande";
 
   useEffect(() => {
