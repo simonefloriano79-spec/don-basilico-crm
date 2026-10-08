@@ -1226,6 +1226,13 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
     if (prossima) setDomandaAperta(prossima);
     else setTimeout(() => riepilogoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   };
+  // «−» sulla scheda: toglie un pezzo (l'ultimo aggiunto di quel prodotto); a zero la riga sparisce.
+  const togliUno = (menuItemId: string) => setCart((prev) => {
+    let idx = -1;
+    prev.forEach((c, i) => { if (c.menuItemId === menuItemId) idx = i; });
+    if (idx < 0) return prev;
+    return prev.map((c, i) => (i === idx ? { ...c, qty: c.qty - 1 } : c)).filter((c) => c.qty > 0);
+  });
   const qtaNelCarrello = (id: string) => cart.reduce((a, c) => a + (c.menuItemId === id ? c.qty : 0), 0);
   const catSuggerite = (["fritti", "bevande"] as const)
     .map((cat) => ({
@@ -1325,7 +1332,15 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
               </div>
               <div style={{ flex: "none", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
                 <span className="num" style={{ fontSize: 16, fontWeight: 600, whiteSpace: "nowrap" }}>{prezzoMenu(prezzo)}</span>
-                {q > 0 && <span style={{ minWidth: 28, height: 24, padding: "0 8px", borderRadius: 12, background: "#1B1E17", color: "#7ECE25", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center" }}>×{q}</span>}
+                {q > 0 && (
+                  <button type="button" aria-label={`Togli uno: ${item.nome} (nel carrello: ${q})`}
+                    onClick={(e) => { e.stopPropagation(); togliUno(item.id); }}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    style={{ height: 44, minWidth: 64, margin: "-4px -4px -4px 0", padding: "0 14px", borderRadius: 999, border: "none", background: "#1B1E17", color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer", fontFamily: "var(--font-ui)" }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true"><path d="M5 12h14" /></svg>
+                    <span className="num" style={{ fontSize: 15, fontWeight: 600, color: "#7ECE25" }}>{q}</span>
+                  </button>
+                )}
               </div>
             </div>
           );
