@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import { Playfair_Display } from "next/font/google";
 
-const playfair = Playfair_Display({ subsets: ["latin"], weight: ["700", "800"], variable: "--font-playfair" });
 
 export const metadata: Metadata = {
   title: "Ordina online — Don Basilico",
@@ -13,7 +11,11 @@ export const metadata: Metadata = {
 
 export default function OrdinaLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className={playfair.variable} style={{ minHeight: "100dvh", background: "#F6F6F1", WebkitTapHighlightColor: "transparent" }}>
+    <div style={{ minHeight: "100dvh", background: "#F6F6F1", WebkitTapHighlightColor: "transparent" }}>
+      {/* Playfair Display: solo saluto e importi della home */}
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&display=swap" />
       <main style={{ maxWidth: 640, width: "100%", margin: "0 auto", padding: "14px 16px 60px" }}>
         {children}
       </main>

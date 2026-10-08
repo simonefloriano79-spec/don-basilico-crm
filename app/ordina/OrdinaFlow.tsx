@@ -161,7 +161,7 @@ function CartaFedelta({ tessera, onApri }: { tessera: Tessera | null; onApri: ()
         {tessera ? (
           <div style={{ display: "flex", flexDirection: "column" }}>
             <span style={{ fontSize: 13, color: "#5F6457" }}>Sconto accumulato</span>
-            <span className="num" style={{ fontFamily: "var(--font-playfair), var(--font-display)", fontWeight: 800, fontSize: 26, lineHeight: 1.1, color: "#1B1E17" }}>{euro(tessera.scontoDisponibile ? tessera.importoSconto : scontoAccumulato)}</span>
+            <span className="num" style={{ fontFamily: "'Playfair Display', var(--font-display)", fontWeight: 800, fontSize: 26, lineHeight: 1.1, color: "#1B1E17" }}>{euro(tessera.scontoDisponibile ? tessera.importoSconto : scontoAccumulato)}</span>
           </div>
         ) : (
           <span style={{ fontSize: 13, color: "#5F6457", lineHeight: 1.3 }}>Si attiva con il tuo primo ordine</span>
@@ -807,7 +807,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 22, maxWidth: 430, width: "100%", margin: "0 auto", padding: "0 4px 12px", color: "#1B1E17" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <h1 style={{ margin: 0, fontFamily: "var(--font-playfair), var(--font-display)", fontWeight: 800, fontSize: 30, lineHeight: 1.15, letterSpacing: -0.3 }}>Ciao {saluto}</h1>
+          <h1 style={{ margin: 0, fontFamily: "'Playfair Display', var(--font-display)", fontWeight: 800, fontSize: 30, lineHeight: 1.15, letterSpacing: -0.3 }}>Ciao {saluto}</h1>
           <p style={{ margin: 0, fontSize: 16, color: "#555950" }}>Come vuoi la tua pizza oggi?</p>
         </div>
 
