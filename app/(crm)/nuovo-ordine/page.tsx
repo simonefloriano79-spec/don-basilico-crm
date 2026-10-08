@@ -26,7 +26,7 @@ interface Ingrediente {
   isAllergene: boolean; disabilitatoInSede?: boolean; escludiCompensazione?: boolean;
 }
 interface ImpastoCassa { id: string; nome: string; descrizione: string | null; supplemento: number; }
-const CAT_IMPASTO = ["menu_speciale", "pizze_rosse", "pizze_bianche"];
+const CAT_IMPASTO = ["menu_speciale", "pizze_rosse", "pizze_bianche", "focacce"];
 
 interface CartItem {
   impasto?: { id: string; nome: string; supplemento: number };
@@ -583,7 +583,7 @@ export default function NuovoOrdinePage() {
 
   const handleClick = (item: any) => {
     if (item.disponibileInSede === false) return;
-    const isPizza = ["menu_speciale", "pizze_rosse", "pizze_bianche", "calzoni"].includes(item.categoria);
+    const isPizza = ["menu_speciale", "pizze_rosse", "pizze_bianche", "calzoni", "focacce"].includes(item.categoria);
     if (isPizza) { setPizzaModal(item); return; }
     const prezzo = parseFloat(item.prezzoEffettivo ?? item.prezzoBase);
     setCart((prev) => {
