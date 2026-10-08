@@ -1390,24 +1390,36 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
               {catSuggerite.map((g) => (
                 <div key={g.cat} style={{ marginBottom: 10 }}>
                   <div style={{ fontSize: 10.5, letterSpacing: 1.6, textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 6 }}>{CAT_LABEL[g.cat] ?? g.cat}</div>
-                  <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
+                  <div className="db-scroll-x" style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
                     {g.items.map((m) => {
                       const q = qtaNelCarrello(m.id);
                       return (
                         <div key={m.id} style={{
-                          flex: "0 0 138px", background: "#fff", border: `1.5px solid ${q ? "var(--text)" : "var(--border)"}`, borderRadius: 12,
+                          flex: "0 0 150px", background: "#fff", border: `1.5px solid ${q ? "#1B1E17" : "#E4E5DD"}`, borderRadius: 16,
                           padding: 10, display: "flex", flexDirection: "column", gap: 6,
                         }}>
                           {m.immagineUrl && (
                             <img src={m.immagineUrl} alt={m.nome} loading="lazy" decoding="async"
                               style={{ width: "100%", height: 70, borderRadius: 8, objectFit: "cover", background: "var(--border)" }} />
                           )}
-                          <div style={{ fontFamily: "var(--font-display)", fontSize: 13.5, color: "var(--text)", lineHeight: 1.25, flex: 1 }}>{m.nome}</div>
+                          <div style={{ fontFamily: "'Playfair Display', var(--font-display)", fontWeight: 700, fontSize: 14.5, color: "var(--text)", lineHeight: 1.25, flex: 1 }}>{m.nome}</div>
                           <div className="num" style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{prezzoMenu(parseFloat(m.prezzoEffettivo ?? m.prezzoBase))}</div>
-                          <button onClick={() => aggiungiAlCarrello(m)} style={{
-                            padding: "8px 6px", borderRadius: 9, border: "1.5px solid var(--text)", cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 12.5, fontWeight: 500,
-                            background: q ? "var(--text)" : "#fff", color: q ? "#fff" : "var(--text)",
-                          }}>{q ? `Aggiunto ×${q} · +1` : "+ Aggiungi"}</button>
+                          {q > 0 ? (
+                            <div style={{ height: 44, borderRadius: 999, background: "#1B1E17", color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 2px" }}>
+                              <button type="button" aria-label={`Togli uno: ${m.nome}`} onClick={() => togliUno(m.id)} style={{ width: 44, height: 44, border: "none", background: "transparent", color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, cursor: "pointer" }}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M5 12h14" /></svg>
+                              </button>
+                              <span className="num" style={{ fontSize: 15, fontWeight: 600 }}>{q}</span>
+                              <button type="button" aria-label={`Aggiungi uno: ${m.nome}`} onClick={() => aggiungiAlCarrello(m)} style={{ width: 44, height: 44, border: "none", background: "transparent", color: "#7ECE25", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, cursor: "pointer" }}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+                              </button>
+                            </div>
+                          ) : (
+                            <button type="button" onClick={() => aggiungiAlCarrello(m)} style={{
+                              height: 44, borderRadius: 999, border: "1.5px solid #1B1E17", cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 14, fontWeight: 500,
+                              background: "#FFFFFF", color: "#1B1E17",
+                            }}>+ Aggiungi</button>
+                          )}
                         </div>
                       );
                     })}
