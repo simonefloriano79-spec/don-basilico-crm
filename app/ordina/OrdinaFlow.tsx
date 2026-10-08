@@ -384,6 +384,54 @@ function SchedaSede({ sd, nome, selezionata, onScegli, compatta }: { sd: any; no
   );
 }
 
+// «Come funziona la tessera»: spiegazione con un esempio calcolato con la stessa regola della tessera (5 ordini, 10%).
+const ESEMPIO_ORDINI = [20, 18, 25, 15, 22];
+function InfoTessera({ onChiudi }: { onChiudi: () => void }) {
+  const somma = ESEMPIO_ORDINI.reduce((a, n) => a + n, 0);
+  const sconto = Math.round(somma * PERCENTUALE_SCONTO * 100) / 100;
+  const n = TIMBRI_PER_CICLO;
+  return (
+    <div onClick={onChiudi} style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(27,30,23,0.55)", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+      <section role="dialog" aria-modal="true" aria-label="Come funziona la tessera" onClick={(e) => e.stopPropagation()}
+        style={{ background: "#F6F6F1", borderRadius: "28px 28px 0 0", maxHeight: "92vh", overflowY: "auto", width: "100%", maxWidth: 560, margin: "0 auto", padding: "10px 20px 24px", fontFamily: "var(--font-ui)", color: "#1B1E17" }}>
+        <div style={{ display: "flex", justifyContent: "center", paddingBottom: 8 }}><span style={{ width: 40, height: 5, borderRadius: 3, background: "#C9CBC1" }} /></div>
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+          <h2 style={{ margin: 0, flex: 1, fontFamily: "'Playfair Display', var(--font-display)", fontWeight: 800, fontSize: 26, lineHeight: 1.15 }}>Come funziona la tessera</h2>
+          <button type="button" aria-label="Chiudi" onClick={onChiudi} style={{ width: 44, height: 44, borderRadius: "50%", border: "1px solid #DADBD2", background: "#FFFFFF", color: "#1B1E17", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, flex: "none", cursor: "pointer" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+        </div>
+        <p style={{ margin: "10px 0 14px", fontSize: 15, lineHeight: 1.45, color: "#3E4237" }}>
+          Con i tuoi ordini da questa app ottieni <strong>il {PERCENTUALE_SCONTO_INTERA}% di quanto hai speso in {n} ordini</strong>, da usare sull'ordine successivo.
+        </p>
+        <div style={{ background: "#FFFFFF", border: "1px solid #E4E5DD", borderRadius: 20, padding: "14px 16px" }}>
+          <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: 1.8, color: "#5F6457", marginBottom: 8 }}>UN ESEMPIO</div>
+          {ESEMPIO_ORDINI.map((v, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 15, padding: "4px 0", color: "#3E4237" }}>
+              <span>{i + 1}° ordine</span><span className="num">{euro(v)}</span>
+            </div>
+          ))}
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 600, padding: "8px 0 4px", marginTop: 6, borderTop: "1px solid #ECECE5" }}>
+            <span>Totale speso</span><span className="num">{euro(somma)}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "4px 0 0" }}>
+            <span style={{ fontSize: 15, fontWeight: 600 }}>Sconto del {PERCENTUALE_SCONTO_INTERA}%</span>
+            <span className="num" style={{ fontFamily: "'Playfair Display', var(--font-display)", fontWeight: 800, fontSize: 26, color: "#3F7A0E" }}>{euro(sconto)}</span>
+          </div>
+          <div style={{ fontSize: 13.5, color: "#5F6457", marginTop: 6 }}>Lo usi sul {n + 1}° ordine.</div>
+        </div>
+        <ul style={{ margin: "14px 0 0", paddingLeft: 20, fontSize: 14.5, lineHeight: 1.55, color: "#3E4237", display: "flex", flexDirection: "column", gap: 6 }}>
+          <li>Ogni ordine fatto da qui è un timbro. Il costo della consegna non conta.</li>
+          <li>Se lo sconto è più alto di quello che ordini oggi, scegli tu: lo usi subito (la parte che avanza si perde) oppure lo tieni per il prossimo ordine.</li>
+          <li>Finché hai uno sconto da usare non si aggiungono altri timbri.</li>
+          <li>Dopo averlo usato torni a zero e ricominci.</li>
+        </ul>
+        <button type="button" onClick={onChiudi} style={{ width: "100%", height: 56, border: "none", borderRadius: 18, background: "#1B1E17", color: "#FFFFFF", fontSize: 17, fontWeight: 600, marginTop: 18, cursor: "pointer", fontFamily: "var(--font-ui)" }}>Ho capito</button>
+      </section>
+    </div>
+  );
+}
+
 // Prezzo come si legge nel menù: «8» oppure «8,50», senza il simbolo €.
 function prezzoMenu(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(".", ",");
@@ -681,6 +729,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   const categorieRef = useRef<HTMLDivElement>(null);
   const [sedeScelta, setSedeScelta] = useState("");   // sede evidenziata nella scelta (si conferma con «Continua»)
   const [toccati, setToccati] = useState<Record<string, boolean>>({});
+  const [infoTessera, setInfoTessera] = useState(false);
 
   // Ricorda l'ultima sede e l'ultimo indirizzo usati su questo telefono, per precompilarli.
   useEffect(() => {
@@ -992,9 +1041,15 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1B1E17" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2z" /><path d="M9 8V6.5a3 3 0 0 1 6 0V8" /></svg>
                 <span style={testoScatola}>Ritiro in sede</span>
               </li>
-              <li style={scatola}>
-                <span style={{ display: "flex", gap: 3, height: 24, alignItems: "center" }}>{pallino(true)}{pallino(true)}{pallino(false)}</span>
-                <span style={testoScatola}>{PERCENTUALE_SCONTO_INTERA}% di sconto ogni {TIMBRI_PER_CICLO} ordini</span>
+              <li style={{ ...scatola, padding: 0, position: "relative" }}>
+                <button type="button" aria-label="Come funziona la tessera" onClick={() => setInfoTessera(true)} style={{
+                  width: "100%", height: "100%", border: "none", background: "transparent", borderRadius: 16, padding: "12px 6px", cursor: "pointer", color: "#1B1E17", fontFamily: "var(--font-ui)",
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: 6, textAlign: "center",
+                }}>
+                  <span style={{ display: "flex", gap: 3, height: 24, alignItems: "center" }}>{pallino(true)}{pallino(true)}{pallino(false)}</span>
+                  <span style={testoScatola}>{PERCENTUALE_SCONTO_INTERA}% di quanto spendi su {TIMBRI_PER_CICLO} ordini</span>
+                  <span aria-hidden="true" style={{ position: "absolute", top: 6, right: 6, width: 18, height: 18, borderRadius: "50%", border: "1.5px solid #5F6457", color: "#5F6457", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Georgia, serif", fontStyle: "italic" }}>i</span>
+                </button>
               </li>
             </ul>
 
@@ -1058,6 +1113,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
             }}>{inviandoOtp ? "Verifica…" : "Conferma"}</button>
           )}
         </div>
+        {infoTessera && <InfoTessera onChiudi={() => setInfoTessera(false)} />}
       </div>
     );
   }
