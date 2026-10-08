@@ -131,59 +131,74 @@ function ConsensiPrivacy({ privacy, setPrivacy, marketing, setMarketing }: { pri
 // Tessera fedeltà: cerchietti dei timbri e messaggio.
 function CartaFedelta({ tessera, onApri }: { tessera: Tessera | null; onApri: () => void }) {
   const timbri = tessera?.timbri ?? 0;
+  const mancano = TIMBRI_PER_CICLO - timbri;
   const scontoAccumulato = tessera ? Math.round(tessera.totaleCiclo * 0.1 * 100) / 100 : 0;
   return (
-    <div style={{ border: "1px solid var(--border)", background: "#fff", borderRadius: 16, padding: "14px 16px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <span style={{ fontSize: 11, letterSpacing: 1.6, textTransform: "uppercase", color: "var(--text-muted)", fontWeight: 600 }}>Tessera fedeltà</span>
-        <span className="num" style={{ fontSize: 12.5, color: "var(--text-2)" }}>{timbri} di {TIMBRI_PER_CICLO}</span>
+    <section style={{ background: "#FFFFFF", border: "1px solid #E4E5DD", borderRadius: 22, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: 2, color: "#5F6457", textTransform: "uppercase" }}>Tessera fedeltà</span>
+        <span className="num" style={{ fontSize: 14, color: "#1B1E17" }}>{timbri} di {TIMBRI_PER_CICLO}</span>
       </div>
-      <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 10 }}>
-        {Array.from({ length: TIMBRI_PER_CICLO }).map((_, i) => (
-          <span key={i} style={{
-            width: 30, height: 30, borderRadius: "50%", border: "1.5px solid", display: "inline-block",
-            background: i < timbri ? "var(--accent)" : "transparent", borderColor: i < timbri ? "var(--accent)" : "#8a897f",
-          }} />
-        ))}
-      </div>
-      <div style={{ fontSize: 12.5, color: "var(--text-2)", textAlign: "center", lineHeight: 1.45 }}>
-        {tessera?.scontoDisponibile
-          ? <>Hai maturato uno sconto di <strong>{euro(tessera.importoSconto)}</strong>: lo trovi al riepilogo del prossimo ordine.</>
-          : tessera
-            ? <>Ancora {TIMBRI_PER_CICLO - timbri} {TIMBRI_PER_CICLO - timbri === 1 ? "ordine" : "ordini"} e ottieni il 10% di sconto sulla spesa.</>
-            : <>Ogni ordine è un timbro: ogni {TIMBRI_PER_CICLO} ottieni il 10% di sconto sulla spesa (la consegna non conta). La tessera si attiva con il tuo primo ordine.</>}
-      </div>
-      {tessera && (
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
-          <span style={{ fontSize: 12.5, color: "var(--text-2)" }}>Sconto accumulato</span>
-          <b className="num" style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--text)" }}>{euro(scontoAccumulato)}</b>
+      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+          {Array.from({ length: TIMBRI_PER_CICLO }).map((_, i) => (
+            <span key={i} style={{
+              width: 22, height: 22, borderRadius: "50%", boxSizing: "border-box",
+              background: i < timbri ? "#7ECE25" : "transparent", border: i < timbri ? "none" : "1.5px solid #A5A99C",
+            }} />
+          ))}
         </div>
-      )}
-      <button onClick={onApri} style={{ width: "100%", marginTop: 12, background: "var(--text)", color: "#fff", border: "none", padding: "13px", borderRadius: 12, fontSize: 14, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)" }}>
-        {tessera ? "Apri la tessera e il QR" : "Attiva la tessera"}
-      </button>
-    </div>
+        <span style={{ fontSize: 13, lineHeight: 1.3, color: "#3E4237" }}>
+          {tessera?.scontoDisponibile
+            ? "Hai uno sconto pronto: lo usi al prossimo ordine"
+            : tessera
+              ? `Ancora ${mancano} ${mancano === 1 ? "ordine" : "ordini"} per il 10% di sconto`
+              : `Ogni ${TIMBRI_PER_CICLO} ordini ottieni il 10% di sconto`}
+        </span>
+      </div>
+      <div style={{ height: 1, background: "#ECECE5" }} />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+        {tessera ? (
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <span style={{ fontSize: 13, color: "#5F6457" }}>Sconto accumulato</span>
+            <span className="num" style={{ fontFamily: "var(--font-playfair), var(--font-display)", fontWeight: 800, fontSize: 26, lineHeight: 1.1, color: "#1B1E17" }}>{euro(tessera.scontoDisponibile ? tessera.importoSconto : scontoAccumulato)}</span>
+          </div>
+        ) : (
+          <span style={{ fontSize: 13, color: "#5F6457", lineHeight: 1.3 }}>Si attiva con il tuo primo ordine</span>
+        )}
+        <button type="button" onClick={onApri} style={{
+          height: 44, padding: "0 16px", borderRadius: 999, border: "1.5px solid #1B1E17", background: "#FFFFFF", color: "#1B1E17",
+          fontSize: 15, fontWeight: 500, display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontFamily: "var(--font-ui)", whiteSpace: "nowrap", flexShrink: 0,
+        }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 14h3v3h-3z" /><path d="M20 14v.01M20 20h-3M14 20v.01" /></svg>
+          {tessera ? "Tessera e QR" : "Attiva la tessera"}
+        </button>
+      </div>
+    </section>
   );
 }
 
 // Registrazione dell'evento di installazione (arriva una volta sola, spesso prima che il pulsante sia visibile).
 let eventoInstalla: any = null;
 
-function Testata({ grande }: { grande: boolean }) {
+type ModoLogo = "grande" | "home" | "piccolo";
+function Testata({ modo }: { modo: ModoLogo }) {
   return (
     <img
       src="/brand/don-basilico-logo.png"
       alt="Don Basilico — Naturalmente Pizza"
-      style={grande
+      style={modo === "grande"
         ? { display: "block", width: "min(80vw, 340px)", height: "auto", margin: "10px auto 26px" }
-        : { display: "block", width: 118, height: "auto", margin: "4px auto 16px" }}
+        : modo === "home"
+          ? { display: "block", width: 186, height: "auto", margin: "10px auto 22px" }
+          : { display: "block", width: 118, height: "auto", margin: "4px auto 16px" }}
     />
   );
 }
 
 // "Scarica sul tuo cellulare": installa l'app (aggiunge l'icona alla schermata Home). Dove il browser lo permette
 // (Android/Chrome) parte l'installazione; altrove (iPhone, altri browser) mostra i passaggi.
-function BottoneInstalla() {
+function BottoneInstalla({ discreto = false }: { discreto?: boolean }) {
   const [installata, setInstallata] = useState(false);
   const [aiuto, setAiuto] = useState(false);
 
@@ -216,6 +231,7 @@ function BottoneInstalla() {
       <button onClick={clic} style={{
         ...btnPrimarySt, background: "transparent", color: "var(--text)", border: "1.5px solid var(--text)",
         display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+        ...(discreto ? { border: "none", color: "#555950", fontSize: 14, minHeight: 44, padding: "8px" } : {}),
       }}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M12 3v12" /><path d="M7 11l5 5 5-5" /><path d="M5 21h14" />
@@ -411,7 +427,7 @@ function PizzaModalCliente({ item, ingredienti, impasti, onConferma, onChiudi }:
   );
 }
 
-function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIniziale?: string; onSchermataIniziale?: (iniziale: boolean) => void }) {
+function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIniziale?: string; onSchermataIniziale?: (modo: ModoLogo) => void }) {
   const [caricamento, setCaricamento] = useState(true);
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [staffBeta, setStaffBeta] = useState(false);
@@ -598,8 +614,10 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   // Prime schermate (registrazione e scelta ritiro/domicilio): logo grande al centro.
   useEffect(() => {
     if (caricamento) return; // durante il caricamento resta com'è (logo grande), niente salti
-    onSchermataIniziale?.(!tipo && !confermato && !vistaOrdini && !vistaTessera);
-  }, [caricamento, tipo, confermato, vistaOrdini, vistaTessera, onSchermataIniziale]);
+    const sulleIniziali = !tipo && !confermato && !vistaOrdini && !vistaTessera;
+    const inHome = sulleIniziali && !!cliente && cliente.privacyOk !== false;
+    onSchermataIniziale?.(inHome ? "home" : sulleIniziali ? "grande" : "piccolo");
+  }, [caricamento, tipo, confermato, vistaOrdini, vistaTessera, cliente, onSchermataIniziale]);
 
   const subtotale = cart.reduce((a, c) => a + c.prezzo * c.qty, 0);
   const consegna = tipo === "domicilio" ? COSTO_CONSEGNA_DEFAULT : 0;
@@ -773,16 +791,64 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
 
   // ── Scelta ritiro/domicilio ──────────────────────────────────
   if (!tipo) {
+    const primoNome = cliente.nome.trim().split(/\s+/)[0] ?? "";
+    const saluto = primoNome.charAt(0).toUpperCase() + primoNome.slice(1);
+    const freccia = (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="M13 6l6 6-6 6" /></svg>
+    );
+    const cta: React.CSSProperties = {
+      height: 214, border: "none", borderRadius: 24, padding: 18, display: "flex", flexDirection: "column",
+      justifyContent: "space-between", alignItems: "flex-start", textAlign: "left", cursor: "pointer", fontFamily: "var(--font-ui)",
+    };
+    const secondario: React.CSSProperties = {
+      height: 56, borderRadius: 18, border: "1px solid #DADBD2", background: "#FFFFFF", color: "#1B1E17", fontSize: 16, fontWeight: 500,
+      display: "flex", alignItems: "center", justifyContent: "center", gap: 10, cursor: "pointer", fontFamily: "var(--font-ui)", textDecoration: "none",
+    };
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 420, width: "100%", margin: "0 auto" }}>
-        <h1 style={{ fontFamily: "var(--font-display)", fontSize: 26, color: "var(--text)", textAlign: "center" }}>Ciao {cliente.nome.split(" ")[0]}</h1>
+      <div style={{ display: "flex", flexDirection: "column", gap: 22, maxWidth: 430, width: "100%", margin: "0 auto", padding: "0 4px 12px", color: "#1B1E17" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <h1 style={{ margin: 0, fontFamily: "var(--font-playfair), var(--font-display)", fontWeight: 800, fontSize: 30, lineHeight: 1.15, letterSpacing: -0.3 }}>Ciao {saluto}</h1>
+          <p style={{ margin: 0, fontSize: 16, color: "#555950" }}>Come vuoi la tua pizza oggi?</p>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <button type="button" onClick={() => setTipo("domicilio")} style={{ ...cta, background: "#1B1E17", color: "#FFFFFF" }}>
+            <span style={{ width: 52, height: 52, borderRadius: 16, background: "#7ECE25", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#1B1E17" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="5.5" cy="17.5" r="2.5" /><circle cx="18.5" cy="17.5" r="2.5" /><path d="M8 17.5h7.5l2-6H13" /><path d="M15 6h2.5l1.5 5.5" /><path d="M3 12h7v3H3z" /></svg>
+            </span>
+            <span style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <span style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.15 }}>Consegna a domicilio</span>
+              <span style={{ fontSize: 14, lineHeight: 1.3, color: "#C9CCC2" }}>Calda, direttamente a casa tua</span>
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 600, color: "#7ECE25" }}>Ordina {freccia}</span>
+          </button>
+
+          <button type="button" onClick={() => setTipo("asporto")} style={{ ...cta, background: "#7ECE25", color: "#1B1E17" }}>
+            <span style={{ width: 52, height: 52, borderRadius: 16, background: "#1B1E17", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7ECE25" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2z" /><path d="M9 8V6.5a3 3 0 0 1 6 0V8" /></svg>
+            </span>
+            <span style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <span style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.15 }}>Ritiro in sede</span>
+              <span style={{ fontSize: 14, lineHeight: 1.3, color: "#2D3324" }}>Ordina ora, passi a prenderla tu</span>
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 600 }}>Ordina {freccia}</span>
+          </button>
+        </div>
+
         <CartaFedelta tessera={tessera} onApri={() => setVistaTessera(true)} />
-        <p style={{ fontSize: 14, color: "var(--text-muted)", textAlign: "center" }}>Come vuoi ricevere il tuo ordine?</p>
-        <button style={{ ...btnPrimarySt }} onClick={() => setTipo("asporto")}>Ritiro in sede</button>
-        <button style={{ ...btnPrimarySt, background: "#fff", color: "var(--text)", border: "1px solid var(--border)" }} onClick={() => setTipo("domicilio")}>Consegna a domicilio</button>
-        <button style={{ ...btnPrimarySt, background: "transparent", color: "var(--text)", border: "1.5px solid var(--text)" }} onClick={() => setVistaOrdini(true)}>I miei ordini</button>
-        <a href="/ordina/menu" style={{ ...btnPrimarySt, display: "block", textAlign: "center", textDecoration: "none", background: "transparent", color: "var(--text)", border: "1.5px solid var(--text)" }}>Consulta il menù</a>
-        <BottoneInstalla />
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <button type="button" onClick={() => setVistaOrdini(true)} style={secondario}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6M9 12h6" /></svg>
+            I miei ordini
+          </button>
+          <a href="/ordina/menu" style={secondario}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z" /><path d="M4 19V5" /><path d="M9 8h6" /></svg>
+            Il menù
+          </a>
+        </div>
+
+        <BottoneInstalla discreto />
       </div>
     );
   }
@@ -1126,7 +1192,8 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
 
 
 export default function OrdinaFlow(props: { sedeSlugIniziale?: string }) {
-  const [iniziale, setIniziale] = useState(true);
+  const [modoLogo, setModoLogo] = useState<ModoLogo>("grande");
+  const iniziale = modoLogo === "grande";
 
   useEffect(() => {
     const catturaInstallazione = (e: Event) => { e.preventDefault(); eventoInstalla = e; };
@@ -1141,8 +1208,8 @@ export default function OrdinaFlow(props: { sedeSlugIniziale?: string }) {
       minHeight: iniziale ? "calc(100dvh - 90px)" : undefined,
       justifyContent: iniziale ? "center" : "flex-start",
     }}>
-      <Testata grande={iniziale} />
-      <OrdinaFlowInner {...props} onSchermataIniziale={setIniziale} />
+      <Testata modo={modoLogo} />
+      <OrdinaFlowInner {...props} onSchermataIniziale={setModoLogo} />
     </div>
   );
 }
