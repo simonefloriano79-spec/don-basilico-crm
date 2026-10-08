@@ -272,8 +272,8 @@ interface IngredienteCl {
   disabilitatoInSede?: boolean; escludiCompensazione?: boolean;
 }
 interface ImpastoCl { id: string; nome: string; descrizione: string | null; supplemento: number; }
-// Gli impasti speciali si scelgono solo su pizze (non su calzoni, focacce, fritti, bevande).
-const CAT_IMPASTO = ["menu_speciale", "pizze_rosse", "pizze_bianche"];
+// Gli impasti speciali si scelgono su pizze e focacce (non su calzoni, fritti, bevande).
+const CAT_IMPASTO = ["menu_speciale", "pizze_rosse", "pizze_bianche", "focacce"];
 
 interface CartItem {
   impasto?: { id: string; nome: string; supplemento: number };
@@ -385,12 +385,12 @@ function PizzaModalCliente({ item, ingredienti, impasti, onConferma, onChiudi }:
             const al = allergeniProdotto(item, { rimossi, aggiunti: Array.from(aggiunti.values()) as any[] });
             return (
               <div style={{ margin: "0 0 12px", padding: "10px 12px", background: "#fff", border: "1px solid var(--border)", borderRadius: 12, fontSize: 12.5, color: "var(--text-2)", lineHeight: 1.5 }}>
-                <strong style={{ color: "var(--text)" }}>Allergeni di questa pizza:</strong> {testoAllergeni(al)}
+                <strong style={{ color: "var(--text)" }}>Allergeni di {item.categoria === "focacce" ? "questa focaccia" : "questa pizza"}:</strong> {testoAllergeni(al)}
                 {al.daConfermare && <div style={{ color: "var(--text-muted)", marginTop: 2 }}>Elenco da confermare: chiedi al personale prima di ordinare.</div>}
               </div>
             );
           })()}
-          <textarea style={{ ...fieldSt, resize: "none" } as any} rows={2} placeholder="Note per questa pizza (opzionale)" value={nota} onChange={(e) => setNota(e.target.value)} />
+          <textarea style={{ ...fieldSt, resize: "none" } as any} rows={2} placeholder={`Note per ${item.categoria === "focacce" ? "questa focaccia" : "questa pizza"} (opzionale)`} value={nota} onChange={(e) => setNota(e.target.value)} />
         </div>
         <div style={{ padding: "12px 20px 16px", borderTop: "1px solid var(--border-soft)", display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -579,7 +579,8 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   };
 
   const aggiungiAlCarrello = (item: any) => {
-    if (CAT_PIZZA.includes(item.categoria)) { setPizzaModal(item); return; }
+    // Pizze, calzoni e focacce si personalizzano nel modale (la focaccia per la scelta dell'impasto); il peso in cucina resta solo delle pizze.
+    if (CAT_PIZZA.includes(item.categoria) || item.categoria === "focacce") { setPizzaModal(item); return; }
     const prezzo = parseFloat(item.prezzoEffettivo ?? item.prezzoBase);
     setCart((prev) => {
       const ex = prev.find((c) => c.menuItemId === item.id && !c.rimossi.length && !c.aggiunti.length && !c.nota);
@@ -615,6 +616,9 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   const inviaOrdine = async () => {
     setErroreInvio("");
     if (!cart.length) { setErroreInvio("Il carrello è vuoto"); return; }
+    // Se è arrivato qui senza passare dal «Vai al riepilogo» (lista corta, scroll a mano), le domande su fritti e bevande si fanno ora.
+    const domanda = prossimaDomanda(domandeFatte);
+    if (domanda) { setDomandaAperta(domanda); return; }
     if (tipo === "domicilio" && !metodoPagamento) { setErroreInvio("Scegli come pagare"); return; }
     if (!orario) { setErroreInvio("Scegli l'orario di ritiro"); return; }
     if (scontoMaturato > 0 && usaSconto === null) { setErroreInvio("Scegli se usare ora lo sconto fedeltà"); return; }

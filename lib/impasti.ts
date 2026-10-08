@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/prisma";
 
-// Gli impasti speciali si scelgono solo su pizze (rosse, bianche, speciali, «Crea la tua pizza»): non su calzoni,
-// focacce, fritti o bevande. Il «classico» è l'impasto di base: sempre incluso, senza supplemento, non è in elenco.
-export const CATEGORIE_IMPASTO = new Set(["pizze_rosse", "pizze_bianche", "menu_speciale"]);
+// Gli impasti speciali si scelgono su pizze (rosse, bianche, speciali, «Crea la tua pizza») e focacce: non su calzoni,
+// fritti o bevande. Il «classico» è l'impasto di base: sempre incluso, senza supplemento, non è in elenco.
+export const CATEGORIE_IMPASTO = new Set(["pizze_rosse", "pizze_bianche", "menu_speciale", "focacce"]);
 
 export interface ImpastoDisponibile {
   id: string;

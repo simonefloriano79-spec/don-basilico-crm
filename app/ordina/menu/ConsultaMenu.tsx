@@ -140,7 +140,7 @@ export default function ConsultaMenu() {
           {conImpasti && (
             <section id="sez-impasti" style={{ scrollMarginTop: 64, marginBottom: 22 }}>
               <h2 style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--text)", margin: "0 0 2px", borderBottom: "2px solid var(--accent)", paddingBottom: 4 }}>Impasti</h2>
-              <div style={{ fontSize: 12.5, color: "var(--text-muted)", margin: "4px 0 8px" }}>Su pizze rosse, bianche e speciali. Il classico è incluso; gli impasti speciali costano {euro(impasti[0].supplemento)} in più a pizza.</div>
+              <div style={{ fontSize: 12.5, color: "var(--text-muted)", margin: "4px 0 8px" }}>Su pizze rosse, bianche, speciali e focacce. Il classico è incluso; gli impasti speciali costano {euro(impasti[0].supplemento)} in più a pizza o focaccia.</div>
               <div style={{ padding: "12px 0", borderTop: "1px solid var(--border)" }}>
                 <div style={{ fontFamily: "var(--font-display)", fontSize: 17, color: "var(--text)" }}>Classico <span style={{ fontSize: 13, color: "var(--text-muted)" }}>· incluso</span></div>
                 <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 2, lineHeight: 1.45 }}>Impasto con lievitazione di almeno 48 ore, leggero e digeribile.</div>
