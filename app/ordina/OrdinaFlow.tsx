@@ -660,6 +660,9 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   const [erroreInvio, setErroreInvio] = useState("");
   const [confermato, setConfermato] = useState<{ numeroOrdine: number; sede: string; totale: number; oraRitiro: string | null; scontoFedelta?: number } | null>(null);
   const [nomeCitofono, setNomeCitofono] = useState("");
+  // «Vorrei essere chiamato»: citofono che non funziona o senza nome; al posto del nome sul citofono arriva questa dicitura.
+  const [chiamami, setChiamami] = useState(false);
+  const TESTO_CHIAMAMI = "Vorrei essere chiamato";
   const [ingredienti, setIngredienti] = useState<IngredienteCl[]>([]);
   const [impasti, setImpasti] = useState<ImpastoCl[]>([]);
   const [pizzaModal, setPizzaModal] = useState<any>(null);
@@ -857,7 +860,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
           clienteIndirizzo: tipo === "domicilio" ? indirizzo : undefined,
           sedeSlugAsporto: tipo === "asporto" ? sedeAsporto?.slug : undefined,
           metodoPagamento: tipo === "domicilio" ? metodoPagamento : undefined,
-          nomeCitofono: tipo === "domicilio" ? nomeCitofono || undefined : undefined,
+          nomeCitofono: tipo === "domicilio" ? (chiamami ? TESTO_CHIAMAMI : nomeCitofono.trim() || undefined) : undefined,
           oraRitiro: orario === "asap" ? undefined : orario,
           usaSconto: scontoMaturato > 0 && usaSconto === true,
           note: note || undefined,
@@ -1114,7 +1117,8 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
     const errVia = !via.trim() ? "Inserisci la via" : "";
     const errCivico = !civico.trim() ? "Inserisci il civico" : "";
     const errCap = !capValido ? "Il CAP ha 5 cifre" : "";
-    const tutto = !errCitta && !errVia && !errCivico && !errCap;
+    const errCitofono = !chiamami && !nomeCitofono.trim() ? "Scrivi il nome sul citofono, oppure scegli «Vorrei essere chiamato»" : "";
+    const tutto = !errCitta && !errVia && !errCivico && !errCap && !errCitofono;
     const tocca = (k: string) => setToccati((t) => ({ ...t, [k]: true }));
     const campo = (errore: string, k: string): React.CSSProperties => ({
       height: 54, boxSizing: "border-box", width: "100%", minWidth: 0, borderRadius: 16, background: "#FFFFFF", fontSize: 16, color: "#1B1E17", fontFamily: "var(--font-ui)", outline: "none",
@@ -1173,9 +1177,23 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
             </div>
 
             <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {etichettaCampo("Nome sul citofono", false)}
-              <input style={campo("", "citofono")} placeholder="Così il rider ti trova subito" value={nomeCitofono} onChange={(e) => setNomeCitofono(e.target.value)} />
+              {etichettaCampo("Nome sul citofono", true)}
+              <input style={{ ...campo(errCitofono, "citofono"), ...(chiamami ? { background: "#EFEFE9", color: "#8A8E82" } : {}) }} placeholder="Così il rider ti trova subito"
+                disabled={chiamami} value={chiamami ? "" : nomeCitofono} onChange={(e) => setNomeCitofono(e.target.value)} onBlur={() => tocca("citofono")} />
+              {messaggio(errCitofono, "citofono")}
             </label>
+            <button type="button" role="checkbox" aria-checked={chiamami} onClick={() => setChiamami((v) => !v)} style={{
+              minHeight: 56, borderRadius: 16, padding: "8px 14px", display: "flex", alignItems: "center", gap: 12, textAlign: "left", cursor: "pointer", fontFamily: "var(--font-ui)",
+              border: chiamami ? "2px solid #1B1E17" : "1px solid #DADBD2", background: "#FFFFFF", color: "#1B1E17",
+            }}>
+              <span style={{ width: 24, height: 24, borderRadius: 8, boxSizing: "border-box", flex: "none", display: "flex", alignItems: "center", justifyContent: "center", background: chiamami ? "#7ECE25" : "transparent", border: chiamami ? "none" : "1.5px solid #A5A99C" }}>
+                {chiamami && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1B1E17" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10" /></svg>}
+              </span>
+              <span style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                <span style={{ fontSize: 16, fontWeight: 600 }}>{TESTO_CHIAMAMI}</span>
+                <span style={{ fontSize: 13, color: "#5F6457" }}>Se il citofono non funziona o non c'è il tuo nome</span>
+              </span>
+            </button>
           </div>
 
           <p style={{ margin: 0, fontSize: 13, color: "#5F6457" }}>* Campi obbligatori</p>
