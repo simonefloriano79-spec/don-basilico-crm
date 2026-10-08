@@ -132,13 +132,19 @@ function ConsensiPrivacy({ privacy, setPrivacy, marketing, setMarketing }: { pri
 
 // Tessera fedeltà: cerchietti dei timbri e messaggio.
 function CartaFedelta({ tessera, onApri }: { tessera: Tessera | null; onApri: () => void }) {
+  const [info, setInfo] = useState(false);
   const timbri = tessera?.timbri ?? 0;
   const mancano = TIMBRI_PER_CICLO - timbri;
   const scontoAccumulato = tessera ? Math.round(tessera.totaleCiclo * PERCENTUALE_SCONTO * 100) / 100 : 0;
   return (
     <section style={{ background: "#FFFFFF", border: "1px solid #E4E5DD", borderRadius: 22, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: 2, color: "#5F6457", textTransform: "uppercase" }}>Tessera fedeltà</span>
+        <span style={{ display: "flex", alignItems: "center" }}>
+          <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: 2, color: "#5F6457", textTransform: "uppercase" }}>Tessera fedeltà</span>
+          <button type="button" aria-label="Come funziona la tessera" onClick={() => setInfo(true)} style={{ width: 44, height: 44, margin: "-12px 0 -12px 0", border: "none", background: "transparent", padding: 0, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+            <span aria-hidden="true" style={{ width: 20, height: 20, borderRadius: "50%", border: "1.5px solid #5F6457", color: "#5F6457", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Georgia, serif", fontStyle: "italic" }}>i</span>
+          </button>
+        </span>
         <span className="num" style={{ fontSize: 14, color: "#1B1E17" }}>{timbri} di {TIMBRI_PER_CICLO}</span>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -176,6 +182,7 @@ function CartaFedelta({ tessera, onApri }: { tessera: Tessera | null; onApri: ()
           {tessera ? "Tessera e QR" : "Attiva la tessera"}
         </button>
       </div>
+      {info && <InfoTessera onChiudi={() => setInfo(false)} />}
     </section>
   );
 }
@@ -381,6 +388,20 @@ function SchedaSede({ sd, nome, selezionata, onScegli, compatta }: { sd: any; no
         </span>
       )}
     </button>
+  );
+}
+
+// Ritiro in sede: pila di cartoni della pizza in prospettiva (tre scatole una sopra l'altra).
+function IconaCartoni({ size = 24, colore = "#1B1E17", stile }: { size?: number; colore?: string; stile?: React.CSSProperties }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={colore} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={stile} aria-hidden="true">
+      <path d="M12 3L21 7.5L12 12L3 7.5Z" />
+      <ellipse cx="12" cy="7.5" rx="3" ry="1.5" />
+      <path d="M3 7.5V16.5L12 21L21 16.5V7.5" />
+      <path d="M12 12V21" />
+      <path d="M3 10.5L12 15L21 10.5" />
+      <path d="M3 13.5L12 18L21 13.5" />
+    </svg>
   );
 }
 
@@ -1038,7 +1059,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
                 <span style={testoScatola}>Consegna a domicilio</span>
               </li>
               <li style={scatola}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1B1E17" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2z" /><path d="M9 8V6.5a3 3 0 0 1 6 0V8" /></svg>
+                <IconaCartoni size={24} colore="#1B1E17" />
                 <span style={testoScatola}>Ritiro in sede</span>
               </li>
               <li style={{ ...scatola, padding: 0, position: "relative" }}>
@@ -1046,7 +1067,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
                   width: "100%", height: "100%", border: "none", background: "transparent", borderRadius: 16, padding: "12px 6px", cursor: "pointer", color: "#1B1E17", fontFamily: "var(--font-ui)",
                   display: "flex", flexDirection: "column", alignItems: "center", gap: 6, textAlign: "center",
                 }}>
-                  <span style={{ display: "flex", gap: 3, height: 24, alignItems: "center" }}>{pallino(true)}{pallino(true)}{pallino(false)}</span>
+                  <span style={{ display: "flex", gap: 3, height: 24, alignItems: "center" }}>{pallino(true)}{pallino(true)}{pallino(false)}{pallino(false)}{pallino(false)}</span>
                   <span style={testoScatola}>{PERCENTUALE_SCONTO_INTERA}% di quanto spendi su {TIMBRI_PER_CICLO} ordini</span>
                   <span aria-hidden="true" style={{ position: "absolute", top: 6, right: 6, width: 18, height: 18, borderRadius: "50%", border: "1.5px solid #5F6457", color: "#5F6457", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Georgia, serif", fontStyle: "italic" }}>i</span>
                 </button>
@@ -1177,7 +1198,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
 
           <button type="button" onClick={() => setTipo("asporto")} style={{ ...cta, background: "#7ECE25", color: "#1B1E17" }}>
             <span style={{ width: 52, height: 52, borderRadius: 16, background: "#1B1E17", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7ECE25" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2z" /><path d="M9 8V6.5a3 3 0 0 1 6 0V8" /></svg>
+              <IconaCartoni size={30} colore="#7ECE25" />
             </span>
             <span style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <span style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.15 }}>Ritiro in sede</span>
@@ -1413,7 +1434,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   };
   const iconaModalita = tipo === "domicilio"
     ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1B1E17" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flex: "none" }} aria-hidden="true"><circle cx="5.5" cy="17.5" r="2.5" /><circle cx="18.5" cy="17.5" r="2.5" /><path d="M8 17.5h7.5l2-6H13" /><path d="M15 6h2.5l1.5 5.5" /></svg>
-    : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1B1E17" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flex: "none" }} aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2z" /><path d="M9 8V6.5a3 3 0 0 1 6 0V8" /></svg>;
+    : <IconaCartoni size={20} colore="#1B1E17" stile={{ flex: "none" }} />;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 430, width: "100%", margin: "0 auto" }}>
