@@ -8,8 +8,8 @@ import { prisma } from "@/lib/prisma";
 // usare lo sconto chiude il ciclo e ne apre uno nuovo. Il cliente si riconosce dal numero di telefono
 // (nella tessera è salvato a 10 cifre senza prefisso, nel CRM come +39…: si confrontano le ultime 10 cifre).
 
-export const TIMBRI_PER_CICLO = 5;
-export const PERCENTUALE_SCONTO = 0.1;
+import { TIMBRI_PER_CICLO, PERCENTUALE_SCONTO } from "@/lib/fedelta-regole";
+export { TIMBRI_PER_CICLO, PERCENTUALE_SCONTO };
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
