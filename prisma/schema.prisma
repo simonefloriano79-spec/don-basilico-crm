@@ -309,6 +309,9 @@ model Ordine {
   // chiamare"), separate dalle note generali dell'ordine.
   noteDomicilio String?  @map("note_domicilio")
   stampato      Boolean  @default(false)
+  // Modifiche fatte dal cliente dall'app (massimo 2) e quando è stata fatta l'ultima: la pizzeria deve riaccettare.
+  modificheCliente Int       @default(0) @map("modifiche_cliente")
+  modificatoAt     DateTime? @map("modificato_at")
   // Ordini al tavolo: numero o nome del tavolo (testo libero).
   tavolo        String?
   createdAt     DateTime @default(now()) @map("created_at")
@@ -333,6 +336,10 @@ model OrdineItem {
   prezzoSnapshot     Decimal  @map("prezzo_snapshot") @db.Decimal(10, 2)
   quantita           Int      @default(1)
   ingredientiRimossi String[] @map("ingredienti_rimossi")
+  // Scelte del cliente in forma strutturata (servono per poter modificare l'ordine dall'app).
+  ingredientiAggiunti String[] @default([]) @map("ingredienti_aggiunti")
+  notaCliente         String?  @map("nota_cliente")
+  impastoId           String?  @map("impasto_id") @db.Uuid
   impasto            String?
   noteItem           String?  @map("note_item")
   createdAt          DateTime @default(now()) @map("created_at")

@@ -80,14 +80,15 @@ export interface DisponibilitaSlot {
 export async function disponibilitaSlot(
   sede: { id: string } & ConfigCapienza,
   slotIso: string[],
-  pesoNuovo: number
+  pesoNuovo: number,
+  escludiOrdineId?: string
 ): Promise<DisponibilitaSlot[]> {
   if (!slotIso.length) return [];
   const istanti = slotIso.map((s) => new Date(s));
   const finestra = sede.finestraCapacitaMin;
   const da = inizioFinestra(new Date(Math.min(...istanti.map((d) => d.getTime()))), finestra);
   const a = new Date(Math.max(...istanti.map((d) => d.getTime())) + finestra * 60000);
-  const carico = await caricoPerFinestra(sede.id, da, a, finestra);
+  const carico = await caricoPerFinestra(sede.id, da, a, finestra, escludiOrdineId);
 
   return istanti.map((istante, idx) => {
     const usati = carico.get(inizioFinestra(istante, finestra).getTime()) ?? 0;

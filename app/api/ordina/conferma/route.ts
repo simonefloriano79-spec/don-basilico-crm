@@ -7,7 +7,7 @@ import { generaSlot } from "@/lib/slot-ritiro";
 import { disponibilitaSlot, pesoRiga } from "@/lib/capacita-pizze";
 import { COSTO_CONSEGNA_DEFAULT } from "@/lib/consegna";
 import { prossimoNumeroOrdine } from "@/lib/numero-ordine";
-import { testoImpasto } from "@/lib/impasti";
+import { righeOrdineDaArticoli } from "@/lib/ordina-righe";
 import { assicuraTessera, statoTessera, usaSconto as usaScontoTessera } from "@/lib/fedelta";
 import { randomUUID } from "crypto";
 
@@ -166,25 +166,7 @@ export async function POST(req: NextRequest) {
           costoConsegna,
           scontoFedelta: scontoApplicato,
           metodoPagamento,
-          items: {
-            create: esito.articoli.map((a) => ({
-              menuItemId: a.menuItemId,
-              nomeSnapshot: a.taglia === "maxi" ? `${a.nomeSnapshot} (Maxi)` : a.nomeSnapshot,
-              prezzoSnapshot: a.prezzoSnapshot,
-              quantita: a.quantita,
-              ingredientiRimossi: a.rimossi.map((r) => r.ingredienteId),
-              impasto: a.impasto?.nome ?? null,
-              noteItem:
-                [
-                  a.impasto ? testoImpasto(a.impasto.nome) : "",
-                  a.rimossi.length ? `Senza: ${a.rimossi.map((r) => r.nome).join(", ")}` : "",
-                  a.extra.length ? `Con: ${a.extra.map((e) => e.nome).join(", ")}` : "",
-                  a.note ?? "",
-                ]
-                  .filter(Boolean)
-                  .join(" | ") || null,
-            })),
-          },
+          items: { create: righeOrdineDaArticoli(esito.articoli) },
         },
       });
 
