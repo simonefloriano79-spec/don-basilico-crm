@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { clienteIdDaRichiesta } from "@/lib/customer-auth/session";
 import { finestraCliente } from "@/lib/modifica-ordine";
 import { ripristinaSconto } from "@/lib/fedelta";
+import { inviaSmsDettaglio } from "@/lib/customer-auth/sms";
 
 // POST /api/ordina/ordini/[id]/annulla — il cliente annulla un suo ordine, ma solo nella finestra consentita
 // (fino a 30 minuti prima dell'orario concordato, o finché non è accettato se «appena possibile»).
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!clienteId) return NextResponse.json({ error: "Sessione scaduta, accedi di nuovo" }, { status: 401 });
   if (!/^[0-9a-f-]{36}$/i.test(params.id)) return NextResponse.json({ error: "Ordine non trovato" }, { status: 404 });
 
-  const ordine = await prisma.ordine.findFirst({ where: { id: params.id, clienteId, canale: "online" } });
+  const ordine = await prisma.ordine.findFirst({ where: { id: params.id, clienteId, canale: "online" }, include: { sede: { select: { nome: true } } } });
   if (!ordine) return NextResponse.json({ error: "Ordine non trovato" }, { status: 404 });
 
   const f = finestraCliente(ordine);
@@ -31,6 +32,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   });
   // Se l'ordine aveva usato lo sconto fedeltà, torna disponibile.
   await ripristinaSconto(ordine.id).catch((e) => console.error("Sconto fedeltà non ripristinato", e));
+
+  // SMS di conferma dell'annullamento (traccia scritta per il cliente). Senza lettere accentate, così resta in un solo SMS.
+  // Non blocca mai l'annullamento.
+  if (ordine.clienteTelefono) {
+    const sconto = parseFloat(ordine.scontoFedelta.toString()) > 0;
+    await inviaSmsDettaglio(
+      ordine.clienteTelefono,
+      `Don Basilico ${ordine.sede.nome.replace("Don Basilico ", "")}: ordine #${ordine.numeroOrdine} ANNULLATO come richiesto.` +
+        (sconto ? " Il tuo sconto fedelta torna disponibile." : "")
+    ).catch((e) => console.error("SMS di annullamento non inviato", e));
+  }
 
   return NextResponse.json({ ok: true });
 }
