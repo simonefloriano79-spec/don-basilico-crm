@@ -3,7 +3,15 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Ordina online — Don Basilico",
-  description: "Ordina la tua pizza: ritiro in sede o consegna a domicilio.",
+  description: "Ordina la pizza di Don Basilico online: ritiro in sede o consegna a domicilio a Pescara, Montesilvano e Chieti Scalo.",
+  // Le pagine degli ordini sono quelle che devono comparire su Google (il CRM no: vedi app/layout.tsx).
+  robots: { index: true, follow: true },
+  openGraph: {
+    type: "website", locale: "it_IT", siteName: "Don Basilico",
+    title: "Don Basilico — Ordina la tua pizza online",
+    description: "Ritiro in sede o consegna a domicilio. Impasto con lievitazione di almeno 48 ore.",
+    images: [{ url: "/ordina-icons/icon-512.png", width: 512, height: 512 }],
+  },
   manifest: "/manifest-ordina.webmanifest",
   icons: { icon: "/ordina-icons/icon-192.png", apple: "/ordina-icons/apple-touch-icon.png" },
   appleWebApp: { capable: true, title: "Don Basilico", statusBarStyle: "default" },
