@@ -76,7 +76,7 @@ export default function ConsultaMenu() {
   const conImpasti = impasti.length > 0;
 
   return (
-    <div style={{ maxWidth: 640, margin: "0 auto", paddingBottom: 90 }}>
+    <div style={{ maxWidth: 640, margin: "0 auto", paddingBottom: 130 }}>
       <a href="/ordina"><img src="/brand/don-basilico-logo.png" alt="Don Basilico — Naturalmente Pizza" style={{ display: "block", width: 150, height: "auto", margin: "6px auto 14px" }} /></a>
       <h1 style={{ fontFamily: "var(--font-display)", fontSize: 30, color: "var(--text)", textAlign: "center", margin: "0 0 6px" }}>Il nostro menù</h1>
       <p style={{ fontSize: 14, color: "var(--text-2)", textAlign: "center", lineHeight: 1.55, margin: "0 auto 16px", maxWidth: 460 }}>
@@ -84,10 +84,17 @@ export default function ConsultaMenu() {
         La stessa passata Mutti e lo stesso fior di latte La Majelletta su tutte le nostre pizze.
       </p>
 
+      <div style={{ background: "#EEF6E2", border: "1px solid #D3E8B5", borderRadius: 16, padding: "12px 14px", margin: "0 0 14px", fontSize: 14, lineHeight: 1.45, color: "#2D3324" }}>
+        <strong>Questo è il menù da consultare.</strong> Per ordinare scegli qui sotto come vuoi ricevere le pizze: consegna a domicilio oppure ritiro in pizzeria.
+      </div>
+
       <select value={sedeId} onChange={(e) => setSedeId(e.target.value)} aria-label="Pizzeria"
         style={{ width: "100%", background: "#fff", border: "1px solid var(--border)", color: "var(--text)", padding: "14px 16px", borderRadius: 14, fontSize: 16, fontFamily: "var(--font-ui)", marginBottom: 12 }}>
         {sedi.map((s) => <option key={s.id} value={s.id}>{s.nome.replace("Don Basilico ", "")}</option>)}
       </select>
+      <div style={{ fontSize: 12.5, color: "var(--text-muted)", margin: "-4px 2px 12px", lineHeight: 1.4 }}>
+        Stai guardando il menù di una pizzeria: prezzi e impasti possono cambiare da una sede all'altra.
+      </div>
 
       {errore && <div style={{ fontSize: 13, color: "var(--danger)", textAlign: "center", marginBottom: 10 }}>{errore}</div>}
       {prodotti === null && !errore && <div style={{ textAlign: "center", color: "var(--text-muted)", padding: 30 }}>Carico il menù…</div>}
@@ -161,8 +168,21 @@ export default function ConsultaMenu() {
         </>
       )}
 
-      <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, padding: "10px 16px 14px", background: "linear-gradient(to top, var(--bg) 70%, transparent)" }}>
-        <a href="/ordina" style={{ ...btn, maxWidth: 608, margin: "0 auto" }}>Ordina online</a>
+      {/* Per ordinare: la scelta del percorso, sempre a portata di dito. Il ritiro NON ha una pizzeria predefinita: si sceglie dopo. */}
+      <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, padding: "12px 16px 18px", background: "#F6F6F1", borderTop: "1px solid #E4E5DD", zIndex: 30 }}>
+        <div style={{ maxWidth: 608, margin: "0 auto" }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#4E6B1C", marginBottom: 8, textAlign: "center" }}>Vuoi ordinare? Come vuoi riceverla?</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <a href="/ordina?modo=domicilio" style={{ minHeight: 56, borderRadius: 18, background: "#1B1E17", color: "#FFFFFF", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "6px 8px", fontSize: 15, fontWeight: 600, textAlign: "center", lineHeight: 1.15 }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7ECE25" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}><circle cx="5.5" cy="17.5" r="2.5" /><circle cx="18.5" cy="17.5" r="2.5" /><path d="M8 17.5h7.5l2-6H13" /><path d="M15 6h2.5l1.5 5.5" /><path d="M3 12h7v3H3z" /></svg>
+              Consegna a domicilio
+            </a>
+            <a href="/ordina?modo=asporto" style={{ minHeight: 56, borderRadius: 18, background: "#7ECE25", color: "#1B1E17", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "6px 8px", fontSize: 15, fontWeight: 600, textAlign: "center", lineHeight: 1.15 }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1B1E17" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}><path d="M12 3L21 7.5L12 12L3 7.5Z" /><ellipse cx="12" cy="7.5" rx="3" ry="1.5" /><path d="M3 7.5V16.5L12 21L21 16.5V7.5" /><path d="M12 12V21" /><path d="M3 10.5L12 15L21 10.5" /><path d="M3 13.5L12 18L21 13.5" /></svg>
+              Scegli dove ritirare
+            </a>
+          </div>
+        </div>
       </div>
     </div>
   );
