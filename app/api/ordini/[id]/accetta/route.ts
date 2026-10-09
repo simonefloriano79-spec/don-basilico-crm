@@ -34,7 +34,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (ordine.clienteTelefono && body.avvisa !== false) {
     const esitoSms = await inviaSmsDettaglio(
       ordine.clienteTelefono,
-      `Don Basilico ${ordine.sede.nome.replace("Don Basilico ", "")}: ordine #${ordine.numeroOrdine} CONFERMATO. ` +
+      // Se il cliente l'ha modificato dall'app, l'SMS lo dice (altrimenti non capirebbe che la modifica è stata accettata).
+      `Don Basilico ${ordine.sede.nome.replace("Don Basilico ", "")}: ordine #${ordine.numeroOrdine} ` +
+        `${ordine.modificatoAt ? "con le tue modifiche CONFERMATO" : "CONFERMATO"}. ` +
         `${ordine.tipo === "domicilio" ? "Consegna" : "Ritiro"} ${descriviOrario(orario)}. ` +
         `Totale ${euroSms(parseFloat(ordine.totale.toString()))}.`
     );
