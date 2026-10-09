@@ -9,6 +9,9 @@ import { disponibilitaSlot } from "@/lib/capacita-pizze";
 export async function GET(req: NextRequest) {
   const sedeId = req.nextUrl.searchParams.get("sedeId") ?? "";
   const peso = Math.max(1, Math.round(Number(req.nextUrl.searchParams.get("peso")) || 1));
+  // Modifica di un ordine: il suo vecchio carico non deve occupare posti (altrimenti il suo stesso orario risulterebbe pieno).
+  const escludiParam = req.nextUrl.searchParams.get("escludi") ?? "";
+  const escludi = /^[0-9a-f-]{36}$/i.test(escludiParam) ? escludiParam : undefined;
 
   const sede = await prisma.sede
     .findUnique({ where: { id: sedeId } })
@@ -19,8 +22,8 @@ export async function GET(req: NextRequest) {
 
   const gen = generaSlot({ adesso: new Date(), apertura: sede.orarioApertura, chiusura: sede.orarioChiusura });
   const [dispOggi, dispDomani] = await Promise.all([
-    disponibilitaSlot(sede, gen.oggi.map((s) => s.iso), peso),
-    disponibilitaSlot(sede, gen.domani.map((s) => s.iso), peso),
+    disponibilitaSlot(sede, gen.oggi.map((s) => s.iso), peso, escludi),
+    disponibilitaSlot(sede, gen.domani.map((s) => s.iso), peso, escludi),
   ]);
   const unisci = (slot: { ora: string; iso: string }[], disp: { pieno: boolean }[]) =>
     slot.map((s, i) => ({ ora: s.ora, iso: s.iso, pieno: disp[i].pieno }));

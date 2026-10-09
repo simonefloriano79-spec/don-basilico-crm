@@ -43,9 +43,13 @@ function dataOra(d: string): string {
 }
 
 // "I miei ordini": ordini fatti dal sito, con lo stato che si aggiorna da solo.
-function MieiOrdini({ onIndietro }: { onIndietro: () => void }) {
+function MieiOrdini({ onIndietro, onModifica }: { onIndietro: () => void; onModifica: (o: any) => void }) {
   const [ordini, setOrdini] = useState<any[] | null>(null);
   const [errore, setErrore] = useState("");
+  const [giro, setGiro] = useState(0);
+  const [daAnnullare, setDaAnnullare] = useState<any>(null);
+  const [inCorso, setInCorso] = useState(false);
+  const [esito, setEsito] = useState("");
 
   useEffect(() => {
     let attivo = true;
@@ -57,12 +61,31 @@ function MieiOrdini({ onIndietro }: { onIndietro: () => void }) {
     carica();
     const iv = setInterval(carica, 15000);
     return () => { attivo = false; clearInterval(iv); };
-  }, []);
+  }, [giro]);
+
+  const annulla = async () => {
+    if (!daAnnullare) return;
+    setInCorso(true);
+    try {
+      const res = await fetch(`/api/ordina/ordini/${daAnnullare.id}/annulla`, { method: "POST" });
+      const d = await res.json().catch(() => ({}));
+      setEsito(res.ok ? `Ordine #${daAnnullare.numeroOrdine} annullato.` : d.error ?? "Non sono riuscito ad annullare l'ordine, riprova.");
+    } catch {
+      setEsito("Connessione assente, riprova.");
+    } finally {
+      setInCorso(false);
+      setDaAnnullare(null);
+      setGiro((g) => g + 1);
+    }
+  };
+
+  const piccolo: React.CSSProperties = { fontSize: 13, lineHeight: 1.4, color: "var(--text-muted)" };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 520, width: "100%", margin: "0 auto" }}>
       <button onClick={onIndietro} style={{ alignSelf: "flex-start", background: "none", border: "none", color: "var(--text-muted)", fontSize: 14, cursor: "pointer", padding: "4px 0" }}>← Indietro</button>
-      <h1 style={{ fontFamily: "var(--font-display)", fontSize: 26, color: "var(--text)", textAlign: "center" }}>I miei ordini</h1>
+      <h1 style={{ fontFamily: "'Playfair Display', var(--font-display)", fontWeight: 800, fontSize: 28, color: "var(--text)", textAlign: "center", margin: 0 }}>I miei ordini</h1>
+      {esito && <div role="status" style={{ borderRadius: 14, background: "#EEF6E2", border: "1px solid #D3E8B5", padding: "10px 14px", fontSize: 14, color: "#2D3324", textAlign: "center" }}>{esito}</div>}
       {errore && <div style={{ fontSize: 13, color: "var(--danger)", textAlign: "center" }}>{errore}</div>}
       {ordini === null && !errore && <div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>Carico…</div>}
       {ordini && ordini.length === 0 && (
@@ -71,6 +94,8 @@ function MieiOrdini({ onIndietro }: { onIndietro: () => void }) {
       {(ordini ?? []).map((o) => {
         const st = STATO_CLIENTE[o.stato] ?? { testo: () => o.stato, colore: "#6b6a60", attivo: false };
         const orario = o.oraConsegnaComunicata ?? o.oraRichiesta;
+        const inCorsoOrdine = ["nuovo", "confermato", "in_preparazione", "pronto"].includes(o.stato);
+        const soloAnnulla = o.puoAnnullare && !o.puoModificare;
         return (
           <div key={o.id} style={{ background: "#fff", border: `1.5px solid ${st.attivo ? "var(--text)" : "var(--border)"}`, borderRadius: 16, padding: "14px 16px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
@@ -106,9 +131,49 @@ function MieiOrdini({ onIndietro }: { onIndietro: () => void }) {
                 <span>Totale</span><span className="num">{euro(parseFloat(o.totale))}</span>
               </div>
             </div>
+
+            {inCorsoOrdine && (
+              <div style={{ borderTop: "1px solid var(--border)", marginTop: 12, paddingTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                {o.puoAnnullare && (
+                  <div style={{ display: "grid", gridTemplateColumns: o.puoModificare ? "1fr 1fr" : "1fr", gap: 10 }}>
+                    {o.puoModificare && (
+                      <button type="button" onClick={() => onModifica(o)} style={{ height: 48, border: "none", borderRadius: 14, background: "#1B1E17", color: "#FFFFFF", fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-ui)" }}>Modifica</button>
+                    )}
+                    <button type="button" onClick={() => setDaAnnullare(o)} style={{ height: 48, borderRadius: 14, border: "1.5px solid #B3261E", background: "#FFFFFF", color: "#B3261E", fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-ui)" }}>Annulla ordine</button>
+                  </div>
+                )}
+                {o.puoAnnullare && (
+                  <div style={piccolo}>
+                    {o.scadenzaModifica ? <>Puoi {o.puoModificare ? "modificare o " : ""}annullare fino alle <strong>{dataOra(o.scadenzaModifica)}</strong>.</> : "Puoi modificare o annullare finché la pizzeria non lo accetta."}
+                  </div>
+                )}
+                {!o.puoAnnullare && o.motivoNo && <div style={piccolo}>{o.motivoNo}</div>}
+                {soloAnnulla && (o.motivoNo ? <div style={piccolo}>{o.motivoNo}</div> : <div style={piccolo}>Questo ordine si può solo annullare. Per modificarlo chiama la pizzeria.</div>)}
+                {(!o.puoAnnullare || soloAnnulla) && o.sede?.telefono && (
+                  <a href={`tel:${o.sede.telefono}`} style={{ minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 14, border: "1.5px solid var(--text)", color: "var(--text)", textDecoration: "none", fontSize: 15, fontWeight: 600 }}>
+                    Chiama la pizzeria
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         );
       })}
+
+      {daAnnullare && (
+        <div onClick={() => !inCorso && setDaAnnullare(null)} style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(27,30,23,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 24, padding: "22px 20px 20px", width: "100%", maxWidth: 380, textAlign: "center" }}>
+            <div style={{ fontFamily: "'Playfair Display', var(--font-display)", fontWeight: 800, fontSize: 22, color: "var(--text)", lineHeight: 1.2 }}>Annullare l'ordine #{daAnnullare.numeroOrdine}?</div>
+            <div style={{ fontSize: 14, color: "var(--text-2)", margin: "8px 0 18px", lineHeight: 1.45 }}>
+              La pizzeria non lo preparerà.{parseFloat(daAnnullare.scontoFedelta) > 0 ? " Lo sconto fedeltà che avevi usato torna disponibile." : ""}
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button type="button" disabled={inCorso} onClick={() => setDaAnnullare(null)} style={{ flex: 1, height: 52, borderRadius: 14, border: "1.5px solid #DADBD2", background: "#fff", color: "var(--text-2)", fontSize: 15, cursor: "pointer", fontFamily: "var(--font-ui)" }}>No, tienilo</button>
+              <button type="button" disabled={inCorso} onClick={annulla} style={{ flex: 1, height: 52, borderRadius: 14, border: "none", background: "#B3261E", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-ui)" }}>{inCorso ? "Annullo…" : "Sì, annulla"}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -730,7 +795,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   const [note, setNote] = useState("");
   const [invio, setInvio] = useState(false);
   const [erroreInvio, setErroreInvio] = useState("");
-  const [confermato, setConfermato] = useState<{ numeroOrdine: number; sede: string; totale: number; oraRitiro: string | null; scontoFedelta?: number } | null>(null);
+  const [confermato, setConfermato] = useState<{ numeroOrdine: number; sede: string; totale: number; oraRitiro: string | null; scontoFedelta?: number; modificato?: boolean } | null>(null);
   const [nomeCitofono, setNomeCitofono] = useState("");
   // «Vorrei essere chiamato»: citofono che non funziona o senza nome; al posto del nome sul citofono arriva questa dicitura.
   const [chiamami, setChiamami] = useState(false);
@@ -751,6 +816,9 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   const [sedeScelta, setSedeScelta] = useState("");   // sede evidenziata nella scelta (si conferma con «Continua»)
   const [toccati, setToccati] = useState<Record<string, boolean>>({});
   const [infoTessera, setInfoTessera] = useState(false);
+  // Modifica di un ordine già fatto («I miei ordini» → Modifica): l'ordine viene rimesso nel carrello.
+  const [modifica, setModifica] = useState<any>(null);
+  const [attesaScaduta, setAttesaScaduta] = useState(false);
 
   // Ricorda l'ultima sede e l'ultimo indirizzo usati su questo telefono, per precompilarli.
   useEffect(() => {
@@ -798,7 +866,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   useEffect(() => {
     if (!sedeIdAttiva) { setSlotData(null); return; }
     let annullato = false;
-    fetch(`/api/ordina/slot?sedeId=${sedeIdAttiva}&peso=${Math.max(1, pesoCarrello)}`)
+    fetch(`/api/ordina/slot?sedeId=${sedeIdAttiva}&peso=${Math.max(1, pesoCarrello)}${modifica ? `&escludi=${modifica.id}` : ""}`)
       .then((r) => r.json())
       .then((d: SlotData & { error?: string }) => {
         if (annullato || d.error) return;
@@ -809,7 +877,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
       })
       .catch(() => {});
     return () => { annullato = true; };
-  }, [sedeIdAttiva, pesoCarrello]);
+  }, [sedeIdAttiva, pesoCarrello, modifica?.id]);
 
   useEffect(() => {
     const el = riepilogoRef.current;
@@ -908,16 +976,120 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   }, [caricamento, tipo, confermato, vistaOrdini, vistaTessera, cliente, onSchermataIniziale]);
 
   const subtotale = cart.reduce((a, c) => a + c.prezzo * c.qty, 0);
-  const consegna = tipo === "domicilio" ? COSTO_CONSEGNA_DEFAULT : 0;
+  const consegna = modifica ? parseFloat(modifica.costoConsegna ?? 0) || 0 : tipo === "domicilio" ? COSTO_CONSEGNA_DEFAULT : 0;
   const lordo = subtotale + consegna;
   const scontoMaturato = tessera?.scontoDisponibile ? tessera.importoSconto : 0;
   // Lo sconto si applica ai prodotti: la consegna resta sempre da pagare e non conta per la tessera.
-  const scontoApplicato = usaSconto === true ? Math.min(scontoMaturato, subtotale) : 0;
+  // In modifica lo sconto fedeltà già applicato all'ordine resta, ma non può superare i prodotti.
+  const scontoApplicato = modifica ? Math.min(parseFloat(modifica.scontoFedelta ?? 0) || 0, subtotale) : usaSconto === true ? Math.min(scontoMaturato, subtotale) : 0;
   const totale = lordo - scontoApplicato;
   // Se lo sconto sta nel totale lo si propone già attivo; se lo supera il cliente deve scegliere lui (si perderebbe il resto).
   useEffect(() => {
     if (scontoMaturato > 0 && usaSconto === null && subtotale >= scontoMaturato) setUsaSconto(true);
   }, [scontoMaturato, subtotale, usaSconto]);
+
+  // ── Modifica di un ordine già fatto ──────────────────────────
+  // Rimette nel carrello le righe dell'ordine (appena arrivano menù, ingredienti e impasti della sede).
+  const iniziaModifica = (o: any) => {
+    const riferimento = o.oraConsegnaComunicata ?? (new Date(o.oraRichiesta).getTime() - new Date(o.createdAt).getTime() > 5 * 60000 ? o.oraRichiesta : null);
+    setCart([]);
+    setNote(o.note ?? "");
+    setMetodoPagamento(o.metodoPagamento === "carta" ? "carta" : o.metodoPagamento === "contanti" ? "contanti" : "");
+    setOrario(riferimento ? new Date(riferimento).toISOString() : "asap");
+    setDomandeFatte(["fritti", "bevande"]); // niente domande «vuoi un fritto?» mentre si modifica
+    setDomandaAperta(null);
+    setAttesaScaduta(false);
+    setTimeout(() => setAttesaScaduta(true), 4000);
+    setModifica({
+      id: o.id, numeroOrdine: o.numeroOrdine, ordine: o, pronto: false, avviso: "",
+      indirizzo: o.clienteIndirizzo ?? "", costoConsegna: o.costoConsegna, scontoFedelta: o.scontoFedelta,
+    });
+    if (o.tipo === "asporto") { setTipo("asporto"); setSedeSelezionata(o.sede.id); }
+    else { setTipo("domicilio"); setSedeAssegnata({ id: o.sede.id, nome: o.sede.nome }); setStatoIndirizzo("ok"); }
+    setVistaOrdini(false);
+  };
+  // Esce dalla modifica e ripulisce sede, indirizzo e carrello (così il prossimo ordine riparte da zero).
+  const chiudiTuttoDopoModifica = () => {
+    setModifica(null); setCart([]); setOrario(""); setNote(""); setMetodoPagamento("");
+    setTipo(null); setSedeSelezionata(""); setStatoIndirizzo("idle"); setSedeAssegnata(null);
+    setDomandeFatte([]); setDomandaAperta(null);
+  };
+  const uscireDallaModifica = () => {
+    if (!confirm("Vuoi uscire dalla modifica senza salvare? L'ordine resta com'è.")) return;
+    chiudiTuttoDopoModifica();
+    setVistaOrdini(true);
+  };
+
+  useEffect(() => {
+    if (!modifica || modifica.pronto) return;
+    if (!menuItems.length || !ingredienti.length) return;
+    const righeOrdine: any[] = modifica.ordine.items ?? [];
+    if (righeOrdine.some((i) => i.impastoId) && !impasti.length && !attesaScaduta) return;
+    const nomePerId = new Map<string, string>();
+    ingredienti.forEach((i) => nomePerId.set(i.id, i.nome));
+    menuItems.forEach((m) => (m.ingredienti ?? []).forEach((ii: any) => { const g = ii.ingrediente ?? ii; if (g?.id) nomePerId.set(g.id, g.nome); }));
+    const righe: CartItem[] = [];
+    const mancanti: string[] = [];
+    for (const i of righeOrdine) {
+      const m = menuItems.find((x) => x.id === i.menuItemId);
+      const imp = i.impastoId ? impasti.find((x) => x.id === i.impastoId) : undefined;
+      if (!m || (i.impastoId && !imp)) { mancanti.push(i.nomeSnapshot); continue; }
+      righe.push({
+        cartId: crypto.randomUUID(), menuItemId: m.id, nome: m.nome, categoria: m.categoria,
+        prezzo: parseFloat(i.prezzoSnapshot), qty: i.quantita,
+        rimossi: (i.ingredientiRimossi ?? []).map((id: string) => ({ id, nome: nomePerId.get(id) ?? "ingrediente" })),
+        aggiunti: (i.ingredientiAggiunti ?? []).map((id: string) => ({ id, nome: nomePerId.get(id) ?? "ingrediente" })),
+        nota: i.notaCliente ?? "",
+        impasto: imp ? { id: imp.id, nome: imp.nome, supplemento: imp.supplemento } : undefined,
+      });
+    }
+    setCart(righe);
+    setModifica({ ...modifica, pronto: true, avviso: mancanti.length ? `Questi prodotti non sono più disponibili e non sono nel carrello: ${mancanti.join(", ")}.` : "" });
+  }, [modifica, menuItems, ingredienti, impasti, attesaScaduta]);
+
+  // L'orario dell'ordine può essere domani: si apre il giorno giusto.
+  const giornoImpostato = useRef(false);
+  useEffect(() => {
+    if (!modifica) { giornoImpostato.current = false; return; }
+    if (!slotData || giornoImpostato.current || !orario || orario === "asap") return;
+    if (slotData.domani.some((x) => x.iso === orario)) setGiornoSlot("domani");
+    else if (slotData.oggi.some((x) => x.iso === orario)) setGiornoSlot("oggi");
+    giornoImpostato.current = true;
+  }, [modifica, slotData, orario]);
+
+  const salvaModifica = async () => {
+    setErroreInvio("");
+    if (!modifica) return;
+    if (!cart.length) { setErroreInvio("Il carrello è vuoto: se non vuoi più l'ordine, annullalo da «I miei ordini»"); return; }
+    if (tipo === "domicilio" && !metodoPagamento) { setErroreInvio("Scegli come pagare"); return; }
+    if (!orario) { setErroreInvio("Scegli l'orario"); return; }
+    setInvio(true);
+    try {
+      const res = await fetch(`/api/ordina/ordini/${modifica.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          metodoPagamento: tipo === "domicilio" ? metodoPagamento : undefined,
+          oraRitiro: orario === "asap" ? undefined : orario,
+          note: note || undefined,
+          articoli: cart.map((c) => ({
+            menuItemId: c.menuItemId, quantita: c.qty,
+            ingredientiAggiuntiIds: c.aggiunti.map((i) => i.id),
+            ingredientiRimossi: c.rimossi.map((i) => i.id),
+            impastoId: c.impasto?.id,
+            note: c.nota || undefined,
+          })),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setErroreInvio(data.error ?? "Non siamo riusciti a salvare le modifiche, riprova tra un momento"); return; }
+      setConfermato({ numeroOrdine: data.numeroOrdine, sede: data.sede, totale: data.totale, oraRitiro: data.oraRitiro, scontoFedelta: data.scontoFedelta, modificato: true });
+      setModifica(null);
+    } catch {
+      setErroreInvio("Connessione assente o server non raggiungibile, riprova");
+    } finally {
+      setInvio(false);
+    }
+  };
 
   const inviaOrdine = async () => {
     setErroreInvio("");
@@ -973,7 +1145,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
 
   // ── I miei ordini ────────────────────────────────────────────
   if (vistaOrdini && cliente) {
-    return <MieiOrdini onIndietro={() => { setVistaOrdini(false); setConfermato(null); }} />;
+    return <MieiOrdini onIndietro={() => { setVistaOrdini(false); if (confermato?.modificato) chiudiTuttoDopoModifica(); setConfermato(null); }} onModifica={iniziaModifica} />;
   }
 
   // ── Conferma finale ──────────────────────────────────────────
@@ -983,7 +1155,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
         <div style={{
           display: "inline-block", background: "var(--accent-bg-2)", border: "1px solid var(--accent-border)", borderRadius: 20,
           padding: "7px 18px", fontSize: 13, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--text)", marginBottom: 14,
-        }}>Ordine in attesa di conferma</div>
+        }}>{confermato.modificato ? "Ordine modificato · da riconfermare" : "Ordine in attesa di conferma"}</div>
         <div style={{ fontFamily: "var(--font-display)", fontSize: 40, color: "var(--text)" }}>#{confermato.numeroOrdine}</div>
         <div style={{ fontSize: 14, color: "var(--text-2)", marginTop: 10 }}>{confermato.sede}</div>
         <div style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--text)", marginTop: 14 }}>{euro(confermato.totale)}</div>
@@ -996,14 +1168,16 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
           </div>
         )}
         <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 20, lineHeight: 1.5 }}>
-          Abbiamo ricevuto il tuo ordine, ma <strong>non è ancora confermato</strong>: la pizzeria lo sta controllando.
+          {confermato.modificato
+            ? <>Abbiamo aggiornato il tuo ordine, ma la pizzeria deve <strong>riconfermarlo</strong>. </>
+            : <>Abbiamo ricevuto il tuo ordine, ma <strong>non è ancora confermato</strong>: la pizzeria lo sta controllando. </>}
           Riceverai un SMS al {cliente?.telefono ?? "tuo numero"} con l'orario confermato
           {confermato.oraRitiro ? " (potrebbe variare di poco in base agli ordini in corso)" : ""}.
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 360, margin: "26px auto 0" }}>
           <button style={btnPrimarySt} onClick={() => setVistaOrdini(true)}>Segui il tuo ordine</button>
           <button style={{ ...btnPrimarySt, background: "transparent", color: "var(--text)", border: "1.5px solid var(--text)" }}
-            onClick={() => { setConfermato(null); setCart([]); setTipo(null); }}>Torna alla home</button>
+            onClick={() => { if (confermato.modificato) chiudiTuttoDopoModifica(); setConfermato(null); setCart([]); setTipo(null); }}>Torna alla home</button>
         </div>
       </div>
     );
@@ -1427,6 +1601,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   // «Cambia» (e la freccia indietro del menù): torna alla scelta della sede / dell'indirizzo. Il carrello si svuota perché
   // menù, prezzi e orari dipendono dalla pizzeria.
   const cambiaModalita = () => {
+    if (modifica) { uscireDallaModifica(); return; }
     if (cart.length > 0 && !confirm("Se cambi sede o indirizzo il carrello si svuota, perché menù e prezzi possono cambiare. Vuoi continuare?")) return;
     setCart([]); setOrario(""); setDomandeFatte([]); setDomandaAperta(null);
     if (tipo === "asporto") { setSedeScelta(sedeSelezionata); setSedeSelezionata(""); }
@@ -1445,15 +1620,25 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
         <span style={{ flex: 1, minWidth: 0, fontSize: 15, lineHeight: 1.25 }}>
           {tipo === "domicilio" ? (
             <>
-              <span style={{ fontWeight: 600 }}>Consegna</span> · {indirizzo}
+              <span style={{ fontWeight: 600 }}>Consegna</span> · {modifica ? modifica.indirizzo : indirizzo}
               {sedeAssegnata && <span style={{ display: "block", fontSize: 12.5, color: "#5F6457" }}>da {senzaMarca(sedeAssegnata.nome)}</span>}
             </>
           ) : (
             <><span style={{ fontWeight: 600 }}>Ritiro</span> · {sedeAttiva ? senzaMarca(sedeAttiva.nome) : ""}</>
           )}
         </span>
-        <button type="button" onClick={cambiaModalita} style={{ height: 44, padding: "0 12px", border: "none", borderRadius: 12, background: "transparent", color: "#1B1E17", fontSize: 15, fontWeight: 600, textDecoration: "underline", cursor: "pointer", fontFamily: "var(--font-ui)" }}>Cambia</button>
+        {!modifica && <button type="button" onClick={cambiaModalita} style={{ height: 44, padding: "0 12px", border: "none", borderRadius: 12, background: "transparent", color: "#1B1E17", fontSize: 15, fontWeight: 600, textDecoration: "underline", cursor: "pointer", fontFamily: "var(--font-ui)" }}>Cambia</button>}
       </div>
+
+      {modifica && (
+        <div style={{ borderRadius: 16, background: "#FFF7E0", border: "1px solid #F0DDA0", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ fontSize: 14, lineHeight: 1.4, color: "#4A3B00" }}>
+            <strong>Stai modificando l'ordine #{modifica.numeroOrdine}.</strong> Cambia prodotti, orario o note e poi premi «Salva modifiche». La pizzeria dovrà riconfermarlo.
+          </div>
+          {modifica.avviso && <div style={{ fontSize: 13, lineHeight: 1.4, color: "#8C1D18" }}>{modifica.avviso}</div>}
+          <button type="button" onClick={uscireDallaModifica} style={{ alignSelf: "flex-start", minHeight: 44, background: "none", border: "none", color: "#4A3B00", fontSize: 14, fontWeight: 600, textDecoration: "underline", cursor: "pointer", padding: 0, fontFamily: "var(--font-ui)" }}>Esci senza salvare</button>
+        </div>
+      )}
 
       {slotData && !slotData.apertoOra && (
         <div style={{ borderRadius: 16, background: "#EEF6E2", border: "1px solid #D3E8B5", padding: "12px 14px", display: "flex", gap: 10, alignItems: "flex-start" }}>
@@ -1644,7 +1829,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
             </div>
           )}
 
-          {scontoMaturato > 0 && (
+          {!modifica && scontoMaturato > 0 && (
             <div style={{ marginBottom: 12, padding: "12px 14px", border: "1.5px solid var(--accent-border)", background: "var(--accent-bg-2)", borderRadius: 14 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Hai uno sconto fedeltà di {euro(scontoMaturato)}</div>
               <div style={{ fontSize: 12, color: "var(--text-2)", margin: "2px 0 10px", lineHeight: 1.45 }}>
@@ -1680,7 +1865,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
             <span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--text)" }}>{euro(totale)}</span>
           </div>
           {erroreInvio && <div style={{ fontSize: 12.5, color: "var(--danger)", marginBottom: 10 }}>{erroreInvio}</div>}
-          <button style={btnPrimarySt} onClick={inviaOrdine} disabled={invio}>{invio ? "Invio…" : "Invia ordine"}</button>
+          <button style={btnPrimarySt} onClick={modifica ? salvaModifica : inviaOrdine} disabled={invio}>{invio ? (modifica ? "Salvo…" : "Invio…") : modifica ? "Salva modifiche" : "Invia ordine"}</button>
         </div>
       )}
 

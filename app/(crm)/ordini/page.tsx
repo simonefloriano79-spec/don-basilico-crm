@@ -46,8 +46,14 @@ function ora(d: string) {
 function inAttesaOnline(o: any) {
   return o?.canale === "online" && o?.stato === "nuovo";
 }
-const statoEtichetta = (o: any) => (inAttesaOnline(o) ? "da accettare" : STATO_LABEL[o.stato]);
-const statoColore = (o: any) => (inAttesaOnline(o) ? "#a8452f" : STATO_HEX[o.stato]);
+// Modifiche e annullamenti fatti dal cliente dall'app («I miei ordini»).
+const modificatoDalCliente = (o: any) => o?.canale === "online" && !!o?.modificatoAt && o?.stato === "nuovo";
+const annullatoDalCliente = (o: any) => o?.canale === "online" && !!o?.modificatoAt && o?.stato === "annullato";
+// Un annullamento del cliente resta visibile tra gli «attivi» per 3 ore: se la comanda era già in cucina va fermata.
+const annullatoRecente = (o: any) => annullatoDalCliente(o) && Date.now() - new Date(o.modificatoAt).getTime() < 3 * 3600 * 1000;
+const statoEtichetta = (o: any) =>
+  annullatoDalCliente(o) ? "annullato dal cliente" : modificatoDalCliente(o) ? "MODIFICATO · da riaccettare" : inAttesaOnline(o) ? "da accettare" : STATO_LABEL[o.stato];
+const statoColore = (o: any) => (annullatoDalCliente(o) || inAttesaOnline(o) ? "#a8452f" : STATO_HEX[o.stato]);
 
 // "20:40" se oggi, "domani 20:40", altrimenti "03/10 20:40".
 function quando(d: string) {
@@ -245,6 +251,7 @@ export default function OrdiniPage() {
       totale: parseFloat(ordine.totale),
       costoConsegna: parseFloat(ordine.costoConsegna ?? 0) || undefined,
       scontoFedelta: parseFloat(ordine.scontoFedelta ?? 0) || undefined,
+      modificato: ordine.canale === "online" && !!ordine.modificatoAt ? true : undefined,
       note: ordine.note,
       noteDomicilio: ordine.noteDomicilio,
       oraConsegnaComunicata: ordine.oraConsegnaComunicata ? quando(ordine.oraConsegnaComunicata) : undefined,
@@ -258,7 +265,7 @@ export default function OrdiniPage() {
 
   const visibili = ordini.filter((o) => {
     if (filtroStato === "da_accettare" && !inAttesaOnline(o)) return false;
-    if (filtroStato === "attivi" && ["consegnato", "annullato"].includes(o.stato)) return false;
+    if (filtroStato === "attivi" && ["consegnato", "annullato"].includes(o.stato) && !annullatoRecente(o)) return false;
     if (STATI_FLOW.includes(filtroStato) && o.stato !== filtroStato) return false;
     if (ricerca.trim()) {
       const q = ricerca.trim().toLowerCase();
@@ -530,6 +537,12 @@ export default function OrdiniPage() {
                 <div style={{ fontSize: 9.5, letterSpacing: 1.7, textTransform: "uppercase", color: attesa ? "var(--danger)" : "var(--text-muted)", marginBottom: 8, fontWeight: 600 }}>
                   {attesa ? "Ordine online — da accettare" : "Orario confermato al cliente"}
                 </div>
+                {modificatoDalCliente(selezionato) && (
+                  <div style={{ background: "#fff", border: "1.5px solid var(--danger)", borderRadius: 10, padding: "10px 12px", marginBottom: 10, fontSize: 12.5, lineHeight: 1.45, color: "var(--danger)" }}>
+                    <strong>MODIFICATO dal cliente alle {ora(selezionato.modificatoAt)}</strong> (modifica {selezionato.modificheCliente} su 2). Controlla le righe qui sotto e riaccetta.
+                    Se la comanda precedente era già stata stampata, <strong>va buttata</strong>: ne esce una nuova con «ORDINE MODIFICATO».
+                  </div>
+                )}
                 <div style={{ fontSize: 12.5, color: "var(--text-2)", marginBottom: 8 }}>
                   Richiesto dal cliente: <strong>{prenotato(selezionato) ? quando(selezionato.oraRichiesta) : "appena possibile"}</strong>
                 </div>

@@ -18,6 +18,8 @@ export interface PrintOrdine {
   totale: number;
   costoConsegna?: number;
   scontoFedelta?: number;
+  /** Ordine online modificato dal cliente: la comanda sostituisce quella già stampata. */
+  modificato?: boolean;
   note?: string;
   noteDomicilio?: string;
   nomeCitofono?: string;
@@ -85,6 +87,7 @@ export async function generaTicketHTML(ordine: PrintOrdine): Promise<string> {
         <div class="logo">DON BASILICO</div>
         <div class="sub">${ordine.sede}</div>
       </div>
+      ${ordine.modificato ? `<div style="text-align:center;font-size:22px;font-weight:bold;border:3px solid #000;padding:6px;margin:6px 0">ORDINE MODIFICATO<div style="font-size:13px;font-weight:normal">sostituisce la comanda precedente</div></div>` : ""}
       <div class="ordine-num">#${ordine.numero}</div>
       <div style="text-align:center;margin-bottom:6px">
         <span class="badge">${ordine.tipo.toUpperCase()}</span>
