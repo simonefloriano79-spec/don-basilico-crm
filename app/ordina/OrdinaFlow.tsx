@@ -754,7 +754,7 @@ function PizzaModalCliente({ item, ingredienti, impasti, onConferma, onChiudi }:
   );
 }
 
-function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIniziale?: string; onSchermataIniziale?: (modo: ModoLogo) => void }) {
+function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }: { sedeSlugIniziale?: string; modoIniziale?: "domicilio" | "asporto"; onSchermataIniziale?: (modo: ModoLogo) => void }) {
   const [caricamento, setCaricamento] = useState(true);
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [staffBeta, setStaffBeta] = useState(false);
@@ -823,7 +823,8 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
   // Ricorda l'ultima sede e l'ultimo indirizzo usati su questo telefono, per precompilarli.
   useEffect(() => {
     try {
-      const ultimaSede = localStorage.getItem("db_ultima_sede");
+      // Dal pulsante «Scegli dove ritirare» del menù nessuna pizzeria è preselezionata: sceglie il cliente.
+      const ultimaSede = modoIniziale === "asporto" ? null : localStorage.getItem("db_ultima_sede");
       if (ultimaSede) setSedeScelta((x) => x || ultimaSede);
       const a = JSON.parse(localStorage.getItem("db_ultimo_indirizzo") ?? "null");
       if (a && typeof a === "object") {
@@ -844,6 +845,12 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
       if (s) { setTipo("asporto"); setSedeSelezionata(s.id); }
     }
   }, [sedeSlugIniziale, sedi]);
+
+  // Arrivando dal menù da consultare («Consegna a domicilio» / «Scegli dove ritirare») si parte già dal percorso scelto.
+  useEffect(() => {
+    if (modoIniziale && !sedeSlugIniziale) setTipo(modoIniziale);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const sedeIdAttiva = tipo === "asporto" ? sedeSelezionata : sedeAssegnata?.id ?? "";
 
@@ -972,7 +979,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
     const sulleIniziali = !tipo && !confermato && !vistaOrdini && !vistaTessera;
     const inHome = sulleIniziali && !!cliente && cliente.privacyOk !== false;
     const interna = !!tipo && !confermato && !vistaOrdini && !vistaTessera;
-    onSchermataIniziale?.(inHome ? "home" : sulleIniziali ? (!cliente ? "registrazione" : "grande") : interna ? "nascosto" : "piccolo");
+    onSchermataIniziale?.(!cliente ? "registrazione" : cliente.privacyOk === false ? "grande" : inHome ? "home" : sulleIniziali ? "grande" : interna ? "nascosto" : "piccolo");
   }, [caricamento, tipo, confermato, vistaOrdini, vistaTessera, cliente, onSchermataIniziale]);
 
   const subtotale = cart.reduce((a, c) => a + c.prezzo * c.qty, 0);
@@ -1387,11 +1394,17 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <button type="button" onClick={() => setVistaOrdini(true)} style={secondario}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6M9 12h6" /></svg>
-            I miei ordini
+            <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.15 }}>
+              I miei ordini
+              <span style={{ fontSize: 12, fontWeight: 400, color: "#5F6457" }}>segui o modifica</span>
+            </span>
           </button>
           <a href="/ordina/menu" style={secondario}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z" /><path d="M4 19V5" /><path d="M9 8h6" /></svg>
-            Il menù
+            <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.15 }}>
+              Guarda il menù
+              <span style={{ fontSize: 12, fontWeight: 400, color: "#5F6457" }}>solo da consultare</span>
+            </span>
           </a>
           <BottoneCondividi stile={secondario} />
         </div>
@@ -1913,7 +1926,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, onSchermataIniziale }: { sedeSlugIn
 }
 
 
-export default function OrdinaFlow(props: { sedeSlugIniziale?: string }) {
+export default function OrdinaFlow(props: { sedeSlugIniziale?: string; modoIniziale?: "domicilio" | "asporto" }) {
   const [modoLogo, setModoLogo] = useState<ModoLogo>("registrazione");
   const iniziale = modoLogo === "grande";
 
