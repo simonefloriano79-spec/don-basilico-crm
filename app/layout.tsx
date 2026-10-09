@@ -16,6 +16,8 @@ const jost = Jost({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://ordina.donbasilico.it"),
+  robots: { index: false, follow: false },
   title: "Don Basilico — Sistema Ordini",
   description: "CRM e gestione ordini per la catena Don Basilico",
   viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
