@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
       items: {
         select: {
           id: true, menuItemId: true, nomeSnapshot: true, quantita: true, prezzoSnapshot: true, noteItem: true,
-          ingredientiRimossi: true, ingredientiAggiunti: true, impastoId: true, notaCliente: true,
+          ingredientiRimossi: true, ingredientiAggiunti: true, impastoId: true, notaCliente: true, comboScelte: true,
         },
       },
     },

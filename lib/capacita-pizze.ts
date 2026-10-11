@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { partiLocali } from "@/lib/slot-ritiro";
 import { pesoRiga } from "@/lib/peso-pizze";
+import { leggiComboConfig } from "@/lib/combo";
 
 export { pesoRiga };
 
@@ -48,7 +49,7 @@ export async function caricoPerFinestra(
         select: {
           quantita: true,
           nomeSnapshot: true,
-          menuItem: { select: { categoria: true } },
+          menuItem: { select: { categoria: true, comboConfig: true } },
           sedeExtra: { select: { categoria: true } },
         },
       },
@@ -59,7 +60,7 @@ export async function caricoPerFinestra(
   for (const o of ordini) {
     const riferimento = o.oraConsegnaComunicata ?? o.oraRichiesta;
     const peso = o.items.reduce(
-      (acc, i) => acc + pesoRiga(i.menuItem?.categoria ?? i.sedeExtra?.categoria, i.nomeSnapshot, i.quantita),
+      (acc, i) => acc + pesoRiga(i.menuItem?.categoria ?? i.sedeExtra?.categoria, i.nomeSnapshot, i.quantita, leggiComboConfig(i.menuItem?.comboConfig)?.pizze),
       0
     );
     if (!peso) continue;

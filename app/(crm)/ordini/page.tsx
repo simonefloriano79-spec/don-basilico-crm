@@ -530,7 +530,7 @@ export default function OrdiniPage() {
           {selezionato.canale === "online" && !["annullato", "consegnato"].includes(selezionato.stato) && (() => {
             const attesa = inAttesaOnline(selezionato);
             const pesoOrdine = (selezionato.items ?? []).reduce(
-              (a: number, i: any) => a + pesoRiga(i.menuItem?.categoria ?? i.sedeExtra?.categoria, i.nomeSnapshot, i.quantita), 0);
+              (a: number, i: any) => a + pesoRiga(i.menuItem?.categoria ?? i.sedeExtra?.categoria, i.nomeSnapshot, i.quantita, i.menuItem?.comboConfig?.pizze), 0);
             const oltre = carico ? carico.usati + pesoOrdine > carico.capacita : false;
             return (
               <div style={{ padding: "16px 22px", borderBottom: "1px solid var(--border-soft)", background: attesa ? "var(--danger-bg)" : "transparent" }}>

@@ -57,6 +57,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     ingredientiRimossi: lista(a?.ingredientiRimossi),
     impastoId: typeof a?.impastoId === "string" && a.impastoId ? a.impastoId : undefined,
     note: typeof a?.note === "string" && a.note.trim() ? a.note.trim().slice(0, 200) : undefined,
+    comboScelte: a?.comboScelte && typeof a.comboScelte === "object" ? { bibite: lista(a.comboScelte.bibite), pizze: lista(a.comboScelte.pizze) } : undefined,
   }));
   if (!articoli.length) return NextResponse.json({ error: "L'ordine non può essere vuoto: se non lo vuoi più, annullalo" }, { status: 400 });
 
@@ -89,7 +90,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const scelto = [...gen.oggi, ...gen.domani].find((s) => new Date(s.iso).getTime() === oraRitiro!.getTime());
     if (!scelto) return NextResponse.json({ error: "L'orario scelto non è più disponibile, scegline un altro", esito: "chiuso" }, { status: 422 });
     const peso = esito.articoli.reduce(
-      (acc, a) => acc + pesoRiga(a.categoria, a.taglia === "maxi" ? `${a.nomeSnapshot} (Maxi)` : a.nomeSnapshot, a.quantita),
+      (acc, a) => acc + pesoRiga(a.categoria, a.taglia === "maxi" ? `${a.nomeSnapshot} (Maxi)` : a.nomeSnapshot, a.quantita, a.combo?.pizze),
       0
     );
     const [disp] = await disponibilitaSlot(ordine.sede, [scelto.iso], peso, ordine.id);

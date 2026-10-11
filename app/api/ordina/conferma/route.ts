@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
     ingredientiRimossi: lista(a?.ingredientiRimossi),
     impastoId: typeof a?.impastoId === "string" && a.impastoId ? a.impastoId : undefined,
     note: typeof a?.note === "string" && a.note.trim() ? a.note.trim().slice(0, 200) : undefined,
+    comboScelte: a?.comboScelte && typeof a.comboScelte === "object" ? { bibite: lista(a.comboScelte.bibite), pizze: lista(a.comboScelte.pizze) } : undefined,
   }));
 
   if (!articoli.length) {
@@ -103,7 +104,7 @@ export async function POST(req: NextRequest) {
     }
 
     const peso = esito.articoli.reduce(
-      (acc, a) => acc + pesoRiga(a.categoria, a.taglia === "maxi" ? `${a.nomeSnapshot} (Maxi)` : a.nomeSnapshot, a.quantita),
+      (acc, a) => acc + pesoRiga(a.categoria, a.taglia === "maxi" ? `${a.nomeSnapshot} (Maxi)` : a.nomeSnapshot, a.quantita, a.combo?.pizze),
       0
     );
     const [disp] = await disponibilitaSlot(sede, [scelto.iso], peso);
