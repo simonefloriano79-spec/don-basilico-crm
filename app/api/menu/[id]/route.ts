@@ -33,7 +33,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       return NextResponse.json(override);
     }
 
-    const { nome, descrizione, categoria, prezzoBase, isAttivo, immagineUrl, ordineVisualizzazione } = body;
+    const { nome, descrizione, categoria, prezzoBase, prezzoOnline, isAttivo, immagineUrl, ordineVisualizzazione } = body;
     const item = await prisma.menuItem.update({
       where: { id: params.id },
       data: {
@@ -41,6 +41,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         ...(descrizione !== undefined && { descrizione }),
         ...(categoria !== undefined && { categoria }),
         ...(prezzoBase !== undefined && { prezzoBase }),
+        ...(prezzoOnline !== undefined && { prezzoOnline }),
         ...(isAttivo !== undefined && { isAttivo }),
         ...(immagineUrl !== undefined && { immagineUrl }),
         ...(ordineVisualizzazione !== undefined && { ordineVisualizzazione }),

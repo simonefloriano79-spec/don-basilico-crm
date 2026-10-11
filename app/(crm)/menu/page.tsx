@@ -30,7 +30,7 @@ export default function MenuPage() {
   const [catFiltro, setCatFiltro] = useState("tutti");
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
-  const [form, setForm] = useState({ nome: "", descrizione: "", categoria: "pizze_rosse", prezzoBase: "" });
+  const [form, setForm] = useState({ nome: "", descrizione: "", categoria: "pizze_rosse", prezzoBase: "", prezzoOnline: "" });
   const user = session?.user as any;
   const isSuperAdmin = user?.ruolo === "super_admin";
   const sedeId = isSuperAdmin ? sedeVista : user?.sedeId;
@@ -78,12 +78,12 @@ export default function MenuPage() {
     const method = editItem ? "PATCH" : "POST";
     const res = await fetch(url, {
       method, headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, prezzoBase: parseFloat(form.prezzoBase) }),
+      body: JSON.stringify({ ...form, prezzoBase: parseFloat(form.prezzoBase), prezzoOnline: form.prezzoOnline.trim() === "" ? null : parseFloat(form.prezzoOnline) }),
     });
     if (res.ok) {
       toast.success(editItem ? "Prodotto aggiornato" : "Prodotto aggiunto");
       setShowModal(false); setEditItem(null);
-      setForm({ nome: "", descrizione: "", categoria: "pizze_rosse", prezzoBase: "" });
+      setForm({ nome: "", descrizione: "", categoria: "pizze_rosse", prezzoBase: "", prezzoOnline: "" });
       caricaMenu();
     }
   };
@@ -118,7 +118,7 @@ export default function MenuPage() {
         </div>
         {isSuperAdmin && (
           <button
-            onClick={() => { setShowModal(true); setEditItem(null); setForm({ nome: "", descrizione: "", categoria: "pizze_rosse", prezzoBase: "" }); }}
+            onClick={() => { setShowModal(true); setEditItem(null); setForm({ nome: "", descrizione: "", categoria: "pizze_rosse", prezzoBase: "", prezzoOnline: "" }); }}
             style={{ background: "var(--text)", color: "#fff", border: "none", padding: "9px 18px", borderRadius: 9, fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)" }}
           >Nuova voce</button>
         )}
@@ -147,6 +147,7 @@ export default function MenuPage() {
                   <td style={{ padding: "13px 14px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ fontFamily: "var(--font-display)", fontSize: 17, color: "var(--text)" }}>{item.nome}</span>
+                      {item.prezzoOnline != null && <span title="Prezzo per l'app online" style={{ fontSize: 11, background: "var(--accent-bg-2)", border: "1px solid var(--accent-border)", borderRadius: 20, padding: "1px 8px", color: "var(--text-2)" }}>app € {parseFloat(item.prezzoOnline).toFixed(2).replace(".", ",")}</span>}
                       {!item.isAttivo && (
                         <span
                           onClick={() => isSuperAdmin && toggleGlobale(item)}
@@ -190,7 +191,7 @@ export default function MenuPage() {
                   )}
                   {isSuperAdmin && (
                     <td style={{ padding: "13px 14px", textAlign: "right" }}>
-                      <button onClick={() => { setEditItem(item); setForm({ nome: item.nome, descrizione: item.descrizione ?? "", categoria: item.categoria, prezzoBase: item.prezzoBase.toString() }); setShowModal(true); }} style={{
+                      <button onClick={() => { setEditItem(item); setForm({ nome: item.nome, descrizione: item.descrizione ?? "", categoria: item.categoria, prezzoBase: item.prezzoBase.toString(), prezzoOnline: item.prezzoOnline != null ? item.prezzoOnline.toString() : "" }); setShowModal(true); }} style={{
                         background: "#fff", border: "1px solid var(--border)", color: "var(--text-2)",
                         padding: "5px 12px", borderRadius: 8, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-ui)",
                       }}>Modifica</button>
@@ -230,6 +231,11 @@ export default function MenuPage() {
               <div>
                 <label style={labelSt}>Prezzo (€) *</label>
                 <input style={fieldSt} type="number" step="0.50" placeholder="7.50" value={form.prezzoBase} onChange={(e) => setForm((p) => ({ ...p, prezzoBase: e.target.value }))} />
+              </div>
+              <div>
+                <label style={labelSt}>Prezzo app (€) — facoltativo</label>
+                <input style={fieldSt} type="number" step="0.50" placeholder="uguale al prezzo di cassa" value={form.prezzoOnline} onChange={(e) => setForm((p) => ({ ...p, prezzoOnline: e.target.value }))} />
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>Se lo compili, l'app ordini e il menù pubblico usano questo; la cassa usa sempre il prezzo qui sopra.</div>
               </div>
             </div>
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>

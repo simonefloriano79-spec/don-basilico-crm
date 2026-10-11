@@ -12,6 +12,7 @@ export interface RichiestaOrdine {
   articoli: ArticoloOrdinatoInput[];
   note?: string;
   oraRichiesta?: string; // ISO 8601, opzionale (default: adesso)
+  canale?: "online"; // ordini dall'app clienti: valgono i prezzi dell'app
 }
 
 export type EsitoOrchestrazione =
@@ -93,7 +94,7 @@ export async function elaboraRichiestaOrdine(input: RichiestaOrdine): Promise<Es
   }
 
   try {
-    const { articoli, totale } = await calcolaOrdine(sedeId, input.articoli);
+    const { articoli, totale } = await calcolaOrdine(sedeId, input.articoli, input.canale);
     return { ok: true, sedeId, sedeNome, totale, articoli, indirizzoLat, indirizzoLng, indirizzoFormattato, oraRichiesta };
   } catch (e) {
     if (e instanceof ErrorePricing) {

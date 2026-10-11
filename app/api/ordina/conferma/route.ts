@@ -79,6 +79,7 @@ export async function POST(req: NextRequest) {
     articoli,
     note: body.note,
     oraRichiesta: oraRitiro?.toISOString(),
+    canale: "online", // prezzi dell'app (non quelli della cassa)
   };
 
   // Con un orario scelto, il controllo "sede aperta" riguarda quell'orario (non "adesso"):
