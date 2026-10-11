@@ -1001,7 +1001,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
 
   useEffect(() => {
     if (!sedeIdAttiva) { setMenuItems([]); return; }
-    fetch(`/api/menu?sedeId=${sedeIdAttiva}`).then((r) => r.json()).then((d) =>
+    fetch(`/api/menu?sedeId=${sedeIdAttiva}&canale=online`).then((r) => r.json()).then((d) =>
       setMenuItems((d.items ?? []).filter((i: any) => i.isAttivo && i.disponibileInSede !== false)));
     fetch(`/api/ingredienti?sedeId=${sedeIdAttiva}`).then((r) => r.json()).then((d) =>
       setIngredienti(Array.isArray(d) ? d : []));

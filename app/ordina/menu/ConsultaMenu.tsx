@@ -52,7 +52,7 @@ export default function ConsultaMenu() {
     try { localStorage.setItem("db_menu_sede", sedeId); } catch {}
     setProdotti(null);
     Promise.all([
-      fetch(`/api/menu?sedeId=${sedeId}`).then((r) => r.json()),
+      fetch(`/api/menu?sedeId=${sedeId}&canale=online`).then((r) => r.json()),
       fetch(`/api/impasti?sedeId=${sedeId}`).then((r) => r.json()),
     ]).then(([m, i]) => {
       setProdotti(

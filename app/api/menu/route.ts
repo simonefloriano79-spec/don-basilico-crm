@@ -12,6 +12,8 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const sedeId = searchParams.get("sedeId");
   const includiDisattivi = searchParams.get("tutti") === "1";
+  // canale=online: l'app dei clienti (e il menù pubblico) usano il «prezzo app» dove c'è; la cassa no.
+  const perApp = searchParams.get("canale") === "online";
 
   const items = await prisma.menuItem.findMany({
     where: { ...(includiDisattivi ? {} : { isAttivo: true }) },
@@ -52,7 +54,9 @@ export async function GET(req: NextRequest) {
       disponibileInSede: override ? override.disponibile : item.disponibileDefault,
       prezzoEffettivo: override?.prezzoCustom
         ? parseFloat(override.prezzoCustom)
-        : parseFloat(item.prezzoBase.toString()),
+        : perApp && item.prezzoOnline != null
+          ? parseFloat(item.prezzoOnline.toString())
+          : parseFloat(item.prezzoBase.toString()),
       override,
     };
   });
@@ -75,14 +79,14 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { nome, descrizione, categoria, prezzoBase, immagineUrl, ordineVisualizzazione } = body;
+  const { nome, descrizione, categoria, prezzoBase, prezzoOnline, immagineUrl, ordineVisualizzazione } = body;
 
   if (!nome || !categoria || !prezzoBase) {
     return NextResponse.json({ error: "Dati mancanti" }, { status: 400 });
   }
 
   const item = await prisma.menuItem.create({
-    data: { nome, descrizione, categoria, prezzoBase, immagineUrl, ordineVisualizzazione: ordineVisualizzazione ?? 0 },
+    data: { nome, descrizione, categoria, prezzoBase, prezzoOnline: prezzoOnline ?? null, immagineUrl, ordineVisualizzazione: ordineVisualizzazione ?? 0 },
   });
 
   return NextResponse.json(item, { status: 201 });

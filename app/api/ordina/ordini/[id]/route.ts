@@ -72,6 +72,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     articoli,
     note: note ?? undefined,
     oraRichiesta: oraRitiro?.toISOString(),
+    canale: "online", // prezzi dell'app (non quelli della cassa)
   };
   const esito = await elaboraRichiestaOrdine(richiesta);
   if (!esito.ok) return NextResponse.json({ error: esito.motivo, esito: esito.esito }, { status: 422 });

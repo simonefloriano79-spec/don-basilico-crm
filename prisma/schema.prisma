@@ -122,6 +122,8 @@ model MenuItem {
   descrizione           String?
   categoria             CategoriaMenu
   prezzoBase            Decimal       @map("prezzo_base") @db.Decimal(10, 2)
+  // Prezzo per l'app online (ritiro e consegna). Se manca vale il prezzo base. La cassa usa sempre il prezzo base.
+  prezzoOnline          Decimal?      @map("prezzo_online") @db.Decimal(10, 2)
   immagineUrl           String?       @map("immagine_url")
   disponibileDefault    Boolean       @default(true) @map("disponibile_default")
   ordineVisualizzazione Int           @default(0) @map("ordine_visualizzazione")

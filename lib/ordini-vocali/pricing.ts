@@ -43,7 +43,8 @@ export class ErrorePricing extends Error {}
 // - gli ingredienti con escludiCompensazione (es. mozzarella, pomodoro) non danno credito.
 export async function calcolaOrdine(
   sedeId: string,
-  articoli: ArticoloOrdinatoInput[]
+  articoli: ArticoloOrdinatoInput[],
+  canale?: "online"
 ): Promise<{ articoli: ArticoloPrezzato[]; totale: number }> {
   if (!articoli.length) throw new ErrorePricing("Nessun articolo nell'ordine");
 
@@ -150,9 +151,12 @@ export async function calcolaOrdine(
       }
     }
 
+    // Prezzo: quello personalizzato della sede, altrimenti (per l'app online) il «prezzo app» se c'è, altrimenti il prezzo base.
     const prezzoListino = override?.prezzoCustom
       ? parseFloat(override.prezzoCustom.toString())
-      : parseFloat(menuItem.prezzoBase.toString());
+      : canale === "online" && menuItem.prezzoOnline != null
+        ? parseFloat(menuItem.prezzoOnline.toString())
+        : parseFloat(menuItem.prezzoBase.toString());
     const prezzoBase = prezzoListino * (taglia === "maxi" ? moltiplicatore : 1);
 
     const extra = (a.ingredientiAggiuntiIds ?? []).map((id) => {
