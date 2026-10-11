@@ -54,6 +54,7 @@ enum CategoriaMenu {
   extra
   menu_speciale
   focacce
+  combo
 
   @@map("categoria_menu")
 }
@@ -128,6 +129,8 @@ model MenuItem {
   // Allergeni propri del prodotto (per quelli senza ingredienti: fritti, dolci, bevande) e stato di verifica.
   allergeniExtra        String[]      @default([]) @map("allergeni_extra")
   allergeniDaVerificare Boolean       @default(false) @map("allergeni_da_verificare")
+  // Solo per i «Menù Combo»: cosa contengono e cosa sceglie il cliente (vedi lib/combo.ts).
+  comboConfig           Json?         @map("combo_config")
   createdAt             DateTime      @default(now()) @map("created_at")
   updatedAt             DateTime      @updatedAt @map("updated_at")
 
@@ -339,6 +342,8 @@ model OrdineItem {
   // Scelte del cliente in forma strutturata (servono per poter modificare l'ordine dall'app).
   ingredientiAggiunti String[] @default([]) @map("ingredienti_aggiunti")
   notaCliente         String?  @map("nota_cliente")
+  // Combo: le bibite e le pizze scelte dal cliente ({ bibite: [id], pizze: [id] }).
+  comboScelte         Json?    @map("combo_scelte")
   impastoId           String?  @map("impasto_id") @db.Uuid
   impasto            String?
   noteItem           String?  @map("note_item")

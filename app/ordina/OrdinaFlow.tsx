@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { COSTO_CONSEGNA_DEFAULT } from "@/lib/consegna";
 import PaginaTessera from "./PaginaTessera";
-import { allergeniProdotto, testoAllergeni } from "@/lib/allergeni";
+import { allergeniProdotto, allergeniCombo, testoAllergeni } from "@/lib/allergeni";
+import { bevandaAmmessaInCombo, leggiComboConfig, leggiComboScelte, testoDettaglioCombo, type ComboScelte } from "@/lib/combo";
 
 const CAT_LABEL: Record<string, string> = {
   pizze: "Pizze", pizze_rosse: "Pizze rosse", pizze_bianche: "Pizze bianche",
   calzoni: "Calzoni", fritti: "Fritti", bevande: "Bevande", dolci: "Dolci",
-  extra: "Extra", menu_speciale: "Speciali", focacce: "Focacce",
+  extra: "Extra", menu_speciale: "Speciali", focacce: "Focacce", combo: "Menù Combo",
 };
 
 import { TIMBRI_PER_CICLO, PERCENTUALE_SCONTO, PERCENTUALE_SCONTO_INTERA } from "@/lib/fedelta-regole";
@@ -547,6 +548,8 @@ interface CartItem {
   rimossi: { id: string; nome: string }[];
   aggiunti: { id: string; nome: string }[];
   nota: string;
+  /** Solo per i «Menù Combo»: scelte, testo del contenuto e quante pizze contano per la cucina. */
+  combo?: { scelte: ComboScelte; dettaglio: string; pizze: number };
 }
 interface SlotCl { ora: string; iso: string; pieno: boolean; }
 interface SlotData {
@@ -557,7 +560,7 @@ interface SlotData {
 // Categorie che aprono la finestra di personalizzazione (e che pesano sulla capienza cucina).
 const CAT_PIZZA = ["menu_speciale", "pizze_rosse", "pizze_bianche", "calzoni"];
 // Ordine delle sezioni del menù: speciali, rosse, bianche, calzoni, fritti, dolci, bevande.
-const ORDINE_CAT = ["menu_speciale", "pizze", "pizze_rosse", "pizze_bianche", "calzoni", "focacce", "fritti", "dolci", "bevande", "extra"];
+const ORDINE_CAT = ["combo", "menu_speciale", "pizze", "pizze_rosse", "pizze_bianche", "calzoni", "focacce", "fritti", "dolci", "bevande", "extra"];
 const posCat = (c: string) => { const i = ORDINE_CAT.indexOf(c); return i < 0 ? ORDINE_CAT.length : i; };
 const num = (v: number | string | undefined) => parseFloat(String(v ?? 0)) || 0;
 
@@ -754,6 +757,147 @@ function PizzaModalCliente({ item, ingredienti, impasti, onConferma, onChiudi }:
   );
 }
 
+// Un combo è disponibile se in questa pizzeria ci sono tutti i prodotti fissi e abbastanza bibite / pizze speciali da scegliere.
+function comboDisponibile(combo: any, tutti: any[]): boolean {
+  const cfg = leggiComboConfig(combo.comboConfig);
+  if (!cfg) return false;
+  const ids = new Set(tutti.map((m) => m.id));
+  if (!cfg.componenti.every((c) => ids.has(c.id))) return false;
+  if (cfg.bibite > 0 && !tutti.some((m) => m.categoria === "bevande" && bevandaAmmessaInCombo(m.nome))) return false;
+  if (cfg.pizzeSpeciali > 0 && !tutti.some((m) => m.categoria === "menu_speciale")) return false;
+  return true;
+}
+
+// Finestra di scelta del «Menù Combo»: prezzo fisso, il cliente sceglie solo le bibite (e, per il combo semplice, le pizze speciali).
+function ComboModalCliente({ item, menu, onConferma, onChiudi }: {
+  item: any; menu: any[]; onConferma: (c: Omit<CartItem, "cartId">) => void; onChiudi: () => void;
+}) {
+  const cfg = leggiComboConfig(item.comboConfig)!;
+  const perId = new Map(menu.map((m) => [m.id, m]));
+  const fissi = cfg.componenti.flatMap((c) => Array<string>(c.qta).fill(perId.get(c.id)?.nome ?? "prodotto"));
+  const bibiteOpz = menu.filter((m) => m.categoria === "bevande" && bevandaAmmessaInCombo(m.nome)).sort((a, b) => a.nome.localeCompare(b.nome, "it"));
+  const pizzeOpz = menu.filter((m) => m.categoria === "menu_speciale").sort((a, b) => a.nome.localeCompare(b.nome, "it"));
+  const [bibite, setBibite] = useState<Record<string, number>>({});
+  const [pizze, setPizze] = useState<Record<string, number>>({});
+  const [nota, setNota] = useState("");
+  const [qty, setQty] = useState(1);
+  const somma = (o: Record<string, number>) => Object.values(o).reduce((a, n) => a + n, 0);
+  const nBibite = somma(bibite), nPizze = somma(pizze);
+  const completo = nBibite === cfg.bibite && nPizze === cfg.pizzeSpeciali;
+  const espandi = (o: Record<string, number>) => Object.entries(o).flatMap(([id, n]) => Array<string>(n).fill(id));
+  const scelte: ComboScelte = { bibite: espandi(bibite), pizze: espandi(pizze) };
+  const prezzo = num(item.prezzoEffettivo ?? item.prezzoBase);
+  const al = allergeniCombo(item, menu, scelte.pizze);
+  const mancano = [
+    cfg.pizzeSpeciali > nPizze ? `${cfg.pizzeSpeciali - nPizze} ${cfg.pizzeSpeciali - nPizze === 1 ? "pizza" : "pizze"}` : "",
+    cfg.bibite > nBibite ? `${cfg.bibite - nBibite} ${cfg.bibite - nBibite === 1 ? "bibita" : "bibite"}` : "",
+  ].filter(Boolean).join(" e ");
+
+  const cambia = (stato: Record<string, number>, set: (o: Record<string, number>) => void, id: string, delta: number, max: number) => {
+    const attuale = stato[id] ?? 0;
+    const nuovo = attuale + delta;
+    if (nuovo < 0 || (delta > 0 && somma(stato) >= max)) return;
+    const copia = { ...stato };
+    if (nuovo === 0) delete copia[id]; else copia[id] = nuovo;
+    set(copia);
+  };
+  const riga = (it: any, stato: Record<string, number>, set: (o: Record<string, number>) => void, max: number) => {
+    const n = stato[it.id] ?? 0;
+    return (
+      <div key={it.id} style={{ minHeight: 52, padding: "0 6px 0 16px", display: "flex", alignItems: "center", gap: 10, background: n ? "#F3F9EA" : "#FFFFFF", borderBottom: "1px solid #EEEEE8" }}>
+        <span style={{ flex: 1, fontSize: 16, fontWeight: n ? 600 : 400 }}>{it.nome}</span>
+        {n > 0 && (
+          <>
+            <button type="button" aria-label={`Togli ${it.nome}`} onClick={() => cambia(stato, set, it.id, -1, max)} style={{ width: 44, height: 44, borderRadius: "50%", border: "1px solid #DADBD2", background: "#fff", cursor: "pointer", fontSize: 20, padding: 0 }}>−</button>
+            <span className="num" style={{ minWidth: 14, textAlign: "center", fontWeight: 600 }}>{n}</span>
+          </>
+        )}
+        <button type="button" aria-label={`Aggiungi ${it.nome}`} onClick={() => cambia(stato, set, it.id, 1, max)} style={{ width: 44, height: 44, borderRadius: "50%", border: "none", background: somma(stato) >= max ? "#E4E5DD" : "#7ECE25", color: "#1B1E17", cursor: somma(stato) >= max ? "default" : "pointer", fontSize: 20, padding: 0 }}>+</button>
+      </div>
+    );
+  };
+  const intestazione = (testo: string, fatte: number, tot: number) => (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", margin: "22px 0 8px" }}>
+      <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, letterSpacing: 1.8, textTransform: "uppercase" }}>{testo}</h3>
+      <span className="num" style={{ fontSize: 13.5, fontWeight: 600, color: fatte === tot ? "#3F7A0E" : "#5F6457" }}>{fatte} di {tot}</span>
+    </div>
+  );
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(27,30,23,0.55)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end" }} onClick={onChiudi}>
+      <section role="dialog" aria-modal="true" aria-label={item.nome} onClick={(e) => e.stopPropagation()}
+        style={{ background: "#F6F6F1", borderRadius: "28px 28px 0 0", maxHeight: "94vh", display: "flex", flexDirection: "column", width: "100%", maxWidth: 560, margin: "0 auto", overflow: "hidden", fontFamily: "var(--font-ui)", color: "#1B1E17" }}>
+        <div style={{ padding: "16px 20px 0", display: "flex", gap: 12, alignItems: "flex-start" }}>
+          <div style={{ flex: 1 }}>
+            <h2 style={{ margin: 0, fontFamily: "'Playfair Display', var(--font-display)", fontWeight: 800, fontSize: 26, lineHeight: 1.1 }}>{item.nome}</h2>
+            <span className="num" style={{ fontSize: 15, fontWeight: 600, color: "#3E4237" }}>{euro(prezzo)}</span>
+          </div>
+          <button type="button" aria-label="Chiudi" onClick={onChiudi} style={{ width: 44, height: 44, borderRadius: "50%", border: "1px solid #DADBD2", background: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, flex: "none", cursor: "pointer" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+        </div>
+
+        <div style={{ flex: 1, overflowY: "auto", padding: "0 20px 12px" }}>
+          <div style={{ background: "#FFFFFF", border: "1px solid #E4E5DD", borderRadius: 16, padding: "12px 14px", marginTop: 12, fontSize: 14.5, lineHeight: 1.5 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: 1.8, color: "#5F6457", marginBottom: 4 }}>COMPRENDE</div>
+            {[
+              fissi.length ? fissi.join(", ") : "",
+              cfg.pizzeSpeciali > 0 ? `${cfg.pizzeSpeciali} pizze speciali a scelta` : "",
+              cfg.bibite > 0 ? `${cfg.bibite} ${cfg.bibite === 1 ? "bibita" : "bibite"} da 33cl a scelta` : "",
+            ].filter(Boolean).join(" + ")}
+          </div>
+
+          {cfg.pizzeSpeciali > 0 && (
+            <>
+              {intestazione("Scegli le pizze speciali", nPizze, cfg.pizzeSpeciali)}
+              <div style={{ background: "#fff", border: "1px solid #E4E5DD", borderRadius: 20, overflow: "hidden" }}>
+                {pizzeOpz.map((it) => riga(it, pizze, setPizze, cfg.pizzeSpeciali))}
+              </div>
+            </>
+          )}
+          {cfg.bibite > 0 && (
+            <>
+              {intestazione(cfg.bibite === 1 ? "Scegli la bibita" : "Scegli le bibite", nBibite, cfg.bibite)}
+              <div style={{ background: "#fff", border: "1px solid #E4E5DD", borderRadius: 20, overflow: "hidden" }}>
+                {bibiteOpz.map((it) => riga(it, bibite, setBibite, cfg.bibite))}
+              </div>
+            </>
+          )}
+
+          <div style={{ marginTop: 16, padding: "12px 14px", background: "#FFFFFF", border: "1px solid #E4E5DD", borderRadius: 16, fontSize: 13.5, color: "#3E4237", lineHeight: 1.5 }}>
+            <strong style={{ color: "#1B1E17" }}>Allergeni di questo combo:</strong> {testoAllergeni(al)}
+            {al.sceltaPendente && <div style={{ color: "#5F6457", marginTop: 2 }}>Dipendono anche dalle pizze che scegli.</div>}
+            {al.daConfermare && <div style={{ color: "#5F6457", marginTop: 2 }}>Elenco da confermare: chiedi al personale prima di ordinare.</div>}
+          </div>
+          <textarea rows={2} placeholder="Note (opzionale)" value={nota} onChange={(e) => setNota(e.target.value)}
+            style={{ width: "100%", boxSizing: "border-box", resize: "none", marginTop: 12, borderRadius: 16, border: "1px solid #DADBD2", background: "#FFFFFF", padding: "12px 16px", fontSize: 16, color: "#1B1E17", fontFamily: "var(--font-ui)", outline: "none" }} />
+        </div>
+
+        <div style={{ background: "#FFFFFF", borderTop: "1px solid #E4E5DD", padding: "12px 20px 20px", display: "flex", flexDirection: "column", gap: 8 }}>
+          {!completo && <div style={{ fontSize: 13.5, color: "#8C1D18", textAlign: "center" }}>Ti manca da scegliere: {mancano}</div>}
+          <div style={{ display: "flex", gap: 10 }}>
+            <span style={{ height: 56, borderRadius: 18, border: "1px solid #DADBD2", background: "#FFFFFF", display: "flex", alignItems: "center", padding: "0 4px" }}>
+              <button type="button" aria-label="Diminuisci quantità" onClick={() => setQty((q) => Math.max(1, q - 1))} style={{ width: 44, height: 44, border: "none", background: "transparent", fontSize: 22, cursor: "pointer" }}>−</button>
+              <span className="num" style={{ minWidth: 20, textAlign: "center", fontSize: 17, fontWeight: 600 }}>{qty}</span>
+              <button type="button" aria-label="Aumenta quantità" onClick={() => setQty((q) => q + 1)} style={{ width: 44, height: 44, border: "none", background: "transparent", fontSize: 22, cursor: "pointer" }}>+</button>
+            </span>
+            <button type="button" disabled={!completo} onClick={() => onConferma({
+              menuItemId: item.id, nome: item.nome, categoria: "combo", prezzo, qty, rimossi: [], aggiunti: [], nota: nota.trim(),
+              combo: {
+                scelte,
+                dettaglio: testoDettaglioCombo(fissi, { bibite: scelte.bibite.map((id) => perId.get(id)?.nome ?? ""), pizze: scelte.pizze.map((id) => perId.get(id)?.nome ?? "") }),
+                pizze: cfg.pizze,
+              },
+            })} style={{ flex: 1, height: 56, border: "none", borderRadius: 18, background: completo ? "#1B1E17" : "#D9DAD2", color: completo ? "#FFFFFF" : "#5F6457", fontSize: 17, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 18px", cursor: completo ? "pointer" : "not-allowed", fontFamily: "var(--font-ui)" }}>
+              <span>Aggiungi</span><span className="num">{euro(prezzo * qty)}</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }: { sedeSlugIniziale?: string; modoIniziale?: "domicilio" | "asporto"; onSchermataIniziale?: (modo: ModoLogo) => void }) {
   const [caricamento, setCaricamento] = useState(true);
   const [cliente, setCliente] = useState<Cliente | null>(null);
@@ -803,6 +947,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
   const [ingredienti, setIngredienti] = useState<IngredienteCl[]>([]);
   const [impasti, setImpasti] = useState<ImpastoCl[]>([]);
   const [pizzaModal, setPizzaModal] = useState<any>(null);
+  const [comboModal, setComboModal] = useState<any>(null);
   const [slotData, setSlotData] = useState<SlotData | null>(null);
   const [orario, setOrario] = useState<string>(""); // "asap" oppure ISO dello slot scelto
   const [giornoSlot, setGiornoSlot] = useState<"oggi" | "domani">("oggi");
@@ -869,7 +1014,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
   }, [sedeIdAttiva]);
 
   // Peso del carrello sulla cucina (pizze equivalenti) e orari prenotabili con disponibilità.
-  const pesoCarrello = cart.reduce((a, c) => a + (CAT_PIZZA.includes(c.categoria) ? c.qty : 0), 0);
+  const pesoCarrello = cart.reduce((a, c) => a + (CAT_PIZZA.includes(c.categoria) ? c.qty : 0) + (c.combo ? c.combo.pizze * c.qty : 0), 0);
   useEffect(() => {
     if (!sedeIdAttiva) { setSlotData(null); return; }
     let annullato = false;
@@ -958,6 +1103,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
 
   const aggiungiAlCarrello = (item: any) => {
     // Pizze, calzoni e focacce si personalizzano nel modale (la focaccia per la scelta dell'impasto); il peso in cucina resta solo delle pizze.
+    if (item.categoria === "combo") { setComboModal(item); return; }
     if (CAT_PIZZA.includes(item.categoria) || item.categoria === "focacce") { setPizzaModal(item); return; }
     const prezzo = parseFloat(item.prezzoEffettivo ?? item.prezzoBase);
     setCart((prev) => {
@@ -1041,6 +1187,19 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
       const m = menuItems.find((x) => x.id === i.menuItemId);
       const imp = i.impastoId ? impasti.find((x) => x.id === i.impastoId) : undefined;
       if (!m || (i.impastoId && !imp)) { mancanti.push(i.nomeSnapshot); continue; }
+      if (m.categoria === "combo") {
+        const cfg = leggiComboConfig(m.comboConfig);
+        const sc = leggiComboScelte(i.comboScelte);
+        const nomeDi = (id: string) => menuItems.find((x) => x.id === id)?.nome ?? "";
+        if (!cfg || !comboDisponibile(m, menuItems)) { mancanti.push(i.nomeSnapshot); continue; }
+        const fissi = cfg.componenti.flatMap((c) => Array<string>(c.qta).fill(nomeDi(c.id)));
+        righe.push({
+          cartId: crypto.randomUUID(), menuItemId: m.id, nome: m.nome, categoria: "combo",
+          prezzo: parseFloat(i.prezzoSnapshot), qty: i.quantita, rimossi: [], aggiunti: [], nota: i.notaCliente ?? "",
+          combo: { scelte: sc, dettaglio: testoDettaglioCombo(fissi, { bibite: sc.bibite.map(nomeDi), pizze: sc.pizze.map(nomeDi) }), pizze: cfg.pizze },
+        });
+        continue;
+      }
       righe.push({
         cartId: crypto.randomUUID(), menuItemId: m.id, nome: m.nome, categoria: m.categoria,
         prezzo: parseFloat(i.prezzoSnapshot), qty: i.quantita,
@@ -1084,6 +1243,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
             ingredientiRimossi: c.rimossi.map((i) => i.id),
             impastoId: c.impasto?.id,
             note: c.nota || undefined,
+            comboScelte: c.combo?.scelte,
           })),
         }),
       });
@@ -1127,6 +1287,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
             ingredientiRimossi: c.rimossi.map((i) => i.id),
             impastoId: c.impasto?.id,
             note: c.nota || undefined,
+            comboScelte: c.combo?.scelte,
           })),
         }),
       });
@@ -1562,7 +1723,8 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
   // "Crea la tua pizza" è un prodotto normale del menù (base Margherita a € 6, extra ai prezzi degli
   // ingredienti) ma sul sito ha un pulsante in evidenza e non compare nell'elenco delle pizze.
   const creaItem = menuItems.find((m) => String(m.nome).trim().toLowerCase() === "crea la tua pizza");
-  const menuLista = menuItems.filter((m) => m !== creaItem);
+  // I combo si vedono solo se in questa pizzeria ci sono tutti i prodotti che contengono.
+  const menuLista = menuItems.filter((m) => m !== creaItem && (m.categoria !== "combo" || comboDisponibile(m, menuItems)));
   const catsPresenti = Array.from(new Set(menuLista.map((m) => m.categoria as string))).sort((a, b) => posCat(a) - posCat(b));
   const filtro = catFiltro || catsPresenti[0] || "";
   const itemsFiltrati = menuLista.filter((m) => m.categoria === filtro).sort((a, b) => a.nome.localeCompare(b.nome, "it", { sensitivity: "base" }));
@@ -1575,7 +1737,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
   };
   const prossimaDomanda = (chiesti: string[]) =>
     (["fritti", "bevande"] as const).find((cat) =>
-      !chiesti.includes(cat) && !cart.some((c) => c.categoria === cat) && menuLista.some((m) => m.categoria === cat));
+      !chiesti.includes(cat) && !cart.some((c) => c.categoria === cat || c.categoria === "combo") && menuLista.some((m) => m.categoria === cat));
   const vaiAlRiepilogo = () => {
     const cat = prossimaDomanda(domandeFatte);
     if (cat) setDomandaAperta(cat);
@@ -1732,6 +1894,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
             <div key={c.cartId} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13.5, color: "var(--text)" }}>{c.nome}</div>
+                {c.combo && <div style={{ fontSize: 11.5, color: "var(--text-2)", lineHeight: 1.4 }}>{c.combo.dettaglio}</div>}
                 {c.impasto && <div style={{ fontSize: 11, color: "var(--text-2)", fontWeight: 600 }}>Impasto {c.impasto.nome} (+{euro(c.impasto.supplemento)})</div>}
                 {c.rimossi.length > 0 && <div style={{ fontSize: 11, color: "var(--danger)" }}>Senza: {c.rimossi.map((i) => i.nome).join(", ")}</div>}
                 {c.aggiunti.length > 0 && <div style={{ fontSize: 11, color: "var(--accent-ink)" }}>Con: {c.aggiunti.map((i) => i.nome).join(", ")}</div>}
@@ -1914,6 +2077,12 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
             <span className="num" style={{ height: 44, padding: "0 14px", borderRadius: 12, background: "#2E3228", display: "flex", alignItems: "center", fontSize: 17, fontWeight: 600 }}>{euro(totale)}</span>
           </button>
         </div>
+      )}
+
+      {comboModal && (
+        <ComboModalCliente item={comboModal} menu={menuItems}
+          onChiudi={() => setComboModal(null)}
+          onConferma={(c) => { setCart((p) => [...p, { ...c, cartId: crypto.randomUUID() }]); setComboModal(null); }} />
       )}
 
       {pizzaModal && (

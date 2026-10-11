@@ -8,7 +8,9 @@ const PESO_CATEGORIA: Record<string, number> = {
   calzoni: 1,
 };
 
-export function pesoRiga(categoria: string | null | undefined, nomeSnapshot: string, quantita: number): number {
+// Per i «Menù Combo» il peso è quante pizze contiene (campo `pizze` della configurazione del combo), passato in `pizzeCombo`.
+export function pesoRiga(categoria: string | null | undefined, nomeSnapshot: string, quantita: number, pizzeCombo?: number | null): number {
+  if (categoria === "combo") return Math.max(0, pizzeCombo ?? 0) * quantita;
   const base = categoria ? PESO_CATEGORIA[categoria] ?? 0 : 0;
   const maxi = /\(maxi\)/i.test(nomeSnapshot) ? 2 : 1;
   return base * maxi * quantita;

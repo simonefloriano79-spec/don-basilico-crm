@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { allergeniProdotto, testoAllergeni, type AllergeniCalcolati } from "@/lib/allergeni";
+import { allergeniProdotto, allergeniCombo, testoAllergeni, type AllergeniCalcolati } from "@/lib/allergeni";
 
 interface Sede { id: string; nome: string; slug: string; }
-interface Prodotto { id: string; nome: string; categoria: string; descrizione: string | null; immagineUrl: string | null; prezzo: number; allergeni: AllergeniCalcolati; }
+interface Prodotto { id: string; nome: string; categoria: string; descrizione: string | null; immagineUrl: string | null; prezzo: number; allergeni: AllergeniCalcolati; sceltaPendente?: boolean; }
 interface Impasto { id: string; nome: string; descrizione: string | null; supplemento: number; }
 
 // Sezioni nell'ordine del menù e come si chiamano. «Crea la tua pizza» è un prodotto speciale e va in evidenza.
 const SEZIONI: { cat: string; titolo: string; nota?: string }[] = [
+  { cat: "combo", titolo: "Menù Combo", nota: "Prezzo fisso: pizze e contorni sono quelli indicati, le bibite (da 33cl) si scelgono quando ordini." },
   { cat: "menu_speciale", titolo: "Speciali" },
   { cat: "pizze_rosse", titolo: "Pizze rosse", nota: "Con passata Mutti e fior di latte La Majelletta." },
   { cat: "pizze_bianche", titolo: "Pizze bianche", nota: "Con fior di latte La Majelletta." },
@@ -60,7 +61,9 @@ export default function ConsultaMenu() {
           .map((x: any) => ({
             id: x.id, nome: x.nome, categoria: x.categoria, descrizione: x.descrizione, immagineUrl: x.immagineUrl,
             prezzo: parseFloat(x.prezzoEffettivo ?? x.prezzoBase),
-            allergeni: allergeniProdotto(x),
+            ...(x.categoria === "combo"
+              ? (() => { const a = allergeniCombo(x, m.items ?? []); return { allergeni: { lista: a.lista, daConfermare: a.daConfermare }, sceltaPendente: a.sceltaPendente }; })()
+              : { allergeni: allergeniProdotto(x) }),
           }))
       );
       setImpasti(i.impasti ?? []);
@@ -133,7 +136,7 @@ export default function ConsultaMenu() {
                       {p.descrizione && <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 2, lineHeight: 1.45 }}>{p.descrizione}</div>}
                       {p.categoria !== "bevande" && (
                         <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 3, lineHeight: 1.4 }}>
-                          Allergeni: {testoAllergeni(p.allergeni)}{p.allergeni.daConfermare ? " · elenco da confermare, chiedi al personale" : ""}
+                          Allergeni: {testoAllergeni(p.allergeni)}{p.sceltaPendente ? " (più quelli delle pizze che scegli)" : ""}{p.allergeni.daConfermare ? " · elenco da confermare, chiedi al personale" : ""}
                         </div>
                       )}
                     </div>

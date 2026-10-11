@@ -15,8 +15,11 @@ export function righeOrdineDaArticoli(articoli: ArticoloPrezzato[]) {
     notaCliente: a.note ?? null,
     impastoId: a.impasto?.id ?? null,
     impasto: a.impasto?.nome ?? null,
+    // Combo: le scelte restano salvate in forma strutturata (servono per modificare l'ordine dall'app).
+    ...(a.combo ? { comboScelte: a.combo.scelte as unknown as object } : {}),
     noteItem:
       [
+        a.combo ? a.combo.dettaglio : "",
         a.impasto ? testoImpasto(a.impasto.nome) : "",
         a.rimossi.length ? `Senza: ${a.rimossi.map((r) => r.nome).join(", ")}` : "",
         a.extra.length ? `Con: ${a.extra.map((e) => e.nome).join(", ")}` : "",

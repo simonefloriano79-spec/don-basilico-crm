@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { CATEGORIE_IMPASTO, impastiDellaSede } from "@/lib/impasti";
+import { bevandaAmmessaInCombo, leggiComboConfig, leggiComboScelte, testoDettaglioCombo, type ComboScelte } from "@/lib/combo";
 
 const CATEGORIE_MAXI = new Set(["pizze_rosse", "pizze_bianche"]);
 
@@ -11,6 +12,8 @@ export interface ArticoloOrdinatoInput {
   ingredientiRimossi?: string[];
   impastoId?: string;
   note?: string;
+  /** Solo per i «Menù Combo»: bibite e pizze speciali scelte (id dei prodotti). */
+  comboScelte?: { bibite?: string[]; pizze?: string[] };
 }
 
 export interface ArticoloPrezzato {
@@ -24,6 +27,8 @@ export interface ArticoloPrezzato {
   rimossi: { ingredienteId: string; nome: string }[];
   impasto: { id: string; nome: string; supplemento: number } | null;
   note: string | null;
+  /** Solo per i combo: scelte validate, testo per la comanda e quante pizze contano per la cucina. */
+  combo: { scelte: ComboScelte; dettaglio: string; pizze: number } | null;
 }
 
 export class ErrorePricing extends Error {}
@@ -70,6 +75,23 @@ export async function calcolaOrdine(
   const maxiDisponibile = !!maxiConfig?.attiva;
   const moltiplicatore = maxiConfig ? parseFloat(maxiConfig.moltiplicatore.toString()) : 1;
 
+  // Combo: servono nomi, categorie e disponibilità in sede dei prodotti contenuti e di quelli scelti.
+  const idCombo = new Set(menuItems.filter((m) => m.categoria === "combo").map((m) => m.id));
+  const idCollegati = new Set<string>();
+  menuItems.filter((m) => idCombo.has(m.id)).forEach((m) => leggiComboConfig(m.comboConfig)?.componenti.forEach((c) => idCollegati.add(c.id)));
+  articoli.filter((a) => idCombo.has(a.menuItemId)).forEach((a) => {
+    const sc = leggiComboScelte(a.comboScelte);
+    [...sc.bibite, ...sc.pizze].forEach((id) => idCollegati.add(id));
+  });
+  const [itemCollegati, overrideCollegati] = idCollegati.size
+    ? await Promise.all([
+        prisma.menuItem.findMany({ where: { id: { in: Array.from(idCollegati) } }, select: { id: true, nome: true, categoria: true, isAttivo: true } }),
+        prisma.sedeMenuOverride.findMany({ where: { sedeId, menuItemId: { in: Array.from(idCollegati) } } }),
+      ])
+    : [[], []];
+  const collegatiMap = new Map(itemCollegati.map((i) => [i.id, i]));
+  const nonDisponibiliInSede = new Set(overrideCollegati.filter((o) => o.disponibile === false).map((o) => o.menuItemId));
+
   let totale = 0;
   const articoliPrezzati: ArticoloPrezzato[] = articoli.map((a) => {
     const menuItem = menuItemMap.get(a.menuItemId);
@@ -78,6 +100,44 @@ export async function calcolaOrdine(
     const override = overrideMap.get(menuItem.id);
     if (override && override.disponibile === false) {
       throw new ErrorePricing(`${menuItem.nome} non è disponibile in questa sede`);
+    }
+
+    // «Menù Combo»: prezzo fisso; si controllano le scelte (quante, e che siano ammesse e disponibili in questa sede).
+    if (menuItem.categoria === "combo") {
+      const cfg = leggiComboConfig(menuItem.comboConfig);
+      if (!cfg) throw new ErrorePricing(`${menuItem.nome}: combo non configurato`);
+      const sc = leggiComboScelte(a.comboScelte);
+      if (sc.bibite.length !== cfg.bibite) throw new ErrorePricing(`${menuItem.nome}: scegli ${cfg.bibite} ${cfg.bibite === 1 ? "bibita" : "bibite"}`);
+      if (sc.pizze.length !== cfg.pizzeSpeciali) throw new ErrorePricing(`${menuItem.nome}: scegli ${cfg.pizzeSpeciali} pizze speciali`);
+      const nomeScelta = (id: string, ammessa: (i: { nome: string; categoria: string }) => boolean, cosa: string) => {
+        const it = collegatiMap.get(id);
+        if (!it || !it.isAttivo || !ammessa(it)) throw new ErrorePricing(`${menuItem.nome}: ${cosa} non valida`);
+        if (nonDisponibiliInSede.has(id)) throw new ErrorePricing(`${it.nome} non è disponibile in questa sede`);
+        return it.nome;
+      };
+      const nomiBibite = sc.bibite.map((id) => nomeScelta(id, (i) => i.categoria === "bevande" && bevandaAmmessaInCombo(i.nome), "la bibita scelta"));
+      const nomiPizze = sc.pizze.map((id) => nomeScelta(id, (i) => i.categoria === "menu_speciale", "la pizza scelta"));
+      const nomiFissi = cfg.componenti.flatMap((c) => {
+        const it = collegatiMap.get(c.id);
+        if (!it || !it.isAttivo || nonDisponibiliInSede.has(c.id)) throw new ErrorePricing(`${menuItem.nome} non è disponibile: ${it?.nome ?? "un prodotto"} manca in questa sede`);
+        return Array<string>(c.qta).fill(it.nome);
+      });
+      const prezzoCombo = override?.prezzoCustom ? parseFloat(override.prezzoCustom.toString()) : parseFloat(menuItem.prezzoBase.toString());
+      const quantitaCombo = Math.max(1, Math.round(a.quantita) || 1);
+      totale += prezzoCombo * quantitaCombo;
+      return {
+        menuItemId: menuItem.id,
+        nomeSnapshot: menuItem.nome,
+        categoria: menuItem.categoria,
+        taglia: "normale" as const,
+        prezzoSnapshot: Math.round(prezzoCombo * 100) / 100,
+        quantita: quantitaCombo,
+        extra: [],
+        rimossi: [],
+        impasto: null,
+        note: a.note ?? null,
+        combo: { scelte: sc, dettaglio: testoDettaglioCombo(nomiFissi, { bibite: nomiBibite, pizze: nomiPizze }), pizze: cfg.pizze },
+      };
     }
 
     const taglia: "normale" | "maxi" = a.taglia === "maxi" ? "maxi" : "normale";
@@ -136,6 +196,7 @@ export async function calcolaOrdine(
       rimossi: rimossi.map((r) => ({ ingredienteId: r.ingredienteId, nome: r.nome })),
       impasto,
       note: a.note ?? null,
+      combo: null,
     };
   });
 
