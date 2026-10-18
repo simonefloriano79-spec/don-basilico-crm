@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { COSTO_CONSEGNA_DEFAULT } from "@/lib/consegna";
 import PaginaTessera from "./PaginaTessera";
+import BoxNotifiche from "./Notifiche";
 import { allergeniProdotto, allergeniCombo, testoAllergeni } from "@/lib/allergeni";
 import { bevandaAmmessaInCombo, leggiComboConfig, leggiComboScelte, testoDettaglioCombo, type ComboScelte } from "@/lib/combo";
 
@@ -1342,6 +1343,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
           Riceverai un SMS al {cliente?.telefono ?? "tuo numero"} con l'orario confermato
           {confermato.oraRitiro ? " (potrebbe variare di poco in base agli ordini in corso)" : ""}.
         </p>
+        <div style={{ maxWidth: 360, margin: "22px auto 0" }}><BoxNotifiche /></div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 360, margin: "26px auto 0" }}>
           <button style={btnPrimarySt} onClick={() => setVistaOrdini(true)}>Segui il tuo ordine</button>
           <button style={{ ...btnPrimarySt, background: "transparent", color: "var(--text)", border: "1.5px solid var(--text)" }}
@@ -1570,6 +1572,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
           <BottoneCondividi stile={secondario} />
         </div>
 
+        {cliente && <BoxNotifiche compatto />}
         <BottoneInstalla discreto />
       </div>
     );

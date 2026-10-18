@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ripristinaSconto } from "@/lib/fedelta";
 import { inviaSmsDettaglio } from "@/lib/customer-auth/sms";
+import { inviaPushCliente } from "@/lib/push";
 import { caricaOrdineStaff } from "@/lib/ordini-online";
 
 // POST /api/ordini/[id]/rifiuta — la pizzeria non può preparare l'ordine online: lo annulla e avvisa il cliente.
@@ -35,6 +36,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     );
     smsInviato = esitoSms.ok;
     smsErrore = esitoSms.errore;
+  }
+  if (body.avvisa !== false) {
+    await inviaPushCliente(ordine.clienteId, {
+      titolo: `Ordine #${ordine.numeroOrdine} non preparabile`,
+      testo: "Purtroppo non riusciamo a prepararlo per l'orario richiesto. Riprova con un altro orario o chiamaci.",
+      tag: `ordine-${ordine.id}`,
+    });
   }
   return NextResponse.json({ ok: true, smsInviato, smsErrore });
 }
