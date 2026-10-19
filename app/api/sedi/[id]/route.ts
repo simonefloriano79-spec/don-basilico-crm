@@ -34,6 +34,20 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
     data.ordiniOnlineAttivi = body.ordiniOnlineAttivi;
   }
+  // Pizza maxi (solo super admin: è una scelta di listino): attiva/disattiva per la sede, moltiplicatore di default ×2.
+  if (body.maxiAttiva !== undefined) {
+    if (typeof body.maxiAttiva !== "boolean") return NextResponse.json({ error: "Valore non valido" }, { status: 400 });
+    if (user.ruolo !== "super_admin") return NextResponse.json({ error: "Solo il super admin può attivare la pizza maxi" }, { status: 403 });
+    const esiste = await prisma.sede.findUnique({ where: { id: params.id }, select: { id: true } });
+    if (!esiste) return NextResponse.json({ error: "Sede non trovata" }, { status: 404 });
+    const ok = await prisma.sedePizzaMaxi.upsert({
+      where: { sedeId: params.id },
+      create: { sedeId: params.id, attiva: body.maxiAttiva },
+      update: { attiva: body.maxiAttiva },
+    }).then(() => true).catch((e) => { console.error("Pizza maxi non salvata", e); return false; });
+    if (!ok) return NextResponse.json({ error: "Non riesco a salvare la pizza maxi: controlla che il database sia aggiornato" }, { status: 500 });
+    if (!Object.keys(data).length) return NextResponse.json({ ok: true, maxiAttiva: body.maxiAttiva });
+  }
   if (!Object.keys(data).length) return NextResponse.json({ error: "Niente da aggiornare" }, { status: 400 });
 
   const sede = await prisma.sede.update({ where: { id: params.id }, data }).catch(() => null);
