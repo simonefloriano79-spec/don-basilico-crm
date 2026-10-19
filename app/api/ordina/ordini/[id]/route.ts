@@ -7,6 +7,7 @@ import { generaSlot } from "@/lib/slot-ritiro";
 import { disponibilitaSlot, pesoRiga } from "@/lib/capacita-pizze";
 import { finestraCliente, MAX_MODIFICHE_CLIENTE } from "@/lib/modifica-ordine";
 import { righeOrdineDaArticoli } from "@/lib/ordina-righe";
+import { scontoDaCodice } from "@/lib/codice-sconto";
 
 const METODI_PAGAMENTO = ["contanti", "carta"];
 
@@ -102,7 +103,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const costoConsegna = parseFloat(ordine.costoConsegna.toString());
   const scontoPrecedente = parseFloat(ordine.scontoFedelta.toString());
   const scontoApplicato = Math.min(scontoPrecedente, esito.totale);
-  const totale = Math.round((esito.totale + costoConsegna - scontoApplicato) * 100) / 100;
+  // Codice sconto già usato sull'ordine: resta, con la stessa percentuale, ricalcolato sui nuovi prodotti
+  // (non si ricontrollano date e usi: il cliente l'aveva già validamente applicato).
+  let scontoCodice = 0;
+  if (ordine.codiceSconto) {
+    const riga = await prisma.codiceSconto.findUnique({ where: { codice: ordine.codiceSconto } });
+    scontoCodice = riga
+      ? scontoDaCodice(Number(riga.percentuale), esito.totale)
+      : Math.min(parseFloat(ordine.scontoCodice.toString()), esito.totale);
+  }
+  const totale = Math.round((esito.totale + costoConsegna - scontoApplicato - scontoCodice) * 100) / 100;
 
   // Orario. Il cliente manda l'orario scelto, oppure niente per «appena possibile».
   // - orario nuovo (o passato da «appena possibile» a un orario / viceversa): la pizzeria dovrà concordarlo di nuovo;
@@ -131,6 +141,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         note,
         totale,
         scontoFedelta: scontoApplicato,
+        scontoCodice,
         metodoPagamento,
         ...datiOrario,
         items: { deleteMany: {}, create: righeOrdineDaArticoli(esito.articoli) },
@@ -150,6 +161,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     sede: esito.sedeNome,
     totale,
     scontoFedelta: scontoApplicato,
+    codiceSconto: ordine.codiceSconto,
+    scontoCodice,
     oraRitiro: oraRitiro ? oraRitiro.toISOString() : null,
   });
 }

@@ -129,6 +129,9 @@ function MieiOrdini({ onIndietro, onModifica }: { onIndietro: () => void; onModi
               {parseFloat(o.scontoFedelta) > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: "var(--accent-ink)" }}><span>Sconto fedeltà</span><span className="num">-{euro(parseFloat(o.scontoFedelta))}</span></div>
               )}
+              {parseFloat(o.scontoCodice ?? 0) > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: "var(--accent-ink)" }}><span>Codice {o.codiceSconto}</span><span className="num">-{euro(parseFloat(o.scontoCodice))}</span></div>
+              )}
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontWeight: 700, color: "var(--text)" }}>
                 <span>Totale</span><span className="num">{euro(parseFloat(o.totale))}</span>
               </div>
@@ -181,6 +184,61 @@ function MieiOrdini({ onIndietro, onModifica }: { onIndietro: () => void; onModi
 }
 
 // Caselle di consenso: informativa privacy obbligatoria, marketing facoltativo.
+// «Hai un codice sconto?»: il cliente scrive un codice (es. BAFFO15) e lo applica; il controllo vero lo fa il server
+// (anche alla conferma dell'ordine). Un solo sconto per ordine: non si somma a quello fedeltà.
+function CodiceScontoBox({ applicato, sconto, mancano, onApplica, onRimuovi }: {
+  applicato: { codice: string; percentuale: number; minimo: number } | null; sconto: number; mancano: number;
+  onApplica: (codice: string) => Promise<string | null>; onRimuovi: () => void;
+}) {
+  const [aperto, setAperto] = useState(false);
+  const [testo, setTesto] = useState("");
+  const [errore, setErrore] = useState("");
+  const [occupato, setOccupato] = useState(false);
+
+  const verde: React.CSSProperties = { border: "1.5px solid var(--accent-border)", background: "var(--accent-bg-2)", borderRadius: 14, padding: "12px 14px" };
+
+  if (applicato) {
+    return (
+      <div style={{ ...verde, marginBottom: 12, display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ flex: 1, fontSize: 13.5, color: "var(--text)", lineHeight: 1.4 }}>
+          <strong>Codice {applicato.codice}</strong> applicato: -{applicato.percentuale}% sui prodotti{sconto > 0 ? <> (<span className="num">-{euro(sconto)}</span>)</> : null}
+          {mancano > 0 && <div style={{ fontSize: 12.5, color: "var(--text-2)", marginTop: 3 }}>Vale per ordini da almeno {euro(applicato.minimo)} di prodotti: aggiungine ancora per {euro(mancano)}.</div>}
+        </div>
+        <button type="button" onClick={onRimuovi} style={{ background: "none", border: "none", color: "var(--text-2)", fontSize: 13, textDecoration: "underline", cursor: "pointer", minHeight: 44, padding: "0 4px" }}>Rimuovi</button>
+      </div>
+    );
+  }
+
+  if (!aperto) {
+    return (
+      <button type="button" onClick={() => setAperto(true)} style={{ background: "none", border: "none", color: "var(--accent-ink)", fontSize: 14, fontWeight: 600, textDecoration: "underline", cursor: "pointer", padding: "10px 0", marginBottom: 6, minHeight: 44 }}>
+        Hai un codice sconto?
+      </button>
+    );
+  }
+
+  const applica = async () => {
+    if (!testo.trim()) { setErrore("Scrivi il codice sconto"); return; }
+    setOccupato(true); setErrore("");
+    const esito = await onApplica(testo);
+    setOccupato(false);
+    if (esito) setErrore(esito);
+  };
+
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: "flex", gap: 8 }}>
+        <input value={testo} onChange={(e) => { setTesto(e.target.value.toUpperCase()); setErrore(""); }} maxLength={30}
+          placeholder="Codice sconto" autoCapitalize="characters" autoCorrect="off" spellCheck={false} aria-label="Codice sconto"
+          onKeyDown={(e) => { if (e.key === "Enter") applica(); }}
+          style={{ flex: 1, minWidth: 0, height: 48, boxSizing: "border-box", borderRadius: 14, border: errore ? "2px solid #B3261E" : "1px solid #DADBD2", background: "#fff", padding: "0 14px", fontSize: 16, letterSpacing: 1, outline: "none", fontFamily: "var(--font-ui)" }} />
+        <button type="button" onClick={applica} disabled={occupato} style={{ height: 48, padding: "0 20px", borderRadius: 14, border: "none", background: "var(--text)", color: "#fff", fontSize: 14.5, fontWeight: 600, cursor: occupato ? "default" : "pointer", opacity: occupato ? 0.6 : 1 }}>{occupato ? "…" : "Applica"}</button>
+      </div>
+      {errore && <div role="alert" style={{ fontSize: 12.5, color: "#B3261E", marginTop: 6, lineHeight: 1.4 }}>{errore}</div>}
+    </div>
+  );
+}
+
 function ConsensiPrivacy({ privacy, setPrivacy, marketing, setMarketing }: { privacy: boolean; setPrivacy: (v: boolean) => void; marketing: boolean; setMarketing: (v: boolean) => void }) {
   const casella: React.CSSProperties = { width: 20, height: 20, marginTop: 1, flexShrink: 0, accentColor: "#1c1d18" };
   return (
@@ -916,6 +974,8 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
   const [tessera, setTessera] = useState<Tessera | null>(null);
   // Sconto fedeltà: null = il cliente non ha ancora scelto, true = lo usa su questo ordine, false = lo tiene per un altro.
   const [usaSconto, setUsaSconto] = useState<boolean | null>(null);
+  // Codice sconto applicato dal cliente (es. BAFFO15); non si somma allo sconto fedeltà.
+  const [codiceApplicato, setCodiceApplicato] = useState<{ codice: string; percentuale: number; minimo: number } | null>(null);
   const [inviandoOtp, setInviandoOtp] = useState(false);
   const [erroreGate, setErroreGate] = useState("");
 
@@ -940,7 +1000,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
   const [note, setNote] = useState("");
   const [invio, setInvio] = useState(false);
   const [erroreInvio, setErroreInvio] = useState("");
-  const [confermato, setConfermato] = useState<{ numeroOrdine: number; sede: string; totale: number; oraRitiro: string | null; scontoFedelta?: number; modificato?: boolean } | null>(null);
+  const [confermato, setConfermato] = useState<{ numeroOrdine: number; sede: string; totale: number; oraRitiro: string | null; scontoFedelta?: number; scontoCodice?: number; codiceSconto?: string | null; modificato?: boolean } | null>(null);
   const [nomeCitofono, setNomeCitofono] = useState("");
   // «Vorrei essere chiamato»: citofono che non funziona o senza nome; al posto del nome sul citofono arriva questa dicitura.
   const [chiamami, setChiamami] = useState(false);
@@ -1136,11 +1196,35 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
   // Lo sconto si applica ai prodotti: la consegna resta sempre da pagare e non conta per la tessera.
   // In modifica lo sconto fedeltà già applicato all'ordine resta, ma non può superare i prodotti.
   const scontoApplicato = modifica ? Math.min(parseFloat(modifica.scontoFedelta ?? 0) || 0, subtotale) : usaSconto === true ? Math.min(scontoMaturato, subtotale) : 0;
-  const totale = lordo - scontoApplicato;
+  // Codice sconto: in modifica resta quello dell'ordine (ricalcolato sui nuovi prodotti), altrimenti quello appena applicato.
+  const nomeCodice = modifica ? (modifica.codiceSconto ?? null) : codiceApplicato?.codice ?? null;
+  const scontoCodice = modifica
+    ? modifica.codiceSconto
+      ? modifica.percentualeCodice != null
+        ? Math.min(Math.round(subtotale * modifica.percentualeCodice) / 100, subtotale)
+        : Math.min(parseFloat(modifica.scontoCodice ?? 0) || 0, subtotale)
+      : 0
+    : codiceApplicato && subtotale >= codiceApplicato.minimo ? Math.min(Math.round(subtotale * codiceApplicato.percentuale) / 100, subtotale) : 0;
+  // Con una spesa minima richiesta: quanto manca per far scattare lo sconto (0 se già raggiunta).
+  const codiceMancano = !modifica && codiceApplicato && subtotale < codiceApplicato.minimo ? Math.round((codiceApplicato.minimo - subtotale) * 100) / 100 : 0;
+  const totale = lordo - scontoApplicato - scontoCodice;
+  const applicaCodice = async (codice: string): Promise<string | null> => {
+    if (usaSconto === true && scontoMaturato > 0) return "Il codice non si somma allo sconto fedeltà: per usarlo scegli «Tienilo per un altro ordine» qui sotto.";
+    try {
+      const r = await fetch("/api/ordina/codice", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ codice }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) return d.error ?? "Questo codice non è valido";
+      setCodiceApplicato({ codice: d.codice, percentuale: d.percentuale, minimo: Number(d.ordineMinimo) || 0 });
+      if (scontoMaturato > 0 && usaSconto === null) setUsaSconto(false);
+      return null;
+    } catch {
+      return "Connessione assente, riprova";
+    }
+  };
   // Se lo sconto sta nel totale lo si propone già attivo; se lo supera il cliente deve scegliere lui (si perderebbe il resto).
   useEffect(() => {
-    if (scontoMaturato > 0 && usaSconto === null && subtotale >= scontoMaturato) setUsaSconto(true);
-  }, [scontoMaturato, subtotale, usaSconto]);
+    if (scontoMaturato > 0 && usaSconto === null && subtotale >= scontoMaturato && !codiceApplicato) setUsaSconto(true);
+  }, [scontoMaturato, subtotale, usaSconto, codiceApplicato]);
 
   // ── Modifica di un ordine già fatto ──────────────────────────
   // Rimette nel carrello le righe dell'ordine (appena arrivano menù, ingredienti e impasti della sede).
@@ -1157,6 +1241,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
     setModifica({
       id: o.id, numeroOrdine: o.numeroOrdine, ordine: o, pronto: false, avviso: "",
       indirizzo: o.clienteIndirizzo ?? "", costoConsegna: o.costoConsegna, scontoFedelta: o.scontoFedelta,
+      codiceSconto: o.codiceSconto ?? null, scontoCodice: o.scontoCodice, percentualeCodice: o.percentualeCodice ?? null,
     });
     if (o.tipo === "asporto") { setTipo("asporto"); setSedeSelezionata(o.sede.id); }
     else { setTipo("domicilio"); setSedeAssegnata({ id: o.sede.id, nome: o.sede.nome }); setStatoIndirizzo("ok"); }
@@ -1164,7 +1249,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
   };
   // Esce dalla modifica e ripulisce sede, indirizzo e carrello (così il prossimo ordine riparte da zero).
   const chiudiTuttoDopoModifica = () => {
-    setModifica(null); setCart([]); setOrario(""); setNote(""); setMetodoPagamento("");
+    setModifica(null); setCart([]); setOrario(""); setNote(""); setMetodoPagamento(""); setCodiceApplicato(null);
     setTipo(null); setSedeSelezionata(""); setStatoIndirizzo("idle"); setSedeAssegnata(null);
     setDomandeFatte([]); setDomandaAperta(null);
   };
@@ -1250,7 +1335,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { setErroreInvio(data.error ?? "Non siamo riusciti a salvare le modifiche, riprova tra un momento"); return; }
-      setConfermato({ numeroOrdine: data.numeroOrdine, sede: data.sede, totale: data.totale, oraRitiro: data.oraRitiro, scontoFedelta: data.scontoFedelta, modificato: true });
+      setConfermato({ numeroOrdine: data.numeroOrdine, sede: data.sede, totale: data.totale, oraRitiro: data.oraRitiro, scontoFedelta: data.scontoFedelta, scontoCodice: data.scontoCodice, codiceSconto: data.codiceSconto, modificato: true });
       setModifica(null);
     } catch {
       setErroreInvio("Connessione assente o server non raggiungibile, riprova");
@@ -1281,6 +1366,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
           nomeCitofono: tipo === "domicilio" ? (chiamami ? TESTO_CHIAMAMI : nomeCitofono.trim() || undefined) : undefined,
           oraRitiro: orario === "asap" ? undefined : orario,
           usaSconto: scontoMaturato > 0 && usaSconto === true,
+          codiceSconto: codiceApplicato && subtotale >= codiceApplicato.minimo ? codiceApplicato.codice : undefined,
           note: note || undefined,
           articoli: cart.map((c) => ({
             menuItemId: c.menuItemId, quantita: c.qty,
@@ -1293,8 +1379,13 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) { setErroreInvio(data.error ?? "Non siamo riusciti a inviare l'ordine, riprova tra un momento"); return; }
-      setConfermato({ numeroOrdine: data.numeroOrdine, sede: data.sede, totale: data.totale, oraRitiro: data.oraRitiro, scontoFedelta: data.scontoFedelta });
+      if (!res.ok) {
+        if (data.esito === "codice") setCodiceApplicato(null); // codice non più valido (usato, scaduto…): si toglie e il totale torna pieno
+        setErroreInvio(data.error ?? "Non siamo riusciti a inviare l'ordine, riprova tra un momento");
+        return;
+      }
+      setConfermato({ numeroOrdine: data.numeroOrdine, sede: data.sede, totale: data.totale, oraRitiro: data.oraRitiro, scontoFedelta: data.scontoFedelta, scontoCodice: data.scontoCodice, codiceSconto: data.codiceSconto });
+      setCodiceApplicato(null);
     } catch {
       setErroreInvio("Connessione assente o server non raggiungibile, riprova");
     } finally {
@@ -1330,6 +1421,9 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
         <div style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--text)", marginTop: 14 }}>{euro(confermato.totale)}</div>
         {!!confermato.scontoFedelta && (
           <div style={{ fontSize: 13.5, color: "var(--accent-ink)", marginTop: 6, fontWeight: 600 }}>Sconto fedeltà applicato: -{euro(confermato.scontoFedelta)}</div>
+        )}
+        {!!confermato.scontoCodice && (
+          <div style={{ fontSize: 13.5, color: "var(--accent-ink)", marginTop: 6, fontWeight: 600 }}>Codice {confermato.codiceSconto} applicato: -{euro(confermato.scontoCodice)}</div>
         )}
         {confermato.oraRitiro && (
           <div style={{ fontSize: 14, color: "var(--text-2)", marginTop: 10 }}>
@@ -2008,6 +2102,10 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
             </div>
           )}
 
+          {!modifica && (
+            <CodiceScontoBox applicato={codiceApplicato} sconto={scontoCodice} mancano={codiceMancano} onApplica={applicaCodice} onRimuovi={() => setCodiceApplicato(null)} />
+          )}
+
           {!modifica && scontoMaturato > 0 && (
             <div style={{ marginBottom: 12, padding: "12px 14px", border: "1.5px solid var(--accent-border)", background: "var(--accent-bg-2)", borderRadius: 14 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Hai uno sconto fedeltà di {euro(scontoMaturato)}</div>
@@ -2015,7 +2113,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
                 È il {PERCENTUALE_SCONTO_INTERA}% di quanto hai speso nei tuoi ultimi {TIMBRI_PER_CICLO} ordini (consegna esclusa).
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => setUsaSconto(true)} style={{ flex: 1, padding: "11px 6px", borderRadius: 12, border: "1.5px solid", cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 13, ...sceltaSt(usaSconto === true) }}>Usalo ora</button>
+                <button onClick={() => { setUsaSconto(true); setCodiceApplicato(null); }} style={{ flex: 1, padding: "11px 6px", borderRadius: 12, border: "1.5px solid", cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 13, ...sceltaSt(usaSconto === true) }}>Usalo ora</button>
                 <button onClick={() => setUsaSconto(false)} style={{ flex: 1, padding: "11px 6px", borderRadius: 12, border: "1.5px solid", cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 13, ...sceltaSt(usaSconto === false) }}>Tienilo per un altro ordine</button>
               </div>
               {usaSconto === false && (
@@ -2037,6 +2135,12 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
               <span style={{ fontSize: 12.5, color: "var(--accent-ink)" }}>Sconto fedeltà</span>
               <span className="num" style={{ fontSize: 12.5, color: "var(--accent-ink)" }}>-{euro(scontoApplicato)}</span>
+            </div>
+          )}
+          {scontoCodice > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+              <span style={{ fontSize: 12.5, color: "var(--accent-ink)" }}>Codice {nomeCodice}</span>
+              <span className="num" style={{ fontSize: 12.5, color: "var(--accent-ink)" }}>-{euro(scontoCodice)}</span>
             </div>
           )}
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>

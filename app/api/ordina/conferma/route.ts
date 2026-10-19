@@ -9,6 +9,7 @@ import { COSTO_CONSEGNA_DEFAULT } from "@/lib/consegna";
 import { prossimoNumeroOrdine } from "@/lib/numero-ordine";
 import { righeOrdineDaArticoli } from "@/lib/ordina-righe";
 import { assicuraTessera, statoTessera, usaSconto as usaScontoTessera } from "@/lib/fedelta";
+import { normalizzaCodice, scontoDaCodice, verificaCodice } from "@/lib/codice-sconto";
 import { randomUUID } from "crypto";
 
 const METODI_PAGAMENTO = ["contanti", "carta"];
@@ -128,8 +129,15 @@ export async function POST(req: NextRequest) {
   // Tessera fedeltà: la si crea al primo ordine (il consenso privacy è già stato dato). Lo sconto, se il cliente lo
   // vuole usare, viene assegnato DENTRO la transazione che crea l'ordine (tessera bloccata): non si può usare due volte.
   const vuoleSconto = body.usaSconto === true;
+  // Codice sconto (es. BAFFO15): ne vale uno solo per ordine, quindi non si somma allo sconto fedeltà.
+  const codiceRichiesto = typeof body.codiceSconto === "string" ? normalizzaCodice(body.codiceSconto) : "";
+  if (codiceRichiesto && vuoleSconto) {
+    return NextResponse.json({ error: "Il codice sconto non si somma allo sconto fedeltà: scegline uno solo per questo ordine", esito: "codice" }, { status: 409 });
+  }
   const ordineId = randomUUID();
   let scontoApplicato = 0;
+  let scontoCodice = 0;
+  let codiceUsato: string | null = null;
   let totale = totaleLordo;
 
   let ordine;
@@ -139,6 +147,18 @@ export async function POST(req: NextRequest) {
         nome: cliente.nome, telefono: cliente.telefono!, sedeSlug: sede.slug,
         marketing: !!cliente.marketingAt, consensoAt: cliente.privacyAt!,
       });
+
+      if (codiceRichiesto) {
+        // Si blocca la riga del cliente: due ordini contemporanei non possono usare lo stesso codice due volte.
+        await tx.$queryRaw`SELECT id FROM clienti WHERE id = ${cliente.id}::uuid FOR UPDATE`;
+        // ...e quella del codice: con un limite di utilizzi totali, due clienti insieme non superano il tetto.
+        await tx.$queryRaw`SELECT id FROM codici_sconto WHERE codice = ${codiceRichiesto} FOR UPDATE`;
+        const c = await verificaCodice(tx, codiceRichiesto, cliente.id, { totaleProdotti: esito.totale });
+        if (!c.ok) throw new Error(`CODICE_NON_VALIDO:${c.motivo}`);
+        scontoCodice = Math.min(scontoDaCodice(c.percentuale, esito.totale), esito.totale);
+        codiceUsato = c.codice;
+        totale = Math.round((totaleLordo - scontoCodice) * 100) / 100;
+      }
 
       if (vuoleSconto) {
         const stato = await statoTessera(cliente.telefono!, tx, true);
@@ -167,6 +187,8 @@ export async function POST(req: NextRequest) {
           totale,
           costoConsegna,
           scontoFedelta: scontoApplicato,
+          codiceSconto: codiceUsato,
+          scontoCodice,
           metodoPagamento,
           items: { create: righeOrdineDaArticoli(esito.articoli) },
         },
@@ -179,6 +201,9 @@ export async function POST(req: NextRequest) {
       return ordineCreato;
     });
   } catch (e: any) {
+    if (typeof e?.message === "string" && e.message.startsWith("CODICE_NON_VALIDO:")) {
+      return NextResponse.json({ error: e.message.slice("CODICE_NON_VALIDO:".length), esito: "codice" }, { status: 409 });
+    }
     if (e?.message === "SCONTO_NON_DISPONIBILE") {
       return NextResponse.json({ error: "Lo sconto fedeltà non è più disponibile", esito: "sconto" }, { status: 409 });
     }
@@ -192,6 +217,8 @@ export async function POST(req: NextRequest) {
     totale,
     costoConsegna,
     scontoFedelta: scontoApplicato,
+    codiceSconto: codiceUsato,
+    scontoCodice,
     oraRitiro: oraRitiro ? oraRitiro.toISOString() : null,
   });
 }

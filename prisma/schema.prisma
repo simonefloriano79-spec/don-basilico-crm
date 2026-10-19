@@ -306,6 +306,9 @@ model Ordine {
   costoConsegna   Decimal @default(0) @map("costo_consegna") @db.Decimal(10, 2)
   // Sconto della tessera fedeltà applicato all'ordine (già sottratto da `totale`).
   scontoFedelta   Decimal @default(0) @map("sconto_fedelta") @db.Decimal(10, 2)
+  // Codice sconto inserito dal cliente nell'app (es. BAFFO15): il codice e quanto ha scontato sui prodotti.
+  codiceSconto    String? @map("codice_sconto")
+  scontoCodice    Decimal @default(0) @map("sconto_codice") @db.Decimal(10, 2)
   pagato          Boolean @default(false)
   metodoPagamento String? @map("metodo_pagamento")
   stripePaymentId String? @map("stripe_payment_id")
@@ -511,6 +514,24 @@ model OrdineVocale {
   ordine        Ordine?         @relation(fields: [ordineId], references: [id])
 
   @@map("ordini_vocali")
+}
+
+// Codici sconto per l'app ordini (es. BAFFO15 = 15% sui prodotti, una volta per cliente).
+model CodiceSconto {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  codice             String    @unique // sempre maiuscolo, senza spazi
+  percentuale        Decimal   @db.Decimal(5, 2)
+  descrizione        String?
+  attivo             Boolean   @default(true)
+  validoDal          DateTime? @map("valido_dal")
+  validoAl           DateTime? @map("valido_al")
+  maxUsiPerCliente   Int       @default(1) @map("max_usi_per_cliente")
+  maxUsiTotali       Int?      @map("max_usi_totali")
+  ordineMinimo       Decimal   @default(0) @map("ordine_minimo") @db.Decimal(10, 2)
+  soloPrimoOrdine    Boolean   @default(false) @map("solo_primo_ordine")
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  @@map("codici_sconto")
 }
 
 // Notifiche push dell'app ordini: un telefono (browser/app installata) iscritto alle notifiche di un cliente.
