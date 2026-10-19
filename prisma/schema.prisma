@@ -266,6 +266,7 @@ model Cliente {
   updatedAt            DateTime  @updatedAt @map("updated_at")
 
   ordini Ordine[]
+  pushIscrizioni PushIscrizione[]
 
   @@map("clienti")
 }
@@ -510,4 +511,20 @@ model OrdineVocale {
   ordine        Ordine?         @relation(fields: [ordineId], references: [id])
 
   @@map("ordini_vocali")
+}
+
+// Notifiche push dell'app ordini: un telefono (browser/app installata) iscritto alle notifiche di un cliente.
+model PushIscrizione {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clienteId  String   @map("cliente_id") @db.Uuid
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@index([clienteId])
+  @@map("push_iscrizioni")
 }
