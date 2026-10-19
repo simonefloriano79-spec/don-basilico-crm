@@ -5,10 +5,11 @@ import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import { stampaBrowser } from "@/lib/print";
+import { bevandaAmmessaInCombo, comboDisponibileIn, leggiComboConfig, testoDettaglioCombo } from "@/lib/combo";
 
 const CAT_LABEL: Record<string, string> = {
   pizze_rosse: "Pizze rosse", pizze_bianche: "Pizze bianche", calzoni: "Calzoni",
-  fritti: "Fritti", bevande: "Bevande", dolci: "Dolci", extra: "Extra", menu_speciale: "Speciali", focacce: "Focacce",
+  fritti: "Fritti", bevande: "Bevande", dolci: "Dolci", extra: "Extra", menu_speciale: "Speciali", focacce: "Focacce", combo: "Menù Combo",
 };
 
 const fieldSt: React.CSSProperties = {
@@ -34,6 +35,9 @@ interface CartItem {
   ingredientiRimossi: { id: string; nome: string }[];
   ingredientiAggiunti: { id: string; nome: string; prezzo: number }[];
   noteItem: string; prezzoTotaleItem: number;
+  categoria: string;
+  // Solo «Menù Combo»: le scelte fatte (id di bibite e pizze) e il testo di cosa contiene, per carrello e comanda.
+  combo?: { scelte: { bibite: string[]; pizze: string[] }; dettaglio: string };
 }
 
 // ── Modale configurazione pizza ───────────────────────────────
@@ -70,7 +74,7 @@ function PizzaModal({ item, tuttiIngredienti, sedeId, onConferma, onChiudi }: {
 
   const conferma = () => {
     onConferma({
-      cartId: crypto.randomUUID(), menuItemId: item.id, nome: item.nome,
+      cartId: crypto.randomUUID(), menuItemId: item.id, nome: item.nome, categoria: item.categoria,
       prezzoBase, qty,
       ingredientiRimossi: baseIngs.filter((i) => rimossi.has(i.id)).map((i) => ({ id: i.id, nome: i.nome })),
       ingredientiAggiunti: Array.from(aggiunti.values()).map((i) => ({ id: i.id, nome: i.nome, prezzo: parseFloat(i.prezzoAggiunta?.toString() ?? "0") })),
@@ -193,6 +197,130 @@ function PizzaModal({ item, tuttiIngredienti, sedeId, onConferma, onChiudi }: {
     document.body
   );
 }
+
+// ── «Menù Combo»: prezzo fisso, la cassiera sceglie con il cliente le bibite (e le pizze speciali, dove previste) ──
+function ComboModal({ item, menu, onConferma, onChiudi }: {
+  item: any; menu: any[]; onConferma: (c: CartItem) => void; onChiudi: () => void;
+}) {
+  const cfg = leggiComboConfig(item.comboConfig)!;
+  const perId = new Map(menu.map((m) => [m.id, m]));
+  const fissi = cfg.componenti.flatMap((c) => Array<string>(c.qta).fill(perId.get(c.id)?.nome ?? "prodotto"));
+  const bibiteOpz = menu.filter((m) => m.categoria === "bevande" && bevandaAmmessaInCombo(m.nome)).sort((a, b) => a.nome.localeCompare(b.nome, "it"));
+  const pizzeOpz = menu.filter((m) => m.categoria === "menu_speciale").sort((a, b) => a.nome.localeCompare(b.nome, "it"));
+  const [bibite, setBibite] = useState<Record<string, number>>({});
+  const [pizze, setPizze] = useState<Record<string, number>>({});
+  const [nota, setNota] = useState("");
+  const [qty, setQty] = useState(1);
+  const somma = (o: Record<string, number>) => Object.values(o).reduce((a, n) => a + n, 0);
+  const nBibite = somma(bibite), nPizze = somma(pizze);
+  const completo = nBibite === cfg.bibite && nPizze === cfg.pizzeSpeciali;
+  const espandi = (o: Record<string, number>) => Object.entries(o).flatMap(([id, n]) => Array<string>(n).fill(id));
+  const prezzo = parseFloat(item.prezzoEffettivo ?? item.prezzoBase);
+  const mancano = [
+    cfg.pizzeSpeciali > nPizze ? `${cfg.pizzeSpeciali - nPizze} ${cfg.pizzeSpeciali - nPizze === 1 ? "pizza" : "pizze"}` : "",
+    cfg.bibite > nBibite ? `${cfg.bibite - nBibite} ${cfg.bibite - nBibite === 1 ? "bibita" : "bibite"}` : "",
+  ].filter(Boolean).join(" e ");
+
+  const cambia = (stato: Record<string, number>, set: (o: Record<string, number>) => void, id: string, delta: number, max: number) => {
+    const nuovo = (stato[id] ?? 0) + delta;
+    if (nuovo < 0 || (delta > 0 && somma(stato) >= max)) return;
+    const copia = { ...stato };
+    if (nuovo === 0) delete copia[id]; else copia[id] = nuovo;
+    set(copia);
+  };
+  const btn: React.CSSProperties = { width: 30, height: 30, borderRadius: 8, border: "1px solid var(--border)", background: "#fff", color: "var(--text)", fontSize: 15, cursor: "pointer" };
+  const riga = (it: any, stato: Record<string, number>, set: (o: Record<string, number>) => void, max: number) => {
+    const n = stato[it.id] ?? 0;
+    const pieno = somma(stato) >= max;
+    return (
+      <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderBottom: "1px solid var(--border-soft)", background: n ? "var(--accent-bg-2)" : "#fff" }}>
+        <span style={{ flex: 1, fontSize: 13, fontWeight: n ? 600 : 400, color: "var(--text)" }}>{it.nome}</span>
+        {n > 0 && (<>
+          <button onClick={() => cambia(stato, set, it.id, -1, max)} style={btn}>−</button>
+          <span className="num" style={{ minWidth: 14, textAlign: "center", fontSize: 13, fontWeight: 600 }}>{n}</span>
+        </>)}
+        <button onClick={() => cambia(stato, set, it.id, 1, max)} disabled={pieno}
+          style={{ ...btn, background: pieno ? "var(--border)" : "var(--accent)", border: "none", color: pieno ? "var(--text-faint)" : "var(--text)", cursor: pieno ? "default" : "pointer" }}>+</button>
+      </div>
+    );
+  };
+  const titolo = (testo: string, fatte: number, tot: number) => (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", margin: "16px 0 8px" }}>
+      <span style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.7, fontWeight: 500 }}>{testo}</span>
+      <span className="num" style={{ fontSize: 12, fontWeight: 600, color: fatte === tot ? "var(--accent-ink)" : "var(--text-muted)" }}>{fatte} di {tot}</span>
+    </div>
+  );
+
+  const conferma = () => {
+    const scelte = { bibite: espandi(bibite), pizze: espandi(pizze) };
+    onConferma({
+      cartId: crypto.randomUUID(), menuItemId: item.id, nome: item.nome, categoria: "combo",
+      prezzoBase: prezzo, qty, ingredientiRimossi: [], ingredientiAggiunti: [], noteItem: nota.trim(), prezzoTotaleItem: prezzo,
+      combo: {
+        scelte,
+        dettaglio: testoDettaglioCombo(fissi, { bibite: scelte.bibite.map((id) => perId.get(id)?.nome ?? ""), pizze: scelte.pizze.map((id) => perId.get(id)?.nome ?? "") }),
+      },
+    });
+  };
+
+  return createPortal(
+    <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end" }} onClick={onChiudi}>
+      <div style={{ background: "var(--surface)", borderRadius: "20px 20px 0 0", maxHeight: "92vh", display: "flex", flexDirection: "column", overflow: "hidden", margin: "0 auto", width: "100%", maxWidth: 720 }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0" }}><div style={{ width: 40, height: 4, borderRadius: 2, background: "var(--border)" }} /></div>
+        <div style={{ padding: "12px 20px 14px", borderBottom: "1px solid var(--border-soft)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+          <div>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 20, color: "var(--text)" }}>{item.nome}</div>
+            <div className="num" style={{ fontSize: 13, color: "var(--text-2)", marginTop: 2, fontWeight: 500 }}>{euro(prezzo)}</div>
+          </div>
+          <button onClick={onChiudi} style={{ background: "#fff", border: "1px solid var(--border)", color: "var(--text-3)", width: 32, height: 32, borderRadius: "50%", fontSize: 14, cursor: "pointer", flexShrink: 0 }}>✕</button>
+        </div>
+
+        <div style={{ flex: 1, overflowY: "auto", padding: "4px 20px 16px" }}>
+          <div style={{ background: "var(--surface-muted)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 12px", marginTop: 12, fontSize: 12.5, lineHeight: 1.5, color: "var(--text-2)" }}>
+            <strong style={{ color: "var(--text)" }}>Comprende:</strong>{" "}
+            {[
+              fissi.length ? fissi.join(", ") : "",
+              cfg.pizzeSpeciali > 0 ? `${cfg.pizzeSpeciali} pizze speciali a scelta` : "",
+              cfg.bibite > 0 ? `${cfg.bibite} ${cfg.bibite === 1 ? "bibita" : "bibite"} da 33cl a scelta` : "",
+            ].filter(Boolean).join(" + ")}
+          </div>
+          {cfg.pizzeSpeciali > 0 && (<>
+            {titolo("Pizze speciali", nPizze, cfg.pizzeSpeciali)}
+            <div style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>{pizzeOpz.map((it) => riga(it, pizze, setPizze, cfg.pizzeSpeciali))}</div>
+          </>)}
+          {cfg.bibite > 0 && (<>
+            {titolo(cfg.bibite === 1 ? "Bibita" : "Bibite", nBibite, cfg.bibite)}
+            <div style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>{bibiteOpz.map((it) => riga(it, bibite, setBibite, cfg.bibite))}</div>
+          </>)}
+          <input style={{ ...fieldSt, marginTop: 14 }} placeholder="Note (es. senza ghiaccio…)" value={nota} onChange={(e) => setNota(e.target.value)} />
+        </div>
+
+        <div style={{ padding: "14px 20px", borderTop: "1px solid var(--border-soft)", background: "var(--surface-muted)", paddingBottom: "max(14px, env(safe-area-inset-bottom))" }}>
+          {!completo && <div style={{ fontSize: 12.5, color: "var(--danger)", textAlign: "center", marginBottom: 10 }}>Manca da scegliere: {mancano}</div>}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button onClick={() => setQty((q) => Math.max(1, q - 1))} style={{ ...btn, width: 32, height: 32 }}>−</button>
+              <span className="num" style={{ fontSize: 15, fontWeight: 500, minWidth: 20, textAlign: "center" }}>{qty}</span>
+              <button onClick={() => setQty((q) => q + 1)} style={{ ...btn, width: 32, height: 32 }}>+</button>
+            </div>
+            <div className="num" style={{ marginLeft: "auto", fontFamily: "var(--font-display)", fontSize: 22, color: "var(--text)" }}>{euro(prezzo * qty)}</div>
+          </div>
+          <button onClick={conferma} disabled={!completo} style={{ width: "100%", background: completo ? "var(--text)" : "var(--border)", color: completo ? "#fff" : "var(--text-faint)", border: "none", padding: 14, borderRadius: 9, fontSize: 14, fontWeight: 500, cursor: completo ? "pointer" : "default", fontFamily: "var(--font-ui)" }}>
+            Aggiungi al carrello
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// Promemoria per la cassiera: prima di confermare, se nel carrello non c'è un fritto / una bevanda, glielo ricorda
+// con le stesse parole dell'app (le legge al cliente). Ogni domanda si fa una volta sola per ordine.
+const DOMANDE: Record<string, { testo: string; sub: string }> = {
+  fritti: { testo: "Vuoi aggiungere un fritto da sgranocchiare?", sub: "Olive ascolane, supplì, patatine…" },
+  bevande: { testo: "Gradisci qualcosa da bere?", sub: "Acqua, bibite, birra…" },
+};
 
 // ── Modale scelta orario di consegna ────────────────────────────
 function OrarioConsegnaModal({ oraConsegna, modConsegna, onSalva, onRimuovi, onChiudi }: {
@@ -462,6 +590,7 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text)" }}>{item.nome}</div>
+                {item.combo && <div style={{ fontSize: 11, color: "var(--text-3)", lineHeight: 1.4 }}>{item.combo.dettaglio}</div>}
                 <div className="num" style={{ fontSize: 11.5, color: "var(--text-muted)" }}>{euro(item.prezzoTotaleItem)} cad.</div>
                 {item.impasto && <div style={{ fontSize: 11, color: "var(--text)", fontWeight: 600 }}>Impasto {item.impasto.nome} (+{euro(item.impasto.supplemento)})</div>}
                 {item.ingredientiRimossi.length > 0 && <div style={{ fontSize: 11, color: "var(--danger)" }}>Senza: {item.ingredientiRimossi.map((i) => i.nome).join(", ")}</div>}
@@ -551,6 +680,10 @@ export default function NuovoOrdinePage() {
   const [pizzaModal, setPizzaModal] = useState<any>(null);
   const [showCart, setShowCart] = useState(false);
   const [cercaPizza, setCercaPizza] = useState("");
+  const [comboModal, setComboModal] = useState<any>(null);
+  // Promemoria fritto/bevanda: quali domande sono già state fatte per questo ordine e quale è aperta ora.
+  const [domandeFatte, setDomandeFatte] = useState<string[]>([]);
+  const [domandaAperta, setDomandaAperta] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/sedi").then((r) => r.json()).then((d) => {
@@ -568,7 +701,7 @@ export default function NuovoOrdinePage() {
   }, [sedeSelezionata]);
 
   // In cassa "Speciali" viene dopo i calzoni; sul sito clienti (OrdinaFlow) è invece la prima sezione.
-  const cats = ["pizze_rosse", "pizze_bianche", "calzoni", "focacce", "menu_speciale", "fritti", "dolci", "bevande", "extra"];
+  const cats = ["pizze_rosse", "pizze_bianche", "calzoni", "focacce", "menu_speciale", "combo", "fritti", "dolci", "bevande", "extra"];
   const catsPresenti = cats.filter((c) => menuItems.some((m) => m.categoria === c));
   const isSezionePizze = catFiltro === "pizze_rosse" || catFiltro === "pizze_bianche";
   // In ordine alfabetico dentro ogni sezione, per leggere e cercare più in fretta.
@@ -580,20 +713,45 @@ export default function NuovoOrdinePage() {
   const deliveryFee = tipo === "domicilio" ? (parseFloat(costoConsegna) || 0) : 0;
   const totale = subtotale + deliveryFee;
   const nomeSede = sedi.find((s) => s.id === sedeSelezionata)?.nome ?? "";
+  // Prodotti attivi e non esauriti in questa sede: da qui si sceglie per i combo e si decide se un combo si può vendere.
+  const disponibili = menuItems.filter((m) => m.disponibileInSede !== false);
 
   const handleClick = (item: any) => {
     if (item.disponibileInSede === false) return;
+    if (item.categoria === "combo") { if (comboDisponibileIn(item, disponibili)) setComboModal(item); return; }
     const isPizza = ["menu_speciale", "pizze_rosse", "pizze_bianche", "calzoni", "focacce"].includes(item.categoria);
     if (isPizza) { setPizzaModal(item); return; }
     const prezzo = parseFloat(item.prezzoEffettivo ?? item.prezzoBase);
     setCart((prev) => {
       const ex = prev.find((c) => c.menuItemId === item.id && !c.ingredientiAggiunti.length && !c.ingredientiRimossi.length);
       if (ex) return prev.map((c) => c.cartId === ex.cartId ? { ...c, qty: c.qty + 1 } : c);
-      return [...prev, { cartId: crypto.randomUUID(), menuItemId: item.id, nome: item.nome, prezzoBase: prezzo, qty: 1, ingredientiRimossi: [], ingredientiAggiunti: [], noteItem: "", prezzoTotaleItem: prezzo }];
+      return [...prev, { cartId: crypto.randomUUID(), menuItemId: item.id, nome: item.nome, categoria: item.categoria, prezzoBase: prezzo, qty: 1, ingredientiRimossi: [], ingredientiAggiunti: [], noteItem: "", prezzoTotaleItem: prezzo }];
     });
   };
 
-  const confermaOrdine = async () => {
+  const prossimaDomanda = (chiesti: string[]) =>
+    (["fritti", "bevande"] as const).find((cat) =>
+      !chiesti.includes(cat) && !cart.some((c) => c.categoria === cat || c.categoria === "combo") && disponibili.some((m) => m.categoria === cat));
+
+  // «Conferma ordine»: prima i controlli e, se manca un fritto o una bevanda, la domanda per il cliente; poi l'invio vero.
+  const confermaOrdine = () => {
+    if (!cart.length) return toast.error("Aggiungi almeno un prodotto");
+    if (tipo === "tavolo" && !tavolo.trim()) return toast.error("Indica il tavolo (numero o nome)");
+    const cat = prossimaDomanda(domandeFatte);
+    if (cat) { setDomandaAperta(cat); return; }
+    inviaOrdine();
+  };
+  // Sì: si apre la sezione del menù e la cassiera aggiunge (poi preme di nuovo «Conferma»). No: domanda successiva, infine l'invio.
+  const rispondiDomanda = (cat: string, si: boolean) => {
+    const fatte = [...domandeFatte, cat];
+    setDomandeFatte(fatte);
+    setDomandaAperta(null);
+    if (si) { setCatFiltro(cat); setCercaPizza(""); setShowCart(false); return; }
+    const prossima = prossimaDomanda(fatte);
+    if (prossima) setDomandaAperta(prossima); else inviaOrdine();
+  };
+
+  const inviaOrdine = async () => {
     if (!cart.length) return toast.error("Aggiungi almeno un prodotto");
     if (tipo === "tavolo" && !tavolo.trim()) return toast.error("Indica il tavolo (numero o nome)");
     // Da telefono/tablet non si stampa: la comanda esce dal PC con la stampa automatica attiva.
@@ -630,6 +788,7 @@ export default function NuovoOrdinePage() {
           ingredientiRimossi: c.ingredientiRimossi.map((i) => i.id),
           ingredientiAggiuntiIds: c.ingredientiAggiunti.map((i) => i.id),
           impastoId: c.impasto?.id,
+          ...(c.combo ? { comboScelte: c.combo.scelte } : {}),
         })),
       }),
     });
@@ -643,6 +802,7 @@ export default function NuovoOrdinePage() {
         items: cart.map((c) => ({
           nome: c.nome, qty: c.qty, prezzo: c.prezzoTotaleItem,
           note: [
+            c.combo?.dettaglio ?? "",
             c.impasto ? `IMPASTO ${c.impasto.nome.toUpperCase()}` : "",
             c.ingredientiRimossi.length ? `Senza: ${c.ingredientiRimossi.map((i) => i.nome).join(", ")}` : "",
             c.ingredientiAggiunti.length ? `Con: ${c.ingredientiAggiunti.map((i) => i.nome).join(", ")}` : "",
@@ -658,6 +818,7 @@ export default function NuovoOrdinePage() {
       });
       setJustSent(true);
       setTimeout(() => setJustSent(false), 1800);
+      setDomandeFatte([]);
       setCart([]); setTavolo(""); setClienteNome(""); setClienteTel(""); setAddr(""); setNomeCitofono(""); setCostoConsegna("1.50"); setNote(""); setNoteDomicilio(""); setOraConsegna(""); setModConsegna(""); setMetodoPagamento(""); setShowCart(false);
     } else { toast.error("Errore nella creazione dell'ordine"); }
   };
@@ -706,7 +867,7 @@ export default function NuovoOrdinePage() {
           {itemsFiltrati.map((item) => {
             const prezzo = parseFloat(item.prezzoEffettivo ?? item.prezzoBase);
             const nInCart = cart.filter((c) => c.menuItemId === item.id).reduce((a, c) => a + c.qty, 0);
-            const esaurito = item.disponibileInSede === false;
+            const esaurito = item.disponibileInSede === false || (item.categoria === "combo" && !comboDisponibileIn(item, disponibili));
             return (
               <div key={item.id} onClick={() => handleClick(item)} style={{
                 background: "#fff", border: `1px solid ${nInCart > 0 ? "var(--accent)" : "var(--border)"}`,
@@ -721,7 +882,7 @@ export default function NuovoOrdinePage() {
                   <span className="num" style={{ fontSize: 14, fontWeight: 500, color: "var(--text)", flexShrink: 0 }}>{euro(prezzo)}</span>
                 </div>
                 {item.descrizione && <div style={{ fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.45, marginTop: 6 }}>{item.descrizione}</div>}
-                {esaurito && <div style={{ fontSize: 10.5, color: "var(--danger)", marginTop: 6 }}>Esaurito in sede</div>}
+                {esaurito && <div style={{ fontSize: 10.5, color: "var(--danger)", marginTop: 6 }}>{item.categoria === "combo" && item.disponibileInSede !== false ? "Non disponibile: manca un prodotto in sede" : "Esaurito in sede"}</div>}
               </div>
             );
           })}
@@ -755,6 +916,26 @@ export default function NuovoOrdinePage() {
         <PizzaModal item={pizzaModal} tuttiIngredienti={ingredienti} sedeId={sedeSelezionata}
           onConferma={(c) => { setCart((p) => [...p, c]); setPizzaModal(null); toast.success(`${c.nome} aggiunto`, { duration: 1000 }); }}
           onChiudi={() => setPizzaModal(null)} />
+      )}
+      {comboModal && (
+        <ComboModal item={comboModal} menu={disponibili}
+          onConferma={(c) => { setCart((p) => [...p, c]); setComboModal(null); toast.success(`${c.nome} aggiunto`, { duration: 1000 }); }}
+          onChiudi={() => setComboModal(null)} />
+      )}
+      {domandaAperta && DOMANDE[domandaAperta] && createPortal(
+        // Nessun «tocca fuori per chiudere»: una risposta accidentale potrebbe confermare l'ordine.
+        <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: "var(--surface)", borderRadius: 20, width: "100%", maxWidth: 400, padding: "22px 20px 20px", textAlign: "center" }}>
+            <div style={{ fontSize: 10, color: "var(--accent-ink)", textTransform: "uppercase", letterSpacing: 1.8, fontWeight: 600, marginBottom: 10 }}>Chiedi al cliente</div>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--text)", lineHeight: 1.25 }}>{DOMANDE[domandaAperta].testo}</div>
+            <div style={{ fontSize: 13, color: "var(--text-muted)", margin: "8px 0 20px" }}>{DOMANDE[domandaAperta].sub}</div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => rispondiDomanda(domandaAperta, false)} style={{ flex: 1, padding: "14px 8px", borderRadius: 10, border: "1px solid var(--border)", background: "#fff", color: "var(--text-2)", fontSize: 14, cursor: "pointer", fontFamily: "var(--font-ui)" }}>No, grazie</button>
+              <button onClick={() => rispondiDomanda(domandaAperta, true)} style={{ flex: 1, padding: "14px 8px", borderRadius: 10, border: "1px solid var(--text)", background: "var(--text)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-ui)" }}>Sì, aggiungo</button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
       {showCart && createPortal(
         <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}
