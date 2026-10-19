@@ -28,6 +28,7 @@ interface Ingrediente {
 }
 interface ImpastoCassa { id: string; nome: string; descrizione: string | null; supplemento: number; }
 const CAT_IMPASTO = ["menu_speciale", "pizze_rosse", "pizze_bianche", "focacce"];
+const CAT_MAXI = ["pizze_rosse", "pizze_bianche"];
 
 interface CartItem {
   impasto?: { id: string; nome: string; supplemento: number };
@@ -36,13 +37,15 @@ interface CartItem {
   ingredientiAggiunti: { id: string; nome: string; prezzo: number }[];
   noteItem: string; prezzoTotaleItem: number;
   categoria: string;
+  // Pizza maxi (solo sedi che la fanno): prezzoBase e nome sono già quelli maxi.
+  taglia?: "normale" | "maxi";
   // Solo «Menù Combo»: le scelte fatte (id di bibite e pizze) e il testo di cosa contiene, per carrello e comanda.
   combo?: { scelte: { bibite: string[]; pizze: string[] }; dettaglio: string };
 }
 
 // ── Modale configurazione pizza ───────────────────────────────
-function PizzaModal({ item, tuttiIngredienti, sedeId, onConferma, onChiudi }: {
-  item: any; tuttiIngredienti: Ingrediente[]; sedeId: string;
+function PizzaModal({ item, tuttiIngredienti, sedeId, maxi, onConferma, onChiudi }: {
+  item: any; tuttiIngredienti: Ingrediente[]; sedeId: string; maxi: number | null;
   onConferma: (c: CartItem) => void; onChiudi: () => void;
 }) {
   const baseIngs: Ingrediente[] = (item.ingredienti ?? []).map((ii: any) => ii.ingrediente ?? ii);
@@ -62,7 +65,12 @@ function PizzaModal({ item, tuttiIngredienti, sedeId, onConferma, onChiudi }: {
 
   const extra = tuttiIngredienti.filter((i) => !rimossi.has(i.id) && !i.disabilitatoInSede
     && i.nome.toLowerCase().includes(search.toLowerCase()));
-  const prezzoBase = parseFloat(item.prezzoEffettivo ?? item.prezzoBase);
+  // «La vuoi Maxi?»: solo rosse e bianche e solo nelle sedi che la fanno. Il prezzo della pizza si moltiplica (di norma ×2);
+  // extra e supplemento impasto restano quelli normali.
+  const maxiPossibile = !!maxi && CAT_MAXI.includes(item.categoria);
+  const [taglia, setTaglia] = useState<"normale" | "maxi">("normale");
+  const prezzoNormale = parseFloat(item.prezzoEffettivo ?? item.prezzoBase);
+  const prezzoBase = prezzoNormale * (taglia === "maxi" && maxi ? maxi : 1);
   const prezzoAggiuntiLordo = Array.from(aggiunti.values()).reduce((a, i) => a + parseFloat(i.prezzoAggiunta?.toString() ?? "0"), 0);
   // Compensazione: rimuovere un ingrediente non genera mai uno sconto da solo, ma
   // "copre" fino al suo valore un ingrediente aggiunto al suo posto — es. tolgo
@@ -74,7 +82,7 @@ function PizzaModal({ item, tuttiIngredienti, sedeId, onConferma, onChiudi }: {
 
   const conferma = () => {
     onConferma({
-      cartId: crypto.randomUUID(), menuItemId: item.id, nome: item.nome, categoria: item.categoria,
+      cartId: crypto.randomUUID(), menuItemId: item.id, nome: taglia === "maxi" ? `${item.nome} (Maxi)` : item.nome, categoria: item.categoria, taglia,
       prezzoBase, qty,
       ingredientiRimossi: baseIngs.filter((i) => rimossi.has(i.id)).map((i) => ({ id: i.id, nome: i.nome })),
       ingredientiAggiunti: Array.from(aggiunti.values()).map((i) => ({ id: i.id, nome: i.nome, prezzo: parseFloat(i.prezzoAggiunta?.toString() ?? "0") })),
@@ -104,6 +112,22 @@ function PizzaModal({ item, tuttiIngredienti, sedeId, onConferma, onChiudi }: {
         </div>
 
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
+          {maxiPossibile && (
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.7, marginBottom: 8, fontWeight: 500 }}>La vuoi Maxi?</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {(["normale", "maxi"] as const).map((t) => (
+                  <button key={t} onClick={() => setTaglia(t)} style={{
+                    flex: 1, padding: "11px 8px", borderRadius: 10, fontSize: 13, cursor: "pointer", border: "1.5px solid", fontFamily: "var(--font-ui)",
+                    background: taglia === t ? "var(--text)" : "#fff", color: taglia === t ? "#fff" : "var(--text)", borderColor: taglia === t ? "var(--text)" : "var(--border)",
+                  }}>
+                    <span style={{ fontWeight: 600 }}>{t === "normale" ? "Normale" : "Maxi"}</span>
+                    <span className="num" style={{ marginLeft: 8, opacity: 0.85 }}>{euro(t === "normale" ? prezzoNormale : prezzoNormale * (maxi ?? 1))}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {impasti.length > 0 && (
             <div style={{ marginBottom: 18 }}>
               <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.7, marginBottom: 8, fontWeight: 500 }}>Impasto</div>
@@ -681,6 +705,8 @@ export default function NuovoOrdinePage() {
   const [showCart, setShowCart] = useState(false);
   const [cercaPizza, setCercaPizza] = useState("");
   const [comboModal, setComboModal] = useState<any>(null);
+  // Moltiplicatore della pizza maxi in questa sede (null = la sede non la fa).
+  const [maxi, setMaxi] = useState<number | null>(null);
   // Promemoria fritto/bevanda: quali domande sono già state fatte per questo ordine e quale è aperta ora.
   const [domandeFatte, setDomandeFatte] = useState<string[]>([]);
   const [domandaAperta, setDomandaAperta] = useState<string | null>(null);
@@ -694,8 +720,10 @@ export default function NuovoOrdinePage() {
 
   useEffect(() => {
     if (!sedeSelezionata) return;
-    fetch(`/api/menu?sedeId=${sedeSelezionata}`).then((r) => r.json()).then((d) =>
-      setMenuItems((d.items ?? []).filter((i: any) => i.isAttivo)));
+    fetch(`/api/menu?sedeId=${sedeSelezionata}`).then((r) => r.json()).then((d) => {
+      setMaxi(d.maxi?.moltiplicatore ?? null);
+      setMenuItems((d.items ?? []).filter((i: any) => i.isAttivo));
+    });
     fetch(`/api/ingredienti?sedeId=${sedeSelezionata}`).then((r) => r.json()).then((d) =>
       setIngredienti(Array.isArray(d) ? d : []));
   }, [sedeSelezionata]);
@@ -789,6 +817,7 @@ export default function NuovoOrdinePage() {
           ingredientiAggiuntiIds: c.ingredientiAggiunti.map((i) => i.id),
           impastoId: c.impasto?.id,
           ...(c.combo ? { comboScelte: c.combo.scelte } : {}),
+          ...(c.taglia === "maxi" ? { taglia: "maxi" } : {}),
         })),
       }),
     });
@@ -913,7 +942,7 @@ export default function NuovoOrdinePage() {
       </div>
 
       {pizzaModal && (
-        <PizzaModal item={pizzaModal} tuttiIngredienti={ingredienti} sedeId={sedeSelezionata}
+        <PizzaModal item={pizzaModal} tuttiIngredienti={ingredienti} sedeId={sedeSelezionata} maxi={maxi}
           onConferma={(c) => { setCart((p) => [...p, c]); setPizzaModal(null); toast.success(`${c.nome} aggiunto`, { duration: 1000 }); }}
           onChiudi={() => setPizzaModal(null)} />
       )}

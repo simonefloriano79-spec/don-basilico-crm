@@ -44,6 +44,10 @@ export async function GET(req: NextRequest) {
       })
     : [];
 
+  // Pizza maxi: se questa sede la fa, il moltiplicatore del prezzo (es. 2 = il doppio); altrimenti null.
+  // (Se la lettura fallisce il menù si apre comunque, solo senza la scelta maxi.)
+  const maxiSede = sedeId ? await prisma.sedePizzaMaxi.findUnique({ where: { sedeId } }).catch(() => null) : null;
+
   // Processa items con override
   const itemsConOverride = items.map((item) => {
     const override = sedeId
@@ -62,6 +66,7 @@ export async function GET(req: NextRequest) {
   });
 
   return NextResponse.json({
+    maxi: maxiSede?.attiva ? { moltiplicatore: parseFloat(maxiSede.moltiplicatore.toString()) } : null,
     items: itemsConOverride,
     extra,
     ingredientiDisabilitati: ingredientiDis,

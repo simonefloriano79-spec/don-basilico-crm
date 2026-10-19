@@ -2,7 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { CATEGORIE_IMPASTO, impastiDellaSede } from "@/lib/impasti";
 import { bevandaAmmessaInCombo, leggiComboConfig, leggiComboScelte, testoDettaglioCombo, type ComboScelte } from "@/lib/combo";
 
-const CATEGORIE_MAXI = new Set(["pizze_rosse", "pizze_bianche"]);
+// Pizza maxi: solo rosse e bianche, e solo nelle sedi con la maxi attiva (tabella sedi_pizza_maxi).
+export const CATEGORIE_MAXI = new Set(["pizze_rosse", "pizze_bianche"]);
 
 export interface ArticoloOrdinatoInput {
   menuItemId: string;

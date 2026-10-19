@@ -59,10 +59,14 @@ async function ensureSediTable() {
 }
 
 async function listSedi() {
-  return prisma.sede.findMany({
+  const sedi = await prisma.sede.findMany({
     where: { attiva: true },
     orderBy: { nome: "asc" },
   });
+  // Pizza maxi per sede (se la lettura fallisce l'elenco sedi si apre comunque).
+  const maxi = await prisma.sedePizzaMaxi.findMany({ select: { sedeId: true, attiva: true, moltiplicatore: true } }).catch(() => []);
+  const perSede = new Map(maxi.map((m) => [m.sedeId, { attiva: m.attiva, moltiplicatore: m.moltiplicatore }]));
+  return sedi.map((s) => ({ ...s, pizzaMaxi: perSede.get(s.id) ?? null }));
 }
 
 export async function GET() {

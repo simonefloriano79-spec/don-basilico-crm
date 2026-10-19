@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CATEGORIE_IMPASTO, impastiDellaSede } from "@/lib/impasti";
 import { prossimoNumeroOrdine } from "@/lib/numero-ordine";
-import { calcolaOrdine, type ArticoloPrezzato } from "@/lib/ordini-vocali/pricing";
+import { calcolaOrdine, CATEGORIE_MAXI, type ArticoloPrezzato } from "@/lib/ordini-vocali/pricing";
 
 // GET /api/ordini
 export async function GET(req: NextRequest) {
@@ -91,6 +91,9 @@ export async function POST(req: NextRequest) {
     ingredienteIds.length ? prisma.ingrediente.findMany({ where: { id: { in: ingredienteIds as string[] } } }) : [],
   ]);
 
+  // Pizza maxi: serve sapere se la sede la fa e con che moltiplicatore.
+  const maxiConfig = items.some((i: any) => i.taglia === "maxi") ? await prisma.sedePizzaMaxi.findUnique({ where: { sedeId } }) : null;
+
   const impastiSede = items.some((i: any) => i.impastoId) ? await impastiDellaSede(sedeId) : [];
   const impastoMap = new Map(impastiSede.map((x) => [x.id, x]));
   const menuItemMap = new Map(menuItemsDb.map((m) => [m.id, m]));
@@ -136,6 +139,7 @@ export async function POST(req: NextRequest) {
       }
 
       let prezzoUnitario: number;
+      let maxiRiga = false;
 
       if (i.menuItemId) {
         const menuItem = menuItemMap.get(i.menuItemId);
@@ -163,7 +167,14 @@ export async function POST(req: NextRequest) {
         const impasto = i.impastoId ? impastoMap.get(i.impastoId) : undefined;
         if (i.impastoId && !impasto) throw new Error("L'impasto scelto non è disponibile in questa pizzeria");
         if (impasto && !CATEGORIE_IMPASTO.has(menuItem.categoria)) throw new Error(`${menuItem.nome}: l'impasto speciale non è disponibile`);
-        prezzoUnitario = base + extra + (impasto?.supplemento ?? 0);
+        // Pizza maxi: il prezzo della pizza si moltiplica (di norma ×2); extra e supplemento impasto restano quelli normali.
+        if (i.taglia === "maxi") {
+          if (!CATEGORIE_MAXI.has(menuItem.categoria)) throw new Error(`${menuItem.nome}: la versione maxi non è disponibile`);
+          if (!maxiConfig?.attiva) throw new Error("La pizza maxi non è disponibile in questa pizzeria");
+          maxiRiga = true;
+        }
+        const moltiplicatoreMaxi = maxiRiga ? parseFloat(maxiConfig!.moltiplicatore.toString()) : 1;
+        prezzoUnitario = base * moltiplicatoreMaxi + extra + (impasto?.supplemento ?? 0);
       } else if (i.sedeExtraId) {
         const sedeExtra = sedeExtraMap.get(i.sedeExtraId);
         if (!sedeExtra) throw new Error(`Prodotto non trovato: ${i.sedeExtraId}`);
@@ -178,7 +189,7 @@ export async function POST(req: NextRequest) {
       return {
         menuItemId: i.menuItemId || null,
         sedeExtraId: i.sedeExtraId || null,
-        nomeSnapshot: i.nomeSnapshot,
+        nomeSnapshot: maxiRiga && !/\(maxi\)/i.test(i.nomeSnapshot ?? "") ? `${i.nomeSnapshot} (Maxi)` : i.nomeSnapshot,
         prezzoSnapshot: prezzoUnitario,
         quantita,
         noteItem: i.noteItem || null,

@@ -79,6 +79,14 @@ export default function SediPage() {
     carica();
   };
 
+  const cambiaMaxi = async (id: string, attiva: boolean) => {
+    const res = await fetch(`/api/sedi/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ maxiAttiva: attiva }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return toast.error(data.error ?? "Errore nel salvataggio");
+    toast.success(attiva ? "Pizza maxi attivata" : "Pizza maxi disattivata");
+    carica();
+  };
+
   const salva = async () => {
     const payload = {
       ...form,
@@ -150,6 +158,10 @@ export default function SediPage() {
                         style={{ background: "none", border: "none", color: "var(--accent-ink)", fontSize: 12, cursor: "pointer", padding: 0, textDecoration: "underline" }}>modifica</button>
                     </div>
                   )}
+                  <label style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 4, cursor: "pointer", color: "var(--text-2)" }}>
+                    <input type="checkbox" checked={!!s.pizzaMaxi?.attiva} onChange={(e) => cambiaMaxi(s.id, e.target.checked)} />
+                    <span>Pizza maxi (rosse e bianche, prezzo ×{String(Number(s.pizzaMaxi?.moltiplicatore ?? 2)).replace(".", ",")})</span>
+                  </label>
                 </div>
               </div>
 
