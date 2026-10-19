@@ -90,7 +90,6 @@ export default function InstallaApp({ qrSvg }: { qrSvg: string }) {
       <h1 style={{ margin: 0, fontFamily: "'Playfair Display', var(--font-display)", fontWeight: 800, fontSize: 30, lineHeight: 1.12, color: TESTO }}>
         Don Basilico<br />sul tuo telefono
       </h1>
-      <p style={{ margin: 0, fontSize: 15, lineHeight: 1.4, color: "#555950" }}>È gratis e non serve nessuno store.</p>
     </div>
   );
 
