@@ -28,7 +28,7 @@ interface Ingrediente {
 }
 interface ImpastoCassa { id: string; nome: string; descrizione: string | null; supplemento: number; }
 const CAT_IMPASTO = ["menu_speciale", "pizze_rosse", "pizze_bianche", "focacce"];
-const CAT_MAXI = ["pizze_rosse", "pizze_bianche"];
+const CAT_MAXI = ["pizze_rosse", "pizze_bianche", "menu_speciale", "focacce"]; // tutte le pizze tranne i calzoni
 
 interface CartItem {
   impasto?: { id: string; nome: string; supplemento: number };
@@ -65,18 +65,19 @@ function PizzaModal({ item, tuttiIngredienti, sedeId, maxi, onConferma, onChiudi
 
   const extra = tuttiIngredienti.filter((i) => !rimossi.has(i.id) && !i.disabilitatoInSede
     && i.nome.toLowerCase().includes(search.toLowerCase()));
-  // «La vuoi Maxi?»: solo rosse e bianche e solo nelle sedi che la fanno. Il prezzo della pizza si moltiplica (di norma ×2);
-  // extra e supplemento impasto restano quelli normali.
+  // «La vuoi Maxi?»: tutte le pizze tranne i calzoni, solo nelle sedi che la fanno. Prezzo della pizza ed extra si moltiplicano
+  // (di norma ×2); il supplemento dell'impasto resta quello normale.
   const maxiPossibile = !!maxi && CAT_MAXI.includes(item.categoria);
   const [taglia, setTaglia] = useState<"normale" | "maxi">("normale");
   const prezzoNormale = parseFloat(item.prezzoEffettivo ?? item.prezzoBase);
-  const prezzoBase = prezzoNormale * (taglia === "maxi" && maxi ? maxi : 1);
+  const moltTaglia = taglia === "maxi" && maxi ? maxi : 1;
+  const prezzoBase = prezzoNormale * moltTaglia;
   const prezzoAggiuntiLordo = Array.from(aggiunti.values()).reduce((a, i) => a + parseFloat(i.prezzoAggiunta?.toString() ?? "0"), 0);
   // Compensazione: rimuovere un ingrediente non genera mai uno sconto da solo, ma
   // "copre" fino al suo valore un ingrediente aggiunto al suo posto — es. tolgo
   // carciofi (1€) e aggiungo salsa tartufata (2€): pago solo 1€ di differenza.
   const credito = baseIngs.filter((i) => rimossi.has(i.id) && !i.escludiCompensazione).reduce((a, i) => a + parseFloat(i.prezzoAggiunta?.toString() ?? "0"), 0);
-  const prezzoExtra = Math.max(0, prezzoAggiuntiLordo - credito);
+  const prezzoExtra = Math.max(0, prezzoAggiuntiLordo - credito) * moltTaglia;
   const supplementoImpasto = impastoScelto?.supplemento ?? 0;
   const totale = (prezzoBase + prezzoExtra + supplementoImpasto) * qty;
 
@@ -189,7 +190,7 @@ function PizzaModal({ item, tuttiIngredienti, sedeId, maxi, onConferma, onChiudi
                     color: added ? "var(--accent-ink)" : "var(--text-3)",
                   }}>
                     {ing.nome}
-                    {prezzo > 0 && <span className="num" style={{ fontSize: 11.5, marginLeft: 5 }}>+{euro(prezzo)}</span>}
+                    {prezzo > 0 && <span className="num" style={{ fontSize: 11.5, marginLeft: 5 }}>+{euro(prezzo * moltTaglia)}</span>}
                   </button>
                 );
               })}
