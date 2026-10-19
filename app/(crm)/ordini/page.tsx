@@ -251,6 +251,8 @@ export default function OrdiniPage() {
       totale: parseFloat(ordine.totale),
       costoConsegna: parseFloat(ordine.costoConsegna ?? 0) || undefined,
       scontoFedelta: parseFloat(ordine.scontoFedelta ?? 0) || undefined,
+      scontoCodice: parseFloat(ordine.scontoCodice ?? 0) || undefined,
+      codiceSconto: ordine.codiceSconto ?? undefined,
       modificato: ordine.canale === "online" && !!ordine.modificatoAt ? true : undefined,
       note: ordine.note,
       noteDomicilio: ordine.noteDomicilio,
@@ -513,6 +515,12 @@ export default function OrdiniPage() {
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
                 <span style={{ fontSize: 12.5, color: "var(--accent-ink)" }}>Sconto fedeltà</span>
                 <span className="num" style={{ fontSize: 12.5, color: "var(--accent-ink)" }}>-{euro(parseFloat(selezionato.scontoFedelta))}</span>
+              </div>
+            )}
+            {parseFloat(selezionato.scontoCodice ?? 0) > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+                <span style={{ fontSize: 12.5, color: "var(--accent-ink)" }}>Codice sconto {selezionato.codiceSconto}</span>
+                <span className="num" style={{ fontSize: 12.5, color: "var(--accent-ink)" }}>-{euro(parseFloat(selezionato.scontoCodice))}</span>
               </div>
             )}
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border-soft)" }}>

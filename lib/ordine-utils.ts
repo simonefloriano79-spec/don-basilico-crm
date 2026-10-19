@@ -37,6 +37,8 @@ export function ordineApiPerStampa(o: any): PrintOrdine {
     totale: parseFloat(o.totale),
     costoConsegna: parseFloat(o.costoConsegna ?? 0) || undefined,
     scontoFedelta: parseFloat(o.scontoFedelta ?? 0) || undefined,
+    scontoCodice: parseFloat(o.scontoCodice ?? 0) || undefined,
+    codiceSconto: o.codiceSconto ?? undefined,
     modificato: o.canale === "online" && !!o.modificatoAt ? true : undefined,
     note: o.note ?? undefined,
     noteDomicilio: o.noteDomicilio ?? undefined,
