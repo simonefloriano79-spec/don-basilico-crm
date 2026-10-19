@@ -185,8 +185,8 @@ function MieiOrdini({ onIndietro, onModifica }: { onIndietro: () => void; onModi
 // Caselle di consenso: informativa privacy obbligatoria, marketing facoltativo.
 // «Hai un codice sconto?»: il cliente scrive un codice (es. BAFFO15) e lo applica; il controllo vero lo fa il server
 // (anche alla conferma dell'ordine). Un solo sconto per ordine: non si somma a quello fedeltà.
-function CodiceScontoBox({ applicato, sconto, onApplica, onRimuovi }: {
-  applicato: { codice: string; percentuale: number } | null; sconto: number;
+function CodiceScontoBox({ applicato, sconto, mancano, onApplica, onRimuovi }: {
+  applicato: { codice: string; percentuale: number; minimo: number } | null; sconto: number; mancano: number;
   onApplica: (codice: string) => Promise<string | null>; onRimuovi: () => void;
 }) {
   const [aperto, setAperto] = useState(false);
@@ -201,6 +201,7 @@ function CodiceScontoBox({ applicato, sconto, onApplica, onRimuovi }: {
       <div style={{ ...verde, marginBottom: 12, display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{ flex: 1, fontSize: 13.5, color: "var(--text)", lineHeight: 1.4 }}>
           <strong>Codice {applicato.codice}</strong> applicato: -{applicato.percentuale}% sui prodotti{sconto > 0 ? <> (<span className="num">-{euro(sconto)}</span>)</> : null}
+          {mancano > 0 && <div style={{ fontSize: 12.5, color: "var(--text-2)", marginTop: 3 }}>Vale per ordini da almeno {euro(applicato.minimo)} di prodotti: aggiungine ancora per {euro(mancano)}.</div>}
         </div>
         <button type="button" onClick={onRimuovi} style={{ background: "none", border: "none", color: "var(--text-2)", fontSize: 13, textDecoration: "underline", cursor: "pointer", minHeight: 44, padding: "0 4px" }}>Rimuovi</button>
       </div>
@@ -973,7 +974,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
   // Sconto fedeltà: null = il cliente non ha ancora scelto, true = lo usa su questo ordine, false = lo tiene per un altro.
   const [usaSconto, setUsaSconto] = useState<boolean | null>(null);
   // Codice sconto applicato dal cliente (es. BAFFO15); non si somma allo sconto fedeltà.
-  const [codiceApplicato, setCodiceApplicato] = useState<{ codice: string; percentuale: number } | null>(null);
+  const [codiceApplicato, setCodiceApplicato] = useState<{ codice: string; percentuale: number; minimo: number } | null>(null);
   const [inviandoOtp, setInviandoOtp] = useState(false);
   const [erroreGate, setErroreGate] = useState("");
 
@@ -1202,7 +1203,9 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
         ? Math.min(Math.round(subtotale * modifica.percentualeCodice) / 100, subtotale)
         : Math.min(parseFloat(modifica.scontoCodice ?? 0) || 0, subtotale)
       : 0
-    : codiceApplicato ? Math.min(Math.round(subtotale * codiceApplicato.percentuale) / 100, subtotale) : 0;
+    : codiceApplicato && subtotale >= codiceApplicato.minimo ? Math.min(Math.round(subtotale * codiceApplicato.percentuale) / 100, subtotale) : 0;
+  // Con una spesa minima richiesta: quanto manca per far scattare lo sconto (0 se già raggiunta).
+  const codiceMancano = !modifica && codiceApplicato && subtotale < codiceApplicato.minimo ? Math.round((codiceApplicato.minimo - subtotale) * 100) / 100 : 0;
   const totale = lordo - scontoApplicato - scontoCodice;
   const applicaCodice = async (codice: string): Promise<string | null> => {
     if (usaSconto === true && scontoMaturato > 0) return "Il codice non si somma allo sconto fedeltà: per usarlo scegli «Tienilo per un altro ordine» qui sotto.";
@@ -1210,7 +1213,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
       const r = await fetch("/api/ordina/codice", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ codice }) });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) return d.error ?? "Questo codice non è valido";
-      setCodiceApplicato({ codice: d.codice, percentuale: d.percentuale });
+      setCodiceApplicato({ codice: d.codice, percentuale: d.percentuale, minimo: Number(d.ordineMinimo) || 0 });
       if (scontoMaturato > 0 && usaSconto === null) setUsaSconto(false);
       return null;
     } catch {
@@ -1362,7 +1365,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
           nomeCitofono: tipo === "domicilio" ? (chiamami ? TESTO_CHIAMAMI : nomeCitofono.trim() || undefined) : undefined,
           oraRitiro: orario === "asap" ? undefined : orario,
           usaSconto: scontoMaturato > 0 && usaSconto === true,
-          codiceSconto: codiceApplicato?.codice,
+          codiceSconto: codiceApplicato && subtotale >= codiceApplicato.minimo ? codiceApplicato.codice : undefined,
           note: note || undefined,
           articoli: cart.map((c) => ({
             menuItemId: c.menuItemId, quantita: c.qty,
@@ -2097,7 +2100,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
           )}
 
           {!modifica && (
-            <CodiceScontoBox applicato={codiceApplicato} sconto={scontoCodice} onApplica={applicaCodice} onRimuovi={() => setCodiceApplicato(null)} />
+            <CodiceScontoBox applicato={codiceApplicato} sconto={scontoCodice} mancano={codiceMancano} onApplica={applicaCodice} onRimuovi={() => setCodiceApplicato(null)} />
           )}
 
           {!modifica && scontoMaturato > 0 && (

@@ -151,7 +151,9 @@ export async function POST(req: NextRequest) {
       if (codiceRichiesto) {
         // Si blocca la riga del cliente: due ordini contemporanei non possono usare lo stesso codice due volte.
         await tx.$queryRaw`SELECT id FROM clienti WHERE id = ${cliente.id}::uuid FOR UPDATE`;
-        const c = await verificaCodice(tx, codiceRichiesto, cliente.id);
+        // ...e quella del codice: con un limite di utilizzi totali, due clienti insieme non superano il tetto.
+        await tx.$queryRaw`SELECT id FROM codici_sconto WHERE codice = ${codiceRichiesto} FOR UPDATE`;
+        const c = await verificaCodice(tx, codiceRichiesto, cliente.id, { totaleProdotti: esito.totale });
         if (!c.ok) throw new Error(`CODICE_NON_VALIDO:${c.motivo}`);
         scontoCodice = Math.min(scontoDaCodice(c.percentuale, esito.totale), esito.totale);
         codiceUsato = c.codice;

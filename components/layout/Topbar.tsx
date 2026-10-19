@@ -16,6 +16,7 @@ const PAGES: Record<string, { title: string; subtitle: string }> = {
   "/menu":          { title: "Menù",          subtitle: "listino e disponibilità" },
   "/ingredienti":   { title: "Ingredienti",   subtitle: "magazzino e scorte" },
   "/sedi":          { title: "Sedi",          subtitle: "punti vendita" },
+  "/codici-sconto": { title: "Codici sconto", subtitle: "promozioni dell'app ordini" },
   "/utenti":        { title: "Utenti",        subtitle: "accessi e ruoli" },
   "/profilo":       { title: "Profilo",       subtitle: "account e password" },
   "/pannello":      { title: "Online",        subtitle: "ordini dal sito" },

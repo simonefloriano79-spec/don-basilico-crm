@@ -525,6 +525,9 @@ model CodiceSconto {
   validoDal          DateTime? @map("valido_dal")
   validoAl           DateTime? @map("valido_al")
   maxUsiPerCliente   Int       @default(1) @map("max_usi_per_cliente")
+  maxUsiTotali       Int?      @map("max_usi_totali")
+  ordineMinimo       Decimal   @default(0) @map("ordine_minimo") @db.Decimal(10, 2)
+  soloPrimoOrdine    Boolean   @default(false) @map("solo_primo_ordine")
   createdAt          DateTime  @default(now()) @map("created_at")
 
   @@map("codici_sconto")

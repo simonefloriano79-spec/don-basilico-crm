@@ -65,6 +65,7 @@ export function Sidebar({ session, pannello = false }: Props) {
         { href: "/ingredienti", glyph: "◈", label: "Ingredienti" },
         ...(isSuperAdmin ? [
           { href: "/sedi",   glyph: "⊙", label: "Sedi"   },
+          { href: "/codici-sconto", glyph: "%", label: "Codici sconto" },
           { href: "/utenti", glyph: "◎", label: "Utenti" },
         ] : []),
       ],

@@ -11,7 +11,8 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}));
   const esito = await verificaCodice(prisma, body?.codice, clienteId).catch(() => null);
+  // La spesa minima non si controlla qui (il cliente può ancora aggiungere prodotti): la controlla l'app e, alla conferma, il server.
   if (!esito) return NextResponse.json({ error: "Non riusciamo a controllare il codice, riprova tra poco" }, { status: 500 });
   if (!esito.ok) return NextResponse.json({ error: esito.motivo }, { status: 422 });
-  return NextResponse.json({ ok: true, codice: esito.codice, percentuale: esito.percentuale });
+  return NextResponse.json({ ok: true, codice: esito.codice, percentuale: esito.percentuale, ordineMinimo: esito.ordineMinimo });
 }
