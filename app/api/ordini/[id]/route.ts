@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { timbraOrdine, ripristinaSconto } from "@/lib/fedelta";
+import { inviaPushCliente } from "@/lib/push";
 
 // GET /api/ordini/[id]
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -92,6 +93,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     await timbraOrdine(params.id).catch((e) => console.error("Timbro fedeltà non assegnato", e));
   } else if (stato === "annullato") {
     await ripristinaSconto(params.id).catch((e) => console.error("Sconto fedeltà non ripristinato", e));
+  }
+
+  // Notifica push al cliente dell'app quando l'ordine diventa pronto (solo ordini online, una volta sola).
+  if (stato === "pronto" && ordineAttuale.stato !== "pronto" && ordineAttuale.canale === "online") {
+    const sede = ordineAggiornato.sede.nome.replace("Don Basilico ", "");
+    await inviaPushCliente(ordineAttuale.clienteId, {
+      titolo: `Ordine #${ordineAttuale.numeroOrdine} pronto!`,
+      testo: ordineAttuale.tipo === "domicilio" ? "È pronto e a breve parte per la consegna." : `Puoi ritirarlo da Don Basilico ${sede}.`,
+      tag: `ordine-${ordineAttuale.id}`,
+    });
   }
 
   return NextResponse.json(ordineAggiornato);

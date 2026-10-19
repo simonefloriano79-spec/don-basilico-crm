@@ -29,6 +29,9 @@ export function middleware(req: NextRequest) {
   // La home del dominio pubblico è la pagina degli ordini (l'indirizzo resta pulito: ordina.donbasilico.it).
   if (percorso === "/") return NextResponse.rewrite(new URL("/ordina", req.url));
 
+  // Indirizzo corto per QR e volantini: ordina.donbasilico.it/app (la pagina vera sta dentro /ordina, dove vale il manifest dell'app).
+  if (/^\/app\/?$/.test(percorso)) return NextResponse.redirect(new URL("/ordina/app", req.url), 308);
+
   if (CONSENTITI.some((r) => r.test(percorso))) return NextResponse.next();
 
   return new NextResponse("Pagina non trovata", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });

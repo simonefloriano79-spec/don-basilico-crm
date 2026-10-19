@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { inviaSmsDettaglio } from "@/lib/customer-auth/sms";
+import { inviaPushCliente } from "@/lib/push";
 import { caricaOrdineStaff, descriviOrario, leggiOrario } from "@/lib/ordini-online";
 
 // POST /api/ordini/[id]/sposta — cambia l'orario confermato di un ordine online già accettato,
@@ -38,6 +39,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     );
     smsInviato = esitoSms.ok;
     smsErrore = esitoSms.errore;
+  }
+  if (body.avvisa !== false) {
+    await inviaPushCliente(ordine.clienteId, {
+      titolo: `Ordine #${ordine.numeroOrdine}: nuovo orario`,
+      testo: `${ordine.tipo === "domicilio" ? "Consegna" : "Ritiro"} ${descriviOrario(orario)}. Ci scusiamo per la variazione.`,
+      tag: `ordine-${ordine.id}`,
+    });
   }
   return NextResponse.json({ ok: true, smsInviato, smsErrore });
 }
