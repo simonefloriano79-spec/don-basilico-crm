@@ -34,6 +34,18 @@ export function leggiComboConfig(v: unknown): ComboConfig | null {
 // «Bibite da 33cl»: Coca Cola, Fanta, Sprite, Tè. Non la birra, non le bottiglie grandi, non l'acqua da 50cl.
 export const bevandaAmmessaInCombo = (nome: string) => /33\s?cl/i.test(nome) && !/birra/i.test(nome);
 
+// Un combo è disponibile se nella pizzeria ci sono tutti i prodotti fissi e abbastanza bibite / pizze speciali da scegliere.
+// `disponibili` = i prodotti attivi e non esauriti in quella sede.
+export function comboDisponibileIn(combo: { comboConfig?: unknown }, disponibili: { id: string; nome: string; categoria: string }[]): boolean {
+  const cfg = leggiComboConfig(combo.comboConfig);
+  if (!cfg) return false;
+  const ids = new Set(disponibili.map((m) => m.id));
+  if (!cfg.componenti.every((c) => ids.has(c.id))) return false;
+  if (cfg.bibite > 0 && !disponibili.some((m) => m.categoria === "bevande" && bevandaAmmessaInCombo(m.nome))) return false;
+  if (cfg.pizzeSpeciali > 0 && !disponibili.some((m) => m.categoria === "menu_speciale")) return false;
+  return true;
+}
+
 export function leggiComboScelte(v: unknown): ComboScelte {
   const lista = (x: unknown): string[] => (Array.isArray(x) ? x.filter((i): i is string => typeof i === "string") : []);
   const o = (v && typeof v === "object" ? v : {}) as any;

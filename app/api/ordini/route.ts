@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CATEGORIE_IMPASTO, impastiDellaSede } from "@/lib/impasti";
 import { prossimoNumeroOrdine } from "@/lib/numero-ordine";
+import { calcolaOrdine, type ArticoloPrezzato } from "@/lib/ordini-vocali/pricing";
 
 // GET /api/ordini
 export async function GET(req: NextRequest) {
@@ -97,10 +98,43 @@ export async function POST(req: NextRequest) {
   const sedeExtraMap = new Map(sedeExtraDb.map((e) => [e.id, e]));
   const ingredienteMap = new Map(ingredientiDb.map((i) => [i.id, i]));
 
+  // «Menù Combo»: prezzo fisso; le scelte (bibite, pizze speciali) e la disponibilità in sede le controlla lo stesso
+  // calcolo dell'app clienti (lib/ordini-vocali/pricing.ts), con i prezzi della cassa.
+  const comboCalcolati = new Map<number, ArticoloPrezzato>();
+  try {
+    for (let idx = 0; idx < items.length; idx++) {
+      const it = items[idx];
+      if (!it.menuItemId || menuItemMap.get(it.menuItemId)?.categoria !== "combo") continue;
+      const { articoli } = await calcolaOrdine(sedeId, [{
+        menuItemId: it.menuItemId, quantita: Math.max(1, parseInt(it.quantita) || 1), comboScelte: it.comboScelte,
+      }]);
+      comboCalcolati.set(idx, articoli[0]);
+    }
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message ?? "Combo non valido" }, { status: 400 });
+  }
+
   let totale = 0;
   let itemsData;
   try {
-    itemsData = items.map((i: any) => {
+    itemsData = items.map((i: any, idx: number) => {
+      const combo = comboCalcolati.get(idx);
+      if (combo) {
+        totale += combo.prezzoSnapshot * combo.quantita;
+        return {
+          menuItemId: combo.menuItemId,
+          sedeExtraId: null,
+          nomeSnapshot: combo.nomeSnapshot,
+          prezzoSnapshot: combo.prezzoSnapshot,
+          quantita: combo.quantita,
+          // Comanda: cosa contiene (prodotti fissi + scelte) e, in coda, l'eventuale nota della cassiera.
+          noteItem: [combo.combo!.dettaglio, typeof i.noteItem === "string" ? i.noteItem.trim().slice(0, 200) : ""].filter(Boolean).join(" | ") || null,
+          impasto: null,
+          ingredientiRimossi: [] as string[],
+          comboScelte: combo.combo!.scelte as unknown as object,
+        };
+      }
+
       let prezzoUnitario: number;
 
       if (i.menuItemId) {
