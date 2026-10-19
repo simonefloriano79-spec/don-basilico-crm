@@ -2,8 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { CATEGORIE_IMPASTO, impastiDellaSede } from "@/lib/impasti";
 import { bevandaAmmessaInCombo, leggiComboConfig, leggiComboScelte, testoDettaglioCombo, type ComboScelte } from "@/lib/combo";
 
-// Pizza maxi: solo rosse e bianche, e solo nelle sedi con la maxi attiva (tabella sedi_pizza_maxi).
-export const CATEGORIE_MAXI = new Set(["pizze_rosse", "pizze_bianche"]);
+// Pizza maxi: rosse, bianche, speciali e focacce (non i calzoni), e solo nelle sedi con la maxi attiva (tabella sedi_pizza_maxi).
+export const CATEGORIE_MAXI = new Set(["pizze_rosse", "pizze_bianche", "menu_speciale", "focacce"]);
 
 export interface ArticoloOrdinatoInput {
   menuItemId: string;
@@ -186,7 +186,9 @@ export async function calcolaOrdine(
 
     const extraLordo = extra.reduce((acc, e) => acc + e.prezzo, 0);
     const credito = rimossi.reduce((acc, r) => acc + r.credito, 0);
-    const prezzoUnitario = prezzoBase + Math.max(0, extraLordo - credito) + (impasto?.supplemento ?? 0);
+    // Maxi: anche gli extra (e il credito degli ingredienti tolti) valgono il doppio; il supplemento dell'impasto no.
+    const fattoreMaxi = taglia === "maxi" ? moltiplicatore : 1;
+    const prezzoUnitario = prezzoBase + Math.max(0, extraLordo - credito) * fattoreMaxi + (impasto?.supplemento ?? 0);
     const quantita = Math.max(1, Math.round(a.quantita) || 1);
     totale += prezzoUnitario * quantita;
 

@@ -620,7 +620,7 @@ interface SlotData {
 
 // Categorie che aprono la finestra di personalizzazione (e che pesano sulla capienza cucina).
 const CAT_PIZZA = ["menu_speciale", "pizze_rosse", "pizze_bianche", "calzoni"];
-const CAT_MAXI = ["pizze_rosse", "pizze_bianche"];
+const CAT_MAXI = ["pizze_rosse", "pizze_bianche", "menu_speciale", "focacce"]; // tutte le pizze tranne i calzoni
 // Ordine delle sezioni del menù: speciali, rosse, bianche, calzoni, fritti, dolci, bevande.
 const ORDINE_CAT = ["combo", "menu_speciale", "pizze", "pizze_rosse", "pizze_bianche", "calzoni", "focacce", "fritti", "dolci", "bevande", "extra"];
 const posCat = (c: string) => { const i = ORDINE_CAT.indexOf(c); return i < 0 ? ORDINE_CAT.length : i; };
@@ -645,15 +645,16 @@ function PizzaModalCliente({ item, ingredienti, impasti, maxi, onConferma, onChi
   const impastiScelta = CAT_IMPASTO.includes(item.categoria) ? impasti : [];
   const impastoScelto = impastiScelta.find((x) => x.id === impastoId) ?? null;
 
-  // «La vuoi Maxi?»: solo rosse e bianche, solo nelle sedi che la fanno. Il prezzo della pizza si moltiplica (di norma ×2);
-  // extra e supplemento dell'impasto restano quelli normali.
+  // «La vuoi Maxi?»: tutte le pizze tranne i calzoni, solo nelle sedi che la fanno. Prezzo della pizza ed extra si moltiplicano
+  // (di norma ×2); il supplemento dell'impasto resta quello normale.
   const maxiPossibile = !!maxi && CAT_MAXI.includes(item.categoria);
   const [taglia, setTaglia] = useState<"normale" | "maxi">("normale");
   const prezzoNormale = num(item.prezzoEffettivo ?? item.prezzoBase);
-  const prezzoBase = prezzoNormale * (taglia === "maxi" && maxi ? maxi : 1);
+  const moltTaglia = taglia === "maxi" && maxi ? maxi : 1;
+  const prezzoBase = prezzoNormale * moltTaglia;
   const lordo = Array.from(aggiunti.values()).reduce((a, i) => a + num(i.prezzoAggiunta), 0);
   const credito = base.filter((i) => rimossi.has(i.id) && !i.escludiCompensazione).reduce((a, i) => a + num(i.prezzoAggiunta), 0);
-  const unitario = prezzoBase + Math.max(0, lordo - credito) + (impastoScelto?.supplemento ?? 0);
+  const unitario = prezzoBase + Math.max(0, lordo - credito) * moltTaglia + (impastoScelto?.supplemento ?? 0);
 
   const extra = ingredienti.filter((i) => !rimossi.has(i.id) && !i.disabilitatoInSede
     && i.nome.toLowerCase().includes(cerca.toLowerCase()));
@@ -775,7 +776,7 @@ function PizzaModalCliente({ item, ingredienti, impasti, maxi, onConferma, onChi
               <div style={{ background: "#FFFFFF", border: "1px solid #E4E5DD", borderRadius: 20, overflow: "hidden" }}>
                 {extraVisibili.map((i, idx) => {
                   const on = aggiunti.has(i.id);
-                  const prezzoExtra = num(i.prezzoAggiunta);
+                  const prezzoExtra = num(i.prezzoAggiunta) * moltTaglia;
                   return (
                     <div key={i.id} style={{ minHeight: 52, padding: "0 6px 0 16px", display: "flex", alignItems: "center", gap: 10, background: on ? "#F3F9EA" : "#FFFFFF", borderBottom: idx < extraVisibili.length - 1 ? "1px solid #EEEEE8" : "none" }}>
                       <span style={{ flex: 1, fontSize: 16, fontWeight: on ? 600 : 400 }}>{i.nome}</span>
