@@ -17,18 +17,32 @@ async function cerca(q: string, sedeSlug?: string | null) {
   const sede = sedeSlug ? await prisma.sede.findUnique({ where: { slug: sedeSlug } }) : null;
   if (sedeSlug && !sede) return NextResponse.json({ error: `Sede sconosciuta: ${sedeSlug}` }, { status: 400 });
 
-  // Casistica nota della pizzeria («prosciutto e funghi» = «Cotto e Funghi»): si cerca direttamente quella pizza.
+  // Casistica nota della pizzeria («prosciutto e funghi» → «crudo o cotto?»): si cercano direttamente quelle pizze,
+  // senza ricerca per nome né per ingredienti, così l'assistente non elenca nient'altro.
   const casistica = trovaCasistica(q);
-  const qNome = casistica ?? q;
+  const uguale = (nome: string) => ({ nome: { equals: nome, mode: "insensitive" as const } });
+  const [pizzeCasistica, extraCasistica] = casistica
+    ? await Promise.all([
+        prisma.menuItem.findMany({ where: { isAttivo: true, OR: casistica.opzioni.map((o) => uguale(o.pizza)) }, select: { id: true, nome: true } }),
+        prisma.ingrediente.findMany({
+          where: { OR: casistica.opzioni.flatMap((o) => o.conExtra).map(uguale) },
+          select: { id: true, nome: true, prezzoAggiunta: true },
+        }),
+      ])
+    : [[], []];
 
   const [rankProdotti, rankIngredienti] = await Promise.all([
-    prisma.$queryRaw<{ id: string }[]>`
+    casistica
+      ? Promise.resolve([] as { id: string }[])
+      : prisma.$queryRaw<{ id: string }[]>`
       SELECT id FROM menu_items
-      WHERE is_attivo = true AND (similarity(nome, ${qNome}) > 0.2 OR word_similarity(${qNome}, nome) > 0.45)
-      ORDER BY GREATEST(similarity(nome, ${qNome}), word_similarity(${qNome}, nome)) DESC
+      WHERE is_attivo = true AND (similarity(nome, ${q}) > 0.2 OR word_similarity(${q}, nome) > 0.45)
+      ORDER BY GREATEST(similarity(nome, ${q}), word_similarity(${q}, nome)) DESC
       LIMIT 12
     `,
-    prisma.$queryRaw<{ id: string }[]>`
+    casistica
+      ? Promise.resolve([] as { id: string }[])
+      : prisma.$queryRaw<{ id: string }[]>`
       SELECT id FROM ingredienti
       WHERE similarity(nome, ${q}) > 0.2 OR word_similarity(${q}, nome) > 0.45
       ORDER BY GREATEST(similarity(nome, ${q}), word_similarity(${q}, nome)) DESC
@@ -39,7 +53,9 @@ async function cerca(q: string, sedeSlug?: string | null) {
   // quelle che ne hanno solo qualcuno restano dopo i risultati per nome.
   const perIngredienti = casistica ? { coprono: [], parziali: [] } : await cercaPerIngredienti(q);
   const trovatiPerIngredienti = new Map([...perIngredienti.parziali, ...perIngredienti.coprono].map((x) => [x.id, x.ingredientiTrovati]));
-  const idProdotti = Array.from(new Set([
+  const idProdotti = casistica
+    ? casistica.opzioni.map((o) => pizzeCasistica.find((p) => p.nome.toLowerCase() === o.pizza.toLowerCase())?.id).filter((id): id is string => !!id)
+    : Array.from(new Set([
     ...perIngredienti.coprono.map((x) => x.id),
     ...rankProdotti.map((r) => r.id),
     ...perIngredienti.parziali.map((x) => x.id),
@@ -77,6 +93,21 @@ async function cerca(q: string, sedeSlug?: string | null) {
     disponibiliInSede = tutti.filter((m) => overrideMap.get(m.id)?.disponibile !== false);
   }
 
+  const casisticaDelProdotto = (nome: string) => {
+    const o = casistica?.opzioni.find((x) => x.pizza.toLowerCase() === nome.toLowerCase());
+    if (!casistica || !o) return {};
+    const extra = o.conExtra
+      .map((n) => extraCasistica.find((e) => e.nome.toLowerCase() === n.toLowerCase()))
+      .filter((e): e is NonNullable<typeof e> => !!e && !ingDisabilitati.has(e.id))
+      .map((e) => ({ ingredienteId: e.id, nome: e.nome, prezzoAggiunta: parseFloat(e.prezzoAggiunta.toString()) }));
+    // Se un ingrediente da aggiungere non è disponibile in questa pizzeria, l'opzione non va offerta.
+    return {
+      ...(casistica.chiedi ? { rispostaCasistica: o.risposta } : { casisticaPizzeria: true }),
+      ...(o.conExtra.length ? { extraDaAggiungere: extra } : {}),
+      ...(extra.length < o.conExtra.length ? { opzioneNonDisponibile: true } : {}),
+    };
+  };
+
   const risposteProdotti = prodotti.map((p) => {
     const override = overrideMap.get(p.id);
     const prezzo = parseFloat((override?.prezzoCustom ?? p.prezzoBase).toString());
@@ -88,8 +119,9 @@ async function cerca(q: string, sedeSlug?: string | null) {
       prezzo,
       // Se la pizza è stata trovata dagli ingredienti detti dal cliente e non dal nome, lo dice: l'assistente
       // la PROPONE («Campagnola, con patate alla brace e salsiccia: va bene?») invece di darla per scontata.
-      // Casistica nota: la pizza è quella, l'assistente la prende senza chiedere né elencare alternative.
-      ...(casistica && p.nome.toLowerCase() === casistica.toLowerCase() ? { casisticaPizzeria: true } : {}),
+      // Casistica nota: o la pizza è quella (l'assistente la prende senza chiedere né elencare alternative),
+      // oppure c'è UNA domanda da fare (casisticaDomanda in cima) e ogni pizza dice a quale risposta corrisponde.
+      ...casisticaDelProdotto(p.nome),
       ...(trovatiPerIngredienti.has(p.id) ? { trovataPerIngredienti: trovatiPerIngredienti.get(p.id) } : {}),
     };
 
@@ -136,6 +168,7 @@ async function cerca(q: string, sedeSlug?: string | null) {
 
   return NextResponse.json({
     sede: sede?.nome ?? null,
+    ...(casistica?.chiedi ? { casisticaDomanda: casistica.chiedi } : {}),
     prodotti: risposteProdotti,
     ingredientiExtra,
     ...(impasti ? { impasti } : {}),
