@@ -33,9 +33,9 @@ async function cerca(q: string, sedeSlug?: string | null) {
 
   const [rankProdotti, rankIngredienti] = await Promise.all([
     casistica
-      ? Promise.resolve([] as { id: string }[])
-      : prisma.$queryRaw<{ id: string }[]>`
-      SELECT id FROM menu_items
+      ? Promise.resolve([] as { id: string; punteggio: number }[])
+      : prisma.$queryRaw<{ id: string; punteggio: number }[]>`
+      SELECT id, GREATEST(similarity(nome, ${q}), word_similarity(${q}, nome))::float8 AS punteggio FROM menu_items
       WHERE is_attivo = true AND (similarity(nome, ${q}) > 0.2 OR word_similarity(${q}, nome) > 0.45)
       ORDER BY GREATEST(similarity(nome, ${q}), word_similarity(${q}, nome)) DESC
       LIMIT 12
@@ -53,9 +53,13 @@ async function cerca(q: string, sedeSlug?: string | null) {
   // quelle che ne hanno solo qualcuno restano dopo i risultati per nome.
   const perIngredienti = casistica ? { coprono: [], parziali: [] } : await cercaPerIngredienti(q);
   const trovatiPerIngredienti = new Map([...perIngredienti.parziali, ...perIngredienti.coprono].map((x) => [x.id, x.ingredientiTrovati]));
+  // Se il cliente dice il NOME esatto di una pizza («cotto e funghi»), quella viene per prima: la ricerca per
+  // ingredienti serve solo quando non ha detto un nome.
+  const nomeEsatto = rankProdotti.filter((r) => r.punteggio >= 0.9).map((r) => r.id);
   const idProdotti = casistica
     ? casistica.opzioni.map((o) => pizzeCasistica.find((p) => p.nome.toLowerCase() === o.pizza.toLowerCase())?.id).filter((id): id is string => !!id)
     : Array.from(new Set([
+    ...nomeEsatto,
     ...perIngredienti.coprono.map((x) => x.id),
     ...rankProdotti.map((r) => r.id),
     ...perIngredienti.parziali.map((x) => x.id),
