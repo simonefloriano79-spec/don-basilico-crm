@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { geocodificaIndirizzo, trovaSedeCompetente } from "./copertura";
-import { verificaSedeDisponibile } from "./capacita";
+import { verificaSedeAperta, verificaCapienza } from "./capacita";
 import { calcolaOrdine, ArticoloOrdinatoInput, ArticoloPrezzato, ErrorePricing } from "./pricing";
+import { pesoRiga } from "@/lib/peso-pizze";
 
 export interface RichiestaOrdine {
   clienteNome: string;
@@ -41,6 +42,10 @@ export async function elaboraRichiestaOrdine(input: RichiestaOrdine): Promise<Es
   const oraRichiesta = input.oraRichiesta ? new Date(input.oraRichiesta) : new Date();
   if (Number.isNaN(oraRichiesta.getTime())) {
     return { ok: false, esito: "errore", motivo: "oraRichiesta non valida" };
+  }
+  // L'app sceglie solo orari futuri dal suo elenco; per il telefono l'orario lo trascrive l'assistente: se è già passato è un errore.
+  if (input.canale !== "online" && input.oraRichiesta && oraRichiesta.getTime() < Date.now() - 10 * 60000) {
+    return { ok: false, esito: "errore", motivo: "L'orario richiesto è già passato: chiedi al cliente per che ora lo vuole" };
   }
 
   let sedeId: string;
@@ -87,14 +92,26 @@ export async function elaboraRichiestaOrdine(input: RichiestaOrdine): Promise<Es
     sedeNome = sede.nome;
   }
 
-  const disponibilita = await verificaSedeDisponibile(sedeId, oraRichiesta);
-  if (!disponibilita.ok) {
-    const esito = disponibilita.motivo?.toLowerCase().includes("chius") ? "chiuso" : "cucina_piena";
-    return { ok: false, esito, motivo: disponibilita.motivo ?? "Sede non disponibile in questo orario", sedeId };
+  const apertura = await verificaSedeAperta(sedeId, oraRichiesta);
+  if (!apertura.ok) {
+    return { ok: false, esito: "chiuso", motivo: apertura.motivo ?? "Sede non disponibile in questo orario", sedeId };
   }
 
   try {
     const { articoli, totale } = await calcolaOrdine(sedeId, input.articoli, input.canale);
+
+    // Capienza cucina: per l'app la controlla la conferma sullo slot scelto; per il telefono la controlliamo qui.
+    if (input.canale !== "online") {
+      const peso = articoli.reduce(
+        (acc, a) => acc + pesoRiga(a.categoria, a.taglia === "maxi" ? `${a.nomeSnapshot} (Maxi)` : a.nomeSnapshot, a.quantita, a.combo?.pizze),
+        0
+      );
+      const capienza = await verificaCapienza(sedeId, oraRichiesta, peso);
+      if (!capienza.ok) {
+        return { ok: false, esito: "cucina_piena", motivo: capienza.motivo ?? "Cucina piena per la fascia oraria richiesta", sedeId };
+      }
+    }
+
     return { ok: true, sedeId, sedeNome, totale, articoli, indirizzoLat, indirizzoLng, indirizzoFormattato, oraRichiesta };
   } catch (e) {
     if (e instanceof ErrorePricing) {

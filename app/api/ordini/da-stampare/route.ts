@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { FILTRO_ACCETTAZIONE } from "@/lib/accettazione";
 
 // GET /api/ordini/da-stampare?sedeId= — ordini della sede mai stampati (es. presi da telefono/tablet o accettati
 // dal sito online), per la stampa automatica del PC della cassa. Solo ordini attivi delle ultime 24 ore; gli
-// ordini online non ancora accettati non si stampano.
+// ordini online o dell'assistente non ancora accettati non si stampano.
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Non autorizzato" }, { status: 401 });
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
       stampato: false,
       stato: { in: ["nuovo", "confermato", "in_preparazione"] },
       createdAt: { gte: new Date(Date.now() - 24 * 3600 * 1000) },
-      NOT: { canale: "online", stato: "nuovo" },
+      NOT: { ...FILTRO_ACCETTAZIONE, stato: "nuovo" },
     },
     include: { items: true, sede: { select: { nome: true } } },
     orderBy: { createdAt: "asc" },

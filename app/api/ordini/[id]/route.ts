@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { timbraOrdine, ripristinaSconto } from "@/lib/fedelta";
+import { richiedeAccettazione } from "@/lib/accettazione";
 import { inviaPushCliente } from "@/lib/push";
 
 // GET /api/ordini/[id]
@@ -96,7 +97,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   // Notifica push al cliente dell'app quando l'ordine diventa pronto (solo ordini online, una volta sola).
-  if (stato === "pronto" && ordineAttuale.stato !== "pronto" && ordineAttuale.canale === "online") {
+  if (stato === "pronto" && ordineAttuale.stato !== "pronto" && richiedeAccettazione(ordineAttuale)) {
     const sede = ordineAggiornato.sede.nome.replace("Don Basilico ", "");
     await inviaPushCliente(ordineAttuale.clienteId, {
       titolo: `Ordine #${ordineAttuale.numeroOrdine} pronto!`,

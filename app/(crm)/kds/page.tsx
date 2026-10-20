@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import { stampaBrowser } from "@/lib/print";
 import { nomeOrdine } from "@/lib/ordine-utils";
+import { richiedeAccettazione } from "@/lib/accettazione";
 
 const CANALE_LABEL: Record<string, string> = { online: "online", telefono: "telefono", walk_in: "walk-in" };
 
@@ -41,7 +42,7 @@ export default function KDSPage() {
     setOrdini(
       (Array.isArray(all) ? all : [])
         // Gli online non ancora accettati dalla pizzeria restano in Ordini ("Da accettare"), non in cucina.
-        .filter((o: any) => ["nuovo", "confermato", "in_preparazione"].includes(o.stato) && !(o.canale === "online" && o.stato === "nuovo"))
+        .filter((o: any) => ["nuovo", "confermato", "in_preparazione"].includes(o.stato) && !(richiedeAccettazione(o) && o.stato === "nuovo"))
         .sort((a: any, b: any) => new Date(riferimento(a)).getTime() - new Date(riferimento(b)).getTime())
     );
   }, [user]);

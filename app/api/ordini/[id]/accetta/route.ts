@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { inviaSmsDettaglio } from "@/lib/customer-auth/sms";
 import { inviaPushCliente } from "@/lib/push";
+import { richiedeAccettazione } from "@/lib/accettazione";
 import { caricaOrdineStaff, descriviOrario, euroSms, leggiOrario } from "@/lib/ordini-online";
 
-// POST /api/ordini/[id]/accetta — la pizzeria accetta un ordine online "da accettare"
+// POST /api/ordini/[id]/accetta — la pizzeria accetta un ordine "da accettare" (app o assistente vocale)
 // fissando l'orario confermato (proposto = quello richiesto, modificabile). Solo ora
 // il cliente riceve l'SMS di conferma.
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -12,8 +13,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if ("errore" in r) return r.errore;
   const { ordine, user } = r;
 
-  if (ordine.canale !== "online" || ordine.stato !== "nuovo") {
-    return NextResponse.json({ error: "Solo gli ordini online in attesa possono essere accettati" }, { status: 409 });
+  if (!richiedeAccettazione(ordine) || ordine.stato !== "nuovo") {
+    return NextResponse.json({ error: "Solo gli ordini online o dell'assistente in attesa possono essere accettati" }, { status: 409 });
   }
 
   const body = await req.json().catch(() => ({}));

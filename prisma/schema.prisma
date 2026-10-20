@@ -310,6 +310,9 @@ model Ordine {
   codiceSconto    String? @map("codice_sconto")
   scontoCodice    Decimal @default(0) @map("sconto_codice") @db.Decimal(10, 2)
   pagato          Boolean @default(false)
+  // true per gli ordini presi dall'assistente vocale: nascono «da accettare» come quelli dell'app (il canale resta
+  // `telefono`, perché la cassa usa lo stesso canale per gli ordini presi dallo staff, che non vanno accettati).
+  daAssistente    Boolean @default(false) @map("da_assistente")
   metodoPagamento String? @map("metodo_pagamento")
   stripePaymentId String? @map("stripe_payment_id")
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { inviaSmsDettaglio } from "@/lib/customer-auth/sms";
 import { inviaPushCliente } from "@/lib/push";
+import { richiedeAccettazione } from "@/lib/accettazione";
 import { caricaOrdineStaff, descriviOrario, leggiOrario } from "@/lib/ordini-online";
 
 // POST /api/ordini/[id]/sposta — cambia l'orario confermato di un ordine online già accettato,
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if ("errore" in r) return r.errore;
   const { ordine, user } = r;
 
-  if (ordine.canale !== "online" || ["annullato", "consegnato"].includes(ordine.stato)) {
+  if (!richiedeAccettazione(ordine) || ["annullato", "consegnato"].includes(ordine.stato)) {
     return NextResponse.json({ error: "L'orario di questo ordine non può essere spostato" }, { status: 409 });
   }
 
