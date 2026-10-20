@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { verificaSegretoWebhook } from "@/lib/ordini-vocali/auth";
 import { CATEGORIE_MAXI } from "@/lib/ordini-vocali/pricing";
 import { CATEGORIE_IMPASTO, impastiDellaSede } from "@/lib/impasti";
+import { trovaCasistica } from "@/lib/ordini-vocali/casistiche";
 import { cercaPerIngredienti } from "@/lib/ordini-vocali/ricerca-ingredienti";
 import { bevandaAmmessaInCombo, comboDisponibileIn, leggiComboConfig } from "@/lib/combo";
 
@@ -16,11 +17,15 @@ async function cerca(q: string, sedeSlug?: string | null) {
   const sede = sedeSlug ? await prisma.sede.findUnique({ where: { slug: sedeSlug } }) : null;
   if (sedeSlug && !sede) return NextResponse.json({ error: `Sede sconosciuta: ${sedeSlug}` }, { status: 400 });
 
+  // Casistica nota della pizzeria («prosciutto e funghi» = «Cotto e Funghi»): si cerca direttamente quella pizza.
+  const casistica = trovaCasistica(q);
+  const qNome = casistica ?? q;
+
   const [rankProdotti, rankIngredienti] = await Promise.all([
     prisma.$queryRaw<{ id: string }[]>`
       SELECT id FROM menu_items
-      WHERE is_attivo = true AND (similarity(nome, ${q}) > 0.2 OR word_similarity(${q}, nome) > 0.45)
-      ORDER BY GREATEST(similarity(nome, ${q}), word_similarity(${q}, nome)) DESC
+      WHERE is_attivo = true AND (similarity(nome, ${qNome}) > 0.2 OR word_similarity(${qNome}, nome) > 0.45)
+      ORDER BY GREATEST(similarity(nome, ${qNome}), word_similarity(${qNome}, nome)) DESC
       LIMIT 12
     `,
     prisma.$queryRaw<{ id: string }[]>`
@@ -32,7 +37,7 @@ async function cerca(q: string, sedeSlug?: string | null) {
   ]);
   // Ricerca per INGREDIENTI («patate e salsiccia» → Campagnola): le pizze che li contengono tutti vanno in testa;
   // quelle che ne hanno solo qualcuno restano dopo i risultati per nome.
-  const perIngredienti = await cercaPerIngredienti(q);
+  const perIngredienti = casistica ? { coprono: [], parziali: [] } : await cercaPerIngredienti(q);
   const trovatiPerIngredienti = new Map([...perIngredienti.parziali, ...perIngredienti.coprono].map((x) => [x.id, x.ingredientiTrovati]));
   const idProdotti = Array.from(new Set([
     ...perIngredienti.coprono.map((x) => x.id),
@@ -83,6 +88,8 @@ async function cerca(q: string, sedeSlug?: string | null) {
       prezzo,
       // Se la pizza è stata trovata dagli ingredienti detti dal cliente e non dal nome, lo dice: l'assistente
       // la PROPONE («Campagnola, con patate alla brace e salsiccia: va bene?») invece di darla per scontata.
+      // Casistica nota: la pizza è quella, l'assistente la prende senza chiedere né elencare alternative.
+      ...(casistica && p.nome.toLowerCase() === casistica.toLowerCase() ? { casisticaPizzeria: true } : {}),
       ...(trovatiPerIngredienti.has(p.id) ? { trovataPerIngredienti: trovatiPerIngredienti.get(p.id) } : {}),
     };
 

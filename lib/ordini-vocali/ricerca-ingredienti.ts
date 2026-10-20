@@ -8,6 +8,9 @@ const PAROLE_VUOTE = new Set([
   "e", "ed", "con", "di", "del", "dei", "della", "delle", "dello", "degli", "la", "il", "lo", "le", "i", "gli",
   "un", "una", "uno", "alla", "al", "allo", "ai", "alle", "agli", "pizza", "pizze", "vorrei", "quella", "quello",
   "che", "ha", "hanno", "mi", "per", "in", "su", "tipo", "poi", "anche", "più", "senza", "extra",
+  // come si chiede una pizza a voce, e le quantità
+  "fai", "fammi", "faresti", "farei", "vorrei", "voglio", "volevo", "vorremmo", "prendo", "prenderei", "metti", "mettimi",
+  "dammi", "darei", "desidero", "gradirei", "ordino", "ordinare", "aggiungi", "aggiungere", "due", "tre", "quattro", "cinque",
 ]);
 
 // «patate» e «patata» → «patat»; «salsiccia» e «salsicce» → «salsicc». Togliere le vocali finali basta a far coincidere
@@ -31,6 +34,11 @@ const paroleUguali = (token: string, parolaIngrediente: string) => {
   const b = radice(parolaIngrediente);
   return a === b || distanzaUno(a, b);
 };
+
+// Le parole che contano di una richiesta, ridotte alla radice (senza «una», «e», «pizza»…): serve a confrontare
+// «una prosciutto e funghi» con «funghi e prosciutto» come la stessa cosa.
+export const radiciRichiesta = (richiesta: string): string[] =>
+  parole(richiesta).filter((t) => t.length >= 3 && !PAROLE_VUOTE.has(t)).map(radice);
 
 interface PizzaConIngredienti {
   id: string;
