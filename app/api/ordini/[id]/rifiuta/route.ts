@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { ripristinaSconto } from "@/lib/fedelta";
 import { inviaSmsDettaglio } from "@/lib/customer-auth/sms";
 import { inviaPushCliente } from "@/lib/push";
+import { richiedeAccettazione } from "@/lib/accettazione";
 import { caricaOrdineStaff } from "@/lib/ordini-online";
 
 // POST /api/ordini/[id]/rifiuta — la pizzeria non può preparare l'ordine online: lo annulla e avvisa il cliente.
@@ -11,8 +12,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if ("errore" in r) return r.errore;
   const { ordine, user } = r;
 
-  if (ordine.canale !== "online" || ordine.stato !== "nuovo") {
-    return NextResponse.json({ error: "Solo gli ordini online in attesa possono essere rifiutati" }, { status: 409 });
+  if (!richiedeAccettazione(ordine) || ordine.stato !== "nuovo") {
+    return NextResponse.json({ error: "Solo gli ordini online o dell'assistente in attesa possono essere rifiutati" }, { status: 409 });
   }
 
   const body = await req.json().catch(() => ({}));

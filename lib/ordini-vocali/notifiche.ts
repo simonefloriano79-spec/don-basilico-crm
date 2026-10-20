@@ -20,28 +20,47 @@ interface RiepilogoOrdine {
   clienteTelefono: string;
   tipo: "domicilio" | "asporto";
   clienteIndirizzo?: string | null;
+  nomeCitofono?: string | null;
+  metodoPagamento?: "contanti" | "pos" | null;
+  oraRichiesta?: Date | null; // solo se il cliente ha chiesto un orario preciso
   articoli: ArticoloPrezzato[];
+  costoConsegna: number;
+  scontoFedelta?: number;
+  scontoCodice?: number;
   totale: number;
   note?: string | null;
 }
+
+const ORA = new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", hour: "2-digit", minute: "2-digit" });
 
 function formattaRiepilogo(o: RiepilogoOrdine): string {
   const righe = o.articoli
     .map((a) => {
       const taglia = a.taglia === "maxi" ? " (MAXI)" : "";
-      const extra = a.extra.length ? ` +${a.extra.map((e) => e.nome).join(", +")}` : "";
-      return `• ${a.quantita}x ${a.nomeSnapshot}${taglia}${extra}`;
+      const dettagli = [
+        a.combo?.dettaglio ?? "",
+        a.impasto ? `impasto ${a.impasto.nome}` : "",
+        a.rimossi.length ? `SENZA ${a.rimossi.map((r) => r.nome).join(", ")}` : "",
+        a.extra.length ? `CON ${a.extra.map((e) => e.nome).join(", ")}` : "",
+        a.note ?? "",
+      ].filter(Boolean);
+      return `• ${a.quantita}x ${a.nomeSnapshot}${taglia}${dettagli.length ? ` (${dettagli.join(" | ")})` : ""}`;
     })
     .join("\n");
 
   return [
-    `🍕 Nuovo ordine vocale #${o.numeroOrdine} — ${o.sedeNome}`,
+    `🍕 Nuovo ordine telefonico #${o.numeroOrdine} — ${o.sedeNome} (DA ACCETTARE nella pagina Ordini)`,
     `Cliente: ${o.clienteNome} (${o.clienteTelefono})`,
     o.tipo === "domicilio" ? `Consegna: ${o.clienteIndirizzo}` : "Ritiro in sede",
+    o.nomeCitofono ? `Citofono: ${o.nomeCitofono}` : "",
+    o.oraRichiesta ? `${o.tipo === "domicilio" ? "Non prima delle" : "Ritiro alle"} ${ORA.format(o.oraRichiesta)}` : "",
     "",
     righe,
     "",
-    `Totale: €${o.totale.toFixed(2)}`,
+    o.costoConsegna > 0 ? `Consegna: €${o.costoConsegna.toFixed(2)}` : "",
+    o.scontoFedelta ? `Sconto fedeltà: -€${o.scontoFedelta.toFixed(2)}` : "",
+    o.scontoCodice ? `Codice sconto: -€${o.scontoCodice.toFixed(2)}` : "",
+    `Totale: €${o.totale.toFixed(2)}${o.metodoPagamento ? ` — paga ${o.metodoPagamento === "pos" ? "con POS" : "in contanti"}` : ""}`,
     o.note ? `Note: ${o.note}` : "",
   ]
     .filter(Boolean)

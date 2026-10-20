@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { disponibilitaSlot } from "@/lib/capacita-pizze";
 
 const WEEKDAY_MAP: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
 
@@ -30,8 +31,8 @@ export interface DisponibilitaSede {
   motivo?: string;
 }
 
-// Verifica orario di apertura + capacità cucina per la fascia richiesta.
-export async function verificaSedeDisponibile(sedeId: string, oraRichiesta: Date): Promise<DisponibilitaSede> {
+// Sede attiva e aperta all'orario richiesto.
+export async function verificaSedeAperta(sedeId: string, oraRichiesta: Date): Promise<DisponibilitaSede> {
   const sede = await prisma.sede.findUnique({ where: { id: sedeId } });
   if (!sede || !sede.attiva) return { ok: false, motivo: "Sede non attiva" };
 
@@ -39,44 +40,16 @@ export async function verificaSedeDisponibile(sedeId: string, oraRichiesta: Date
   if (ora < sede.orarioApertura || ora >= sede.orarioChiusura) {
     return { ok: false, motivo: `Sede chiusa in questo orario (apertura ${sede.orarioApertura}-${sede.orarioChiusura})` };
   }
-
-  return verificaCapacitaSlot(sedeId, oraRichiesta);
+  return { ok: true };
 }
 
-async function verificaCapacitaSlot(sedeId: string, oraRichiesta: Date): Promise<DisponibilitaSede> {
-  const { giorno, ora, minutiDelGiorno } = orarioLocale(oraRichiesta);
+// Capienza cucina "a peso": la stessa dell'app clienti (lib/capacita-pizze.ts). Conta TUTTI gli ordini della sede
+// (cassa, banco, telefono, app), non solo quelli vocali, e pesa le pizze (maxi = 2, combo = le pizze che contiene).
+export async function verificaCapienza(sedeId: string, oraRichiesta: Date, pesoNuovo: number): Promise<DisponibilitaSede> {
+  const sede = await prisma.sede.findUnique({ where: { id: sedeId }, select: { id: true, capacitaPizze: true, finestraCapacitaMin: true } });
+  if (!sede) return { ok: false, motivo: "Sede non trovata" };
 
-  const slot = await prisma.$queryRaw<{ capacita_max: number; durata_slot_minuti: number }[]>`
-    SELECT capacita_max, durata_slot_minuti
-    FROM slot_cucina
-    WHERE sede_id = ${sedeId}::uuid
-      AND (giorno_settimana = ${giorno} OR giorno_settimana IS NULL)
-      AND ora_inizio <= ${ora}::time
-      AND ora_fine > ${ora}::time
-    ORDER BY giorno_settimana DESC NULLS LAST
-    LIMIT 1
-  `;
-
-  if (!slot.length) return { ok: true }; // nessun limite di capacità configurato per questa sede/fascia
-
-  const { capacita_max, durata_slot_minuti } = slot[0];
-
-  // Bucket orario (finestra di durata_slot_minuti) calcolato in modo timezone-safe:
-  // sottraggo dall'istante assoluto lo scarto in minuti rispetto all'inizio del bucket.
-  const scarto = minutiDelGiorno % durata_slot_minuti;
-  const bucketStart = new Date(oraRichiesta.getTime() - scarto * 60000);
-  const bucketEnd = new Date(bucketStart.getTime() + durata_slot_minuti * 60000);
-
-  const occupati = await prisma.ordineVocale.count({
-    where: {
-      sedeId,
-      stato: { not: "annullato" },
-      oraRichiesta: { gte: bucketStart, lt: bucketEnd },
-    },
-  });
-
-  if (occupati >= capacita_max) {
-    return { ok: false, motivo: "Cucina piena per la fascia oraria richiesta" };
-  }
+  const [disp] = await disponibilitaSlot(sede, [oraRichiesta.toISOString()], pesoNuovo);
+  if (disp?.pieno) return { ok: false, motivo: "Cucina piena per la fascia oraria richiesta: proponi al cliente un orario più tardi" };
   return { ok: true };
 }

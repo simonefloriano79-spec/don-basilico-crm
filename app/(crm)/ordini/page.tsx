@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import { stampaBrowser } from "@/lib/print";
 import { nomeOrdine } from "@/lib/ordine-utils";
 import { pesoRiga } from "@/lib/peso-pizze";
+import { richiedeAccettazione } from "@/lib/accettazione";
 
 const STATI_FLOW = ["nuovo", "confermato", "in_preparazione", "pronto", "consegnato"];
 const STATO_LABEL: Record<string, string> = {
@@ -42,9 +43,9 @@ function ora(d: string) {
   return new Date(d).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
 }
 
-// Ordine online non ancora accettato dalla pizzeria (nasce "nuovo").
+// Ordine dell'app o dell'assistente vocale non ancora accettato dalla pizzeria (nasce "nuovo").
 function inAttesaOnline(o: any) {
-  return o?.canale === "online" && o?.stato === "nuovo";
+  return richiedeAccettazione(o) && o?.stato === "nuovo";
 }
 // Modifiche e annullamenti fatti dal cliente dall'app («I miei ordini»).
 const modificatoDalCliente = (o: any) => o?.canale === "online" && !!o?.modificatoAt && o?.stato === "nuovo";
@@ -69,7 +70,7 @@ function quando(d: string) {
 const prenotato = (o: any) => !!o.oraRichiesta && new Date(o.oraRichiesta).getTime() - new Date(o.createdAt).getTime() > 5 * 60000;
 // Orario di riferimento da mostrare in lista (confermato, oppure richiesto se prenotato).
 const orarioRif = (o: any): string | null =>
-  o.oraConsegnaComunicata ?? (o.canale === "online" && prenotato(o) ? o.oraRichiesta : null);
+  o.oraConsegnaComunicata ?? (richiedeAccettazione(o) && prenotato(o) ? o.oraRichiesta : null);
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 const perInputLocale = (d: Date) =>
@@ -86,7 +87,7 @@ export default function OrdiniPage() {
   const isSuperAdmin = user?.ruolo === "super_admin";
 
   const [ordiniTutti, setOrdini] = useState<any[]>([]);
-  const ordini = soloOnline ? ordiniTutti.filter((o) => o.canale === "online") : ordiniTutti;
+  const ordini = soloOnline ? ordiniTutti.filter((o) => richiedeAccettazione(o)) : ordiniTutti;
   const [filtroStato, setFiltroStato] = useState(soloOnline ? "attivi" : "tutti");
   const primoCaricoFatto = useRef(false);
   // Interruttore "ordini online" per sede (solo nella vista Online).
@@ -163,7 +164,7 @@ export default function OrdiniPage() {
   // Orario di default per accettare/spostare un ordine online: quello già confermato,
   // altrimenti quello richiesto (se prenotato), altrimenti tra ~20 minuti.
   useEffect(() => {
-    if (!selezionato || selezionato.canale !== "online") return;
+    if (!selezionato || !richiedeAccettazione(selezionato)) return;
     const base = selezionato.oraConsegnaComunicata
       ? new Date(selezionato.oraConsegnaComunicata)
       : prenotato(selezionato)
@@ -175,7 +176,7 @@ export default function OrdiniPage() {
 
   // Carico della cucina nella fascia dell'orario scelto (esclude l'ordine stesso).
   useEffect(() => {
-    if (!selezionato || selezionato.canale !== "online" || !orarioConferma) { setCarico(null); return; }
+    if (!selezionato || !richiedeAccettazione(selezionato) || !orarioConferma) { setCarico(null); return; }
     const t = new Date(orarioConferma);
     if (Number.isNaN(t.getTime())) return;
     let annullato = false;
@@ -535,7 +536,7 @@ export default function OrdiniPage() {
             )}
           </div>
 
-          {selezionato.canale === "online" && !["annullato", "consegnato"].includes(selezionato.stato) && (() => {
+          {richiedeAccettazione(selezionato) && !["annullato", "consegnato"].includes(selezionato.stato) && (() => {
             const attesa = inAttesaOnline(selezionato);
             const pesoOrdine = (selezionato.items ?? []).reduce(
               (a: number, i: any) => a + pesoRiga(i.menuItem?.categoria ?? i.sedeExtra?.categoria, i.nomeSnapshot, i.quantita, i.menuItem?.comboConfig?.pizze), 0);
@@ -543,7 +544,7 @@ export default function OrdiniPage() {
             return (
               <div style={{ padding: "16px 22px", borderBottom: "1px solid var(--border-soft)", background: attesa ? "var(--danger-bg)" : "transparent" }}>
                 <div style={{ fontSize: 9.5, letterSpacing: 1.7, textTransform: "uppercase", color: attesa ? "var(--danger)" : "var(--text-muted)", marginBottom: 8, fontWeight: 600 }}>
-                  {attesa ? "Ordine online — da accettare" : "Orario confermato al cliente"}
+                  {attesa ? (selezionato.daAssistente ? "Ordine telefonico (assistente) — da accettare" : "Ordine online — da accettare") : "Orario confermato al cliente"}
                 </div>
                 {modificatoDalCliente(selezionato) && (
                   <div style={{ background: "#fff", border: "1.5px solid var(--danger)", borderRadius: 10, padding: "10px 12px", marginBottom: 10, fontSize: 12.5, lineHeight: 1.45, color: "var(--danger)" }}>

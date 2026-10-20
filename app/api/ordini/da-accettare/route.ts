@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { FILTRO_ACCETTAZIONE } from "@/lib/accettazione";
 
 // GET /api/ordini/da-accettare — quanti ordini online attendono l'accettazione
 // (della sede dell'utente, o di tutte per il super admin): per il contatore in sidebar.
@@ -12,7 +13,7 @@ export async function GET() {
 
   const n = await prisma.ordine.count({
     where: {
-      canale: "online",
+      ...FILTRO_ACCETTAZIONE,
       stato: "nuovo",
       ...(user.ruolo !== "super_admin" && user.sedeId ? { sedeId: user.sedeId } : {}),
     },

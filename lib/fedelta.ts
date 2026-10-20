@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { richiedeAccettazione } from "@/lib/accettazione";
 
 // Collegamento con la tessera fedeltà (schema `fedelta`, stesso database del CRM).
 // Regole identiche a quelle della tessera: cicli di 5 timbri; al quinto timbro matura uno sconto del 10%
@@ -107,14 +108,14 @@ export async function ripristinaSconto(ordineId: string, db: Db = prisma): Promi
 
 // Timbro per un ordine che ha raggiunto "pronto"/"consegnato". Idempotente (un timbro per ordine). Importo = quanto
 // ha pagato il cliente per i prodotti (la consegna non conta). Se il ciclo è già completo (sconto maturato e non usato) non si aggiunge nulla.
-// Per ora solo gli ordini del sito; gli ordini di cassa continuano a essere timbrati dal pannello della tessera.
+// Per ora solo gli ordini del sito e dell'assistente vocale; gli ordini di cassa continuano a essere timbrati dal pannello della tessera.
 export async function timbraOrdine(ordineId: string, db?: Db): Promise<"timbrato" | "saltato"> {
   const lettura = db ?? prisma;
   const ordine = await lettura.ordine.findUnique({
     where: { id: ordineId },
-    select: { canale: true, stato: true, clienteTelefono: true, totale: true, costoConsegna: true },
+    select: { canale: true, daAssistente: true, stato: true, clienteTelefono: true, totale: true, costoConsegna: true },
   });
-  if (!ordine || ordine.canale !== "online" || !ordine.clienteTelefono) return "saltato";
+  if (!ordine || !richiedeAccettazione(ordine) || !ordine.clienteTelefono) return "saltato";
   if (!["pronto", "consegnato"].includes(ordine.stato)) return "saltato";
   const importo = Math.round((parseFloat(ordine.totale.toString()) - parseFloat(ordine.costoConsegna.toString())) * 100) / 100;
   if (!(importo > 0)) return "saltato";
