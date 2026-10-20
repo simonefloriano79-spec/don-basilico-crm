@@ -32,6 +32,10 @@ export function middleware(req: NextRequest) {
   // Indirizzo corto per QR e volantini: ordina.donbasilico.it/app (la pagina vera sta dentro /ordina, dove vale il manifest dell'app).
   if (/^\/app\/?$/.test(percorso)) return NextResponse.redirect(new URL("/ordina/app", req.url), 308);
 
+  // Indirizzo corto per il QR «lascia una recensione» sui cartoni: ordina.donbasilico.it/recensione. Redirect temporaneo (307):
+  // il QR è stampato per sempre, la destinazione può cambiare.
+  if (/^\/recensione\/?$/.test(percorso)) return NextResponse.redirect(new URL("/ordina/recensione", req.url), 307);
+
   if (CONSENTITI.some((r) => r.test(percorso))) return NextResponse.next();
 
   return new NextResponse("Pagina non trovata", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
