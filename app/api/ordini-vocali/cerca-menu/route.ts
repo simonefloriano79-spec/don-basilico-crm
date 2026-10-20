@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { verificaSegretoWebhook } from "@/lib/ordini-vocali/auth";
 import { CATEGORIE_MAXI } from "@/lib/ordini-vocali/pricing";
 import { CATEGORIE_IMPASTO, impastiDellaSede } from "@/lib/impasti";
+import { cercaPerIngredienti } from "@/lib/ordini-vocali/ricerca-ingredienti";
 import { bevandaAmmessaInCombo, comboDisponibileIn, leggiComboConfig } from "@/lib/combo";
 
 const MAX_RISULTATI = 5;
@@ -29,7 +30,15 @@ async function cerca(q: string, sedeSlug?: string | null) {
       LIMIT 12
     `,
   ]);
-  const idProdotti = rankProdotti.map((r) => r.id);
+  // Ricerca per INGREDIENTI («patate e salsiccia» → Campagnola): le pizze che li contengono tutti vanno in testa;
+  // quelle che ne hanno solo qualcuno restano dopo i risultati per nome.
+  const perIngredienti = await cercaPerIngredienti(q);
+  const trovatiPerIngredienti = new Map([...perIngredienti.parziali, ...perIngredienti.coprono].map((x) => [x.id, x.ingredientiTrovati]));
+  const idProdotti = Array.from(new Set([
+    ...perIngredienti.coprono.map((x) => x.id),
+    ...rankProdotti.map((r) => r.id),
+    ...perIngredienti.parziali.map((x) => x.id),
+  ])).slice(0, 25);
   const idIngredienti = rankIngredienti.map((r) => r.id);
 
   const [prodottiDb, ingredientiDb, overrides, maxi, disabilitati] = await Promise.all([
@@ -72,6 +81,9 @@ async function cerca(q: string, sedeSlug?: string | null) {
       categoria: p.categoria,
       descrizione: p.descrizione,
       prezzo,
+      // Se la pizza è stata trovata dagli ingredienti detti dal cliente e non dal nome, lo dice: l'assistente
+      // la PROPONE («Campagnola, con patate alla brace e salsiccia: va bene?») invece di darla per scontata.
+      ...(trovatiPerIngredienti.has(p.id) ? { trovataPerIngredienti: trovatiPerIngredienti.get(p.id) } : {}),
     };
 
     if (p.categoria === "combo") {

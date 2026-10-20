@@ -83,6 +83,7 @@ Risposta:
   - `ingredienti: [{ingredienteId, nome}]` — gli ingredienti di base: per un «senza X» usa l'`ingredienteId` di X, mai uno inventato;
   - `maxi: {prezzo} | null` — se non è `null` la maxi esiste per quel prodotto in quella sede (prezzo già moltiplicato);
   - `impastoSpeciale: true|false` — se accetta un impasto diverso dal classico.
+- **Ricerca per ingredienti**: se il cliente non dice il nome ma gli ingredienti («patate e salsiccia»), `cerca_menu` abbina anche per ingredienti (singolare/plurale e piccoli errori inclusi). Le pizze che li hanno tutti vanno in testa e portano il campo `trovataPerIngredienti` (gli ingredienti riconosciuti): l'assistente la **propone** leggendo nome e ingredienti («Allora è la Campagnola: fior di latte, patate alla brace e salsiccia. Va bene?») e aspetta il sì.
 - `ingredientiExtra[]` (max 5): `ingredienteId, nome, prezzoAggiunta` — per le aggiunte («con bufala»). Sulla maxi gli extra costano il doppio (lo calcola `prepara`).
 - `impasti[]` (se tra i risultati c'è una pizza che li accetta): `impastoId, nome, supplemento`. Il classico è sempre incluso, non è in elenco.
 - Combo (`categoria: "combo"`): `combo: { disponibile, contiene[], bibiteDaScegliere, pizzeSpecialiDaScegliere, bibiteAmmesse[], pizzeSpecialiAmmesse[] }`. Se `disponibile` è falso, il combo non c'è in quella sede.
