@@ -62,7 +62,7 @@ export type OrdineAperto =
       righe: string[];
       articoli: ArticoloOrdinatoInput[];
     }
-  | { modificabile: false; numeroOrdine: number; motivo: string };
+  | { modificabile: false; numeroOrdine: number; motivo: string; puoAnnullare: boolean; id?: string };
 
 // L'ordine più recente del cliente (ultime 24 ore, non ancora in preparazione) o, se non si può più cambiare, perché.
 export async function trovaOrdineAperto(telefono: string): Promise<OrdineAperto | null> {
@@ -90,11 +90,11 @@ export async function trovaOrdineAperto(telefono: string): Promise<OrdineAperto 
   if (!ordine) return null;
 
   const f = finestraCliente(ordine);
-  if (!f.puoAnnullare) return { modificabile: false, numeroOrdine: ordine.numeroOrdine, motivo: f.motivo ?? "L'ordine non si può più cambiare" };
+  if (!f.puoAnnullare) return { modificabile: false, numeroOrdine: ordine.numeroOrdine, motivo: f.motivo ?? "L'ordine non si può più cambiare", puoAnnullare: false };
   const articoli = articoliDaRighe(ordine.items);
   const ricostruibile = ordine.items.length > 0 && ordine.items.every((i) => !!i.menuItemId);
-  if (!ricostruibile) return { modificabile: false, numeroOrdine: ordine.numeroOrdine, motivo: "Questo ordine si può solo annullare: per modificarlo chiama la pizzeria." };
-  if (!f.puoModificare) return { modificabile: false, numeroOrdine: ordine.numeroOrdine, motivo: f.motivo ?? "L'ordine non si può più modificare" };
+  if (!ricostruibile) return { modificabile: false, numeroOrdine: ordine.numeroOrdine, motivo: "Questo ordine si può solo annullare: per modificarlo chiama la pizzeria.", puoAnnullare: true, id: ordine.id };
+  if (!f.puoModificare) return { modificabile: false, numeroOrdine: ordine.numeroOrdine, motivo: f.motivo ?? "L'ordine non si può più modificare", puoAnnullare: true, id: ordine.id };
 
   return {
     modificabile: true,
