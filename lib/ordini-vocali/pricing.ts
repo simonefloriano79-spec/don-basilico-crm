@@ -39,6 +39,8 @@ export interface ArticoloPrezzato {
   extra: { ingredienteId: string; nome: string; prezzo: number }[];
   rimossi: { ingredienteId: string; nome: string }[];
   impasto: { id: string; nome: string; supplemento: number } | null;
+  /** Come si è formato il prezzo quando ci sono aggiunte, ingredienti tolti o impasto: da dire al cliente, mai da calcolare a mente. */
+  dettaglioPrezzo?: string | null;
   /** «Metà e metà»: id della seconda pizza (la prima è menuItemId). */
   secondaMetaId?: string | null;
   note: string | null;
@@ -220,16 +222,36 @@ export async function calcolaOrdine(
 
     const extraLordo = extra.reduce((acc, e) => acc + e.prezzo, 0);
     const credito = rimossi.reduce((acc, r) => acc + r.credito, 0);
+    const euroT = (n: number) => `${n.toFixed(2).replace(".", ",")} euro`;
     // Maxi: anche gli extra (e il credito degli ingredienti tolti) valgono il doppio; il supplemento dell'impasto no.
     const fattoreMaxi = taglia === "maxi" ? moltiplicatore : 1;
     const prezzoUnitario = prezzoBase + Math.max(0, extraLordo - credito) * fattoreMaxi + (impasto?.supplemento ?? 0);
     const quantita = Math.max(1, Math.round(a.quantita) || 1);
     totale += prezzoUnitario * quantita;
 
+    // Spiegazione del prezzo: togliere un ingrediente non sconta mai da solo, ma «copre» fino al suo valore le aggiunte.
+    const partiDettaglio: string[] = [];
+    if (extra.length) {
+      const nomiExtra = extra.map((e) => e.nome).join(", ");
+      const supplemento = Math.max(0, extraLordo - credito) * fattoreMaxi;
+      if (supplemento > 0) {
+        partiDettaglio.push(`aggiunte (${nomiExtra}): in più ${euroT(supplemento)}${credito > 0 ? ", già al netto degli ingredienti tolti" : ""}`);
+      } else if (credito > 0 && extraLordo > 0) {
+        partiDettaglio.push(`aggiunte (${nomiExtra}) senza supplemento: gli ingredienti tolti (${rimossi.map((r) => r.nome).join(", ")}) compensano quelli aggiunti`);
+      } else {
+        partiDettaglio.push(`aggiunte (${nomiExtra}) senza supplemento`);
+      }
+    } else if (rimossi.length) {
+      partiDettaglio.push("togliere ingredienti non cambia il prezzo della pizza");
+    }
+    if (impasto && impasto.supplemento > 0) partiDettaglio.push(`impasto ${impasto.nome}: in più ${euroT(impasto.supplemento)}`);
+    const dettaglioPrezzo = partiDettaglio.length ? partiDettaglio.join("; ") : null;
+
     return {
       menuItemId: menuItem.id,
       nomeSnapshot: altraMeta ? `Metà ${menuItem.nome} / Metà ${altraMeta.nome}` : menuItem.nome,
       secondaMetaId: altraMeta?.id ?? null,
+      dettaglioPrezzo,
       categoria: menuItem.categoria,
       taglia,
       prezzoSnapshot: Math.round(prezzoUnitario * 100) / 100,
