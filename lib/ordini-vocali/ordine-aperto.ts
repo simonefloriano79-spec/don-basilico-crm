@@ -31,6 +31,7 @@ export function articoliDaRighe(righe: RigaOrdine[]): ArticoloOrdinatoInput[] {
         menuItemId: r.menuItemId!,
         quantita: r.quantita,
         taglia: /\(maxi\)/i.test(r.nomeSnapshot) ? ("maxi" as const) : ("normale" as const),
+        ...(/\(a pezzo\)/i.test(r.nomeSnapshot) ? { aPezzo: true } : {}),
         ingredientiAggiuntiIds: r.ingredientiAggiunti,
         ingredientiRimossi: r.ingredientiRimossi,
         impastoId: r.impastoId ?? undefined,

@@ -101,6 +101,7 @@ export async function POST(req: NextRequest) {
         menuItemId: String(a?.menuItemId ?? ""),
         quantita: Number(a?.quantita) || 1,
         taglia: a?.taglia === "maxi" ? "maxi" : "normale",
+        aPezzo: a?.aPezzo === true ? true : undefined,
         ingredientiAggiuntiIds: lista(a?.ingredientiAggiuntiIds),
         ingredientiRimossi: lista(a?.ingredientiRimossi),
         impastoId: typeof a?.impastoId === "string" && a.impastoId ? a.impastoId : undefined,
