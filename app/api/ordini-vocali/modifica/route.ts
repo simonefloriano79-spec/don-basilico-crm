@@ -163,6 +163,7 @@ export async function POST(req: NextRequest) {
     nome: a.nomeSnapshot,
     quantita: a.quantita,
     prezzoUnitario: a.prezzoSnapshot,
+    dettaglioPrezzo: a.dettaglioPrezzo ?? null,
     senza: a.rimossi.map((r) => r.nome),
     conExtra: a.extra.map((e) => e.nome),
     impasto: a.impasto?.nome ?? null,

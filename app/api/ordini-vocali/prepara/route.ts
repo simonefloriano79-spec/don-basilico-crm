@@ -62,6 +62,8 @@ export async function POST(req: NextRequest) {
       quantita: a.quantita,
       maxi: a.taglia === "maxi",
       prezzoUnitario: a.prezzoSnapshot,
+      // Come si è formato il prezzo (aggiunte, ingredienti tolti, impasto): è QUESTO da dire al cliente se chiede.
+      dettaglioPrezzo: a.dettaglioPrezzo ?? null,
       senza: a.rimossi.map((r) => r.nome),
       conExtra: a.extra.map((e) => e.nome),
       impasto: a.impasto?.nome ?? null,

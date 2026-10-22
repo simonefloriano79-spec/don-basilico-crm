@@ -19,13 +19,21 @@ export interface OpzioneCasistica {
 }
 
 export interface Casistica {
-  dicono: string[];
+  dicono?: string[];
+  /** In alternativa alle frasi: un'espressione regolare sulla richiesta (per le famiglie di modi di dire). */
+  pattern?: RegExp;
   intendono?: string;
   chiedi?: string;
   opzioni?: OpzioneCasistica[];
 }
 
 export const CASISTICHE_PRODOTTI: Casistica[] = [
+  {
+    // «La vorrei comporre», «una pizza personalizzata», «crea la tua pizza», «da zero»: si parte dalla base
+    // «Crea la tua pizza» (pomodoro e mozzarella; per la bianca si toglie il pomodoro) e si aggiungono gli ingredienti.
+    pattern: /compor|componi|personalizz|crea(re)? (la tua|una) pizza|da zero/i,
+    intendono: "Crea la tua pizza",
+  },
   {
     // «Salsiccia e funghi» NON è metà e metà (quella si dice «metà salsiccia metà funghi»): è la pizza Poldo.
     dicono: ["salsiccia e funghi"],
@@ -54,12 +62,12 @@ export interface RisoluzioneCasistica {
 
 const chiave = (frase: string) => radiciRichiesta(frase).sort().join("|");
 
-const indice = new Map<string, Casistica>(CASISTICHE_PRODOTTI.flatMap((c) => c.dicono.map((d) => [chiave(d), c] as [string, Casistica])));
+const indice = new Map<string, Casistica>(CASISTICHE_PRODOTTI.flatMap((c) => (c.dicono ?? []).map((d) => [chiave(d), c] as [string, Casistica])));
 
 // La casistica nota per questa richiesta, se c'è (altrimenti null).
 export function trovaCasistica(richiesta: string): RisoluzioneCasistica | null {
   const k = chiave(richiesta);
-  const c = k ? indice.get(k) : undefined;
+  const c = (k ? indice.get(k) : undefined) ?? CASISTICHE_PRODOTTI.find((x) => x.pattern?.test(richiesta));
   if (!c) return null;
   if (c.opzioni?.length) {
     return { ...(c.chiedi ? { chiedi: c.chiedi } : {}), opzioni: c.opzioni.map((o) => ({ risposta: o.risposta, pizza: o.pizza, conExtra: o.conExtra ?? [] })) };
