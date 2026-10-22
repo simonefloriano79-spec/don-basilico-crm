@@ -5,6 +5,16 @@ import { bevandaAmmessaInCombo, leggiComboConfig, leggiComboScelte, testoDettagl
 // Pizza maxi: rosse, bianche, speciali e focacce (non i calzoni), e solo nelle sedi con la maxi attiva (tabella sedi_pizza_maxi).
 export const CATEGORIE_MAXI = new Set(["pizze_rosse", "pizze_bianche", "menu_speciale", "focacce"]);
 
+// «Metà e metà»: solo tra pizze, e le due metà devono essere dello stesso colore (o tutta bianca o tutta rossa).
+export const CATEGORIE_META_E_META = new Set(["pizze_rosse", "pizze_bianche", "menu_speciale"]);
+
+// Rossa = con pomodoro. Per le categorie «rosse»/«bianche» vale la categoria; per le speciali gli ingredienti.
+export function coloreDellaPizza(m: { categoria: string; ingredienti: { ingrediente: { nome: string } }[] }): "rossa" | "bianca" {
+  if (m.categoria === "pizze_rosse") return "rossa";
+  if (m.categoria === "pizze_bianche") return "bianca";
+  return m.ingredienti.some((i) => /pomodoro|passata/i.test(i.ingrediente.nome)) ? "rossa" : "bianca";
+}
+
 export interface ArticoloOrdinatoInput {
   menuItemId: string;
   quantita: number;
@@ -12,6 +22,8 @@ export interface ArticoloOrdinatoInput {
   ingredientiAggiuntiIds?: string[];
   ingredientiRimossi?: string[];
   impastoId?: string;
+  /** «Metà e metà»: menuItemId della seconda metà (la prima è menuItemId). Si paga la pizza che costa di più. */
+  secondaMeta?: string;
   note?: string;
   /** Solo per i «Menù Combo»: bibite e pizze speciali scelte (id dei prodotti). */
   comboScelte?: { bibite?: string[]; pizze?: string[] };
@@ -49,7 +61,7 @@ export async function calcolaOrdine(
 ): Promise<{ articoli: ArticoloPrezzato[]; totale: number }> {
   if (!articoli.length) throw new ErrorePricing("Nessun articolo nell'ordine");
 
-  const menuItemIds = Array.from(new Set(articoli.map((a) => a.menuItemId)));
+  const menuItemIds = Array.from(new Set(articoli.flatMap((a) => [a.menuItemId, a.secondaMeta].filter((x): x is string => !!x))));
   const ingredienteIds = Array.from(
     new Set(articoli.flatMap((a) => [...(a.ingredientiAggiuntiIds ?? []), ...(a.ingredientiRimossi ?? [])]))
   );
@@ -60,7 +72,7 @@ export async function calcolaOrdine(
   const [menuItems, ingredienti, maxiConfig, overrides, disabilitati] = await Promise.all([
     prisma.menuItem.findMany({
       where: { id: { in: menuItemIds }, isAttivo: true },
-      include: { ingredienti: { select: { ingredienteId: true } } },
+      include: { ingredienti: { select: { ingredienteId: true, ingrediente: { select: { nome: true } } } } },
     }),
     ingredienteIds.length
       ? prisma.ingrediente.findMany({ where: { id: { in: ingredienteIds } } })
@@ -153,11 +165,31 @@ export async function calcolaOrdine(
     }
 
     // Prezzo: quello personalizzato della sede, altrimenti (per l'app online) il «prezzo app» se c'è, altrimenti il prezzo base.
-    const prezzoListino = override?.prezzoCustom
-      ? parseFloat(override.prezzoCustom.toString())
-      : canale === "online" && menuItem.prezzoOnline != null
-        ? parseFloat(menuItem.prezzoOnline.toString())
-        : parseFloat(menuItem.prezzoBase.toString());
+    const prezzoDi = (m: typeof menuItem, o: typeof override) =>
+      o?.prezzoCustom
+        ? parseFloat(o.prezzoCustom.toString())
+        : canale === "online" && m.prezzoOnline != null
+          ? parseFloat(m.prezzoOnline.toString())
+          : parseFloat(m.prezzoBase.toString());
+
+    // «Metà e metà»: due pizze dello stesso colore, si paga quella che costa di più.
+    let altraMeta: typeof menuItem | null = null;
+    if (a.secondaMeta && a.secondaMeta !== a.menuItemId) {
+      altraMeta = menuItemMap.get(a.secondaMeta) ?? null;
+      if (!altraMeta) throw new ErrorePricing(`Prodotto non trovato o non disponibile: ${a.secondaMeta}`);
+      if (overrideMap.get(altraMeta.id)?.disponibile === false) throw new ErrorePricing(`${altraMeta.nome} non è disponibile in questa sede`);
+      if (!CATEGORIE_META_E_META.has(menuItem.categoria) || !CATEGORIE_META_E_META.has(altraMeta.categoria)) {
+        throw new ErrorePricing("Metà e metà si può fare solo tra due pizze");
+      }
+      if (coloreDellaPizza(menuItem) !== coloreDellaPizza(altraMeta)) {
+        throw new ErrorePricing(
+          `Metà e metà non si può fare tra una pizza bianca e una rossa (${menuItem.nome} è ${coloreDellaPizza(menuItem)}, ${altraMeta.nome} è ${coloreDellaPizza(altraMeta)}): o tutta bianca o tutta rossa`
+        );
+      }
+    }
+    const prezzoListino = altraMeta
+      ? Math.max(prezzoDi(menuItem, override), prezzoDi(altraMeta, overrideMap.get(altraMeta.id)))
+      : prezzoDi(menuItem, override);
     const prezzoBase = prezzoListino * (taglia === "maxi" ? moltiplicatore : 1);
 
     const extra = (a.ingredientiAggiuntiIds ?? []).map((id) => {
@@ -167,7 +199,7 @@ export async function calcolaOrdine(
       return { ingredienteId: id, nome: ing.nome, prezzo: parseFloat(ing.prezzoAggiunta.toString()) };
     });
 
-    const baseIds = new Set(menuItem.ingredienti.map((i) => i.ingredienteId));
+    const baseIds = new Set([...menuItem.ingredienti, ...(altraMeta?.ingredienti ?? [])].map((i) => i.ingredienteId));
     const rimossiDefinitivi = Array.from(new Set(a.ingredientiRimossi ?? []));
     const rimossi = rimossiDefinitivi.map((id) => {
       const ing = ingredienteMap.get(id);
@@ -194,7 +226,7 @@ export async function calcolaOrdine(
 
     return {
       menuItemId: menuItem.id,
-      nomeSnapshot: menuItem.nome,
+      nomeSnapshot: altraMeta ? `Metà ${menuItem.nome} / Metà ${altraMeta.nome}` : menuItem.nome,
       categoria: menuItem.categoria,
       taglia,
       prezzoSnapshot: Math.round(prezzoUnitario * 100) / 100,
