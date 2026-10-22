@@ -39,6 +39,8 @@ export interface ArticoloPrezzato {
   extra: { ingredienteId: string; nome: string; prezzo: number }[];
   rimossi: { ingredienteId: string; nome: string }[];
   impasto: { id: string; nome: string; supplemento: number } | null;
+  /** «Metà e metà»: id della seconda pizza (la prima è menuItemId). */
+  secondaMetaId?: string | null;
   note: string | null;
   /** Solo per i combo: scelte validate, testo per la comanda e quante pizze contano per la cucina. */
   combo: { scelte: ComboScelte; dettaglio: string; pizze: number } | null;
@@ -227,6 +229,7 @@ export async function calcolaOrdine(
     return {
       menuItemId: menuItem.id,
       nomeSnapshot: altraMeta ? `Metà ${menuItem.nome} / Metà ${altraMeta.nome}` : menuItem.nome,
+      secondaMetaId: altraMeta?.id ?? null,
       categoria: menuItem.categoria,
       taglia,
       prezzoSnapshot: Math.round(prezzoUnitario * 100) / 100,

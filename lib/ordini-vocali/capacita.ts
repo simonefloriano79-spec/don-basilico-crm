@@ -45,11 +45,11 @@ export async function verificaSedeAperta(sedeId: string, oraRichiesta: Date): Pr
 
 // Capienza cucina "a peso": la stessa dell'app clienti (lib/capacita-pizze.ts). Conta TUTTI gli ordini della sede
 // (cassa, banco, telefono, app), non solo quelli vocali, e pesa le pizze (maxi = 2, combo = le pizze che contiene).
-export async function verificaCapienza(sedeId: string, oraRichiesta: Date, pesoNuovo: number): Promise<DisponibilitaSede> {
+export async function verificaCapienza(sedeId: string, oraRichiesta: Date, pesoNuovo: number, escludiOrdineId?: string): Promise<DisponibilitaSede> {
   const sede = await prisma.sede.findUnique({ where: { id: sedeId }, select: { id: true, capacitaPizze: true, finestraCapacitaMin: true } });
   if (!sede) return { ok: false, motivo: "Sede non trovata" };
 
-  const [disp] = await disponibilitaSlot(sede, [oraRichiesta.toISOString()], pesoNuovo);
+  const [disp] = await disponibilitaSlot(sede, [oraRichiesta.toISOString()], pesoNuovo, escludiOrdineId);
   if (disp?.pieno) return { ok: false, motivo: "Cucina piena per la fascia oraria richiesta: proponi al cliente un orario più tardi" };
   return { ok: true };
 }

@@ -159,6 +159,13 @@ Risposta se qualcosa non va: `{ ok: false, esito: "fuori_zona"|"cucina_piena"|"c
 
 Risposta: `{ ok: true, numeroOrdine, sede, totale, prossimoPasso }` — chiudi la chiamata leggendo `numeroOrdine` e dicendo che la pizzeria confermerà l'ordine e l'orario con un SMS. Se la risposta ha `giaConfermato: true` l'ordine esisteva già: non è un errore, non rileggerlo come nuovo.
 
+### 5. `modifica_ordine` → `/modifica` (il cliente richiama dopo aver ordinato)
+
+Per «devo aggiungere una pizza», «mi sono dimenticato la mozzarella senza lattosio», «cambio l'orario», «annullo tutto». `riconosci_cliente` restituisce `ordineAperto` se il cliente ha un ordine recente che si può ancora cambiare (stesse regole dell'app: fino a 30 minuti prima dell'orario concordato, finché non è in preparazione, al massimo 2 modifiche); se non si può più, `ordineAperto.modificabile=false` con il motivo (il cliente deve chiamare la pizzeria).
+
+Parametri: `ordineId` (da `ordineAperto.id`), `clienteTelefono` (deve coincidere con quello dell'ordine), `articoli` (elenco **completo** dopo la modifica, partendo da `ordineAperto.articoli`), e se serve `note`, `nomeCitofono`, `metodoPagamento`, `oraRichiesta`. Oppure `annulla: true`.
+**Due passaggi**: prima `salva=false` → anteprima con `totale`, `totaleAttuale` e `differenza` da leggere al cliente; dopo il sì, `salva=true`. Dopo la modifica l'ordine torna «da accettare» (marcato MODIFICATO nel CRM, la comanda si ristampa) e il cliente riceve un nuovo SMS quando la pizzeria lo riconferma.
+
 ## Sedi (per `sedeSlug` / `sedeSlugAsporto`)
 
 | Sede | Slug |

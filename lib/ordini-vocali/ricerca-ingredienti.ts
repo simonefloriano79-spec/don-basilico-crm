@@ -42,6 +42,8 @@ export const radiciRichiesta = (richiesta: string): string[] =>
 
 interface PizzaConIngredienti {
   id: string;
+  categoria: string;
+  nome: string;
   ingredienti: { id: string; nome: string; radici: string[] }[];
 }
 
@@ -52,10 +54,12 @@ async function pizzeConIngredienti(): Promise<PizzaConIngredienti[]> {
   if (cache && Date.now() - cache.alle < DURATA_CACHE_MS) return cache.pizze;
   const righe = await prisma.menuItem.findMany({
     where: { isAttivo: true, categoria: { not: "combo" }, ingredienti: { some: {} } },
-    select: { id: true, ingredienti: { select: { ingrediente: { select: { id: true, nome: true } } } } },
+    select: { id: true, nome: true, categoria: true, ingredienti: { select: { ingrediente: { select: { id: true, nome: true } } } } },
   });
   const pizze = righe.map((r) => ({
     id: r.id,
+    categoria: r.categoria as string,
+    nome: r.nome,
     ingredienti: r.ingredienti.map((i) => ({ id: i.ingrediente.id, nome: i.ingrediente.nome, radici: parole(i.ingrediente.nome) })),
   }));
   cache = { alle: Date.now(), pizze };
@@ -74,7 +78,9 @@ export async function cercaPerIngredienti(richiesta: string): Promise<RisultatoI
   const tokens = parole(richiesta).filter((t) => t.length >= 3 && !PAROLE_VUOTE.has(t));
   if (!tokens.length) return { coprono: [], parziali: [] };
 
-  const pizze = await pizzeConIngredienti();
+  // I calzoni si propongono solo se il cliente li nomina; «Crea la tua pizza» non è una pizza da proporre.
+  const vuoleCalzone = /calzon/i.test(richiesta);
+  const pizze = (await pizzeConIngredienti()).filter((p) => (vuoleCalzone || p.categoria !== "calzoni") && !/crea la tua/i.test(p.nome));
 
   // Una parola conta solo se corrisponde a un ingrediente reale (così «margherita» o «diavola» non diventano ingredienti).
   const tokenIngrediente = tokens.filter((t) => pizze.some((p) => p.ingredienti.some((i) => i.radici.some((r) => paroleUguali(t, r)))));

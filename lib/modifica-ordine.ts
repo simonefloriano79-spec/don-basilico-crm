@@ -5,6 +5,8 @@
 // si può cambiare solo finché la pizzeria non l'ha ancora accettato (di solito pochi minuti).
 // Puro, senza dipendenze: lo usano sia il server (che decide) sia l'app (che mostra i pulsanti).
 
+import { richiedeAccettazione } from "@/lib/accettazione";
+
 export const MINUTI_LIMITE_MODIFICA = 30;
 export const MAX_MODIFICHE_CLIENTE = 2;
 // Un ordine con orario richiesto oltre questa soglia dalla creazione è «prenotato»; sotto è «appena possibile».
@@ -12,6 +14,8 @@ const SOGLIA_PRENOTATO_MS = 5 * 60000;
 
 export interface OrdineVistaCliente {
   canale: string;
+  /** Ordine preso dall'assistente vocale: si modifica con le stesse regole di quelli dell'app. */
+  daAssistente?: boolean;
   stato: string;
   createdAt: Date | string;
   oraRichiesta: Date | string;
@@ -32,7 +36,7 @@ const d = (v: Date | string) => (v instanceof Date ? v : new Date(v));
 
 export function finestraCliente(o: OrdineVistaCliente, adesso: Date = new Date()): FinestraCliente {
   const no = (motivo: string): FinestraCliente => ({ puoAnnullare: false, puoModificare: false, scadenza: null, motivo });
-  if (o.canale !== "online") return no("Questo ordine non è stato fatto dall'app.");
+  if (!richiedeAccettazione(o)) return no("Questo ordine non è stato fatto dall'app o dall'assistente: per cambiare qualcosa chiama la pizzeria.");
   if (o.stato === "annullato") return no("L'ordine è già annullato.");
   if (!["nuovo", "confermato"].includes(o.stato)) return no("L'ordine è già in preparazione: per cambiare qualcosa chiama la pizzeria.");
 
