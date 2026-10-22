@@ -12,7 +12,7 @@ const euro = (n: number) => n.toFixed(2).replace(".", ",");
 // il risultato dice anche quale pizzeria lo serve, così l'assistente può saltare `verifica_indirizzo`.
 async function indirizzoAbituale(indirizzo: string) {
   try {
-    const geo = await geocodificaIndirizzo(indirizzo);
+    const geo = await geocodificaIndirizzo(indirizzo, { richiediVia: true });
     if (!geo) return { indirizzo, coperto: false as const };
     const sede = await trovaSedeCompetente(geo.lat, geo.lng);
     if (!sede) return { indirizzo: senzaItalia(geo.indirizzoFormattato) ?? indirizzo, coperto: false as const };

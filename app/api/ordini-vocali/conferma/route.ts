@@ -12,6 +12,7 @@ import { elaboraRichiestaOrdine } from "@/lib/ordini-vocali/orchestrazione";
 import { notificaSede } from "@/lib/ordini-vocali/notifiche";
 import {
   RichiestaTelefonica,
+  datiMancanti,
   nomeCitofonoPulito,
   normalizzaPagamento,
   senzaItalia,
@@ -66,9 +67,8 @@ export async function POST(req: NextRequest) {
   if (!body.provider || !body.providerRefId) {
     return NextResponse.json({ ok: false, esito: "errore", motivo: "provider/providerRefId richiesti" }, { status: 400 });
   }
-  if (!body.clienteNome || !body.clienteTelefono || !body.tipo || !body.articoli?.length) {
-    return NextResponse.json({ ok: false, esito: "errore", motivo: "Dati ordine incompleti" }, { status: 400 });
-  }
+  const incompleti = datiMancanti(body);
+  if (incompleti) return NextResponse.json({ ok: false, esito: "errore", motivo: incompleti }, { status: 200 });
 
   const giaFatto = await ordineGiaConfermato(body.provider, body.providerRefId);
   if (giaFatto) return NextResponse.json(giaFatto);

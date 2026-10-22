@@ -12,6 +12,18 @@ export interface RichiestaTelefonica extends RichiestaOrdine {
 
 export type MetodoPagamentoSalvato = "contanti" | "pos";
 
+// Dati obbligatori che l'assistente può dimenticare (es. il telefono quando il numero chiamante è nascosto): invece di un
+// errore tecnico, torna un messaggio che dice COSA chiedere al cliente.
+export function datiMancanti(r: Partial<RichiestaTelefonica>): string | null {
+  const mancanti = [
+    !r.clienteNome && "il nome del cliente",
+    !r.clienteTelefono && "il numero di telefono (chiedilo al cliente per l'SMS di conferma)",
+    !r.tipo && "se è consegna a domicilio o ritiro",
+    !r.articoli?.length && "gli articoli",
+  ].filter(Boolean);
+  return mancanti.length ? `Mancano dei dati: ${mancanti.join(", ")}. Chiedili al cliente e poi richiama questo strumento.` : null;
+}
+
 // Controlli sui dati che l'assistente può dimenticare: meglio scoprirlo a «prepara», prima di dire il totale,
 // che a «conferma», quando il cliente ha già detto di sì.
 export function validaDatiTelefonici(r: RichiestaTelefonica): string | null {
@@ -37,6 +49,19 @@ export function totaliTelefonici(tipo: "domicilio" | "asporto", totaleProdotti: 
   const costoConsegna = tipo === "domicilio" ? COSTO_CONSEGNA_DEFAULT : 0;
   const totale = Math.round((totaleProdotti + costoConsegna - scontoFedelta - scontoCodice) * 100) / 100;
   return { totaleProdotti, costoConsegna, scontoFedelta, scontoCodice, totale };
+}
+
+// «Via Monte Bove, 24, 65124 Pescara PE» → «Via Monte Bove 24, Pescara»: la forma da dire a voce.
+export function indirizzoParlato(indirizzo: string | null | undefined): string | null {
+  const pulito = senzaItalia(indirizzo);
+  if (!pulito) return null;
+  return pulito
+    .replace(/\b\d{5}\b/g, "") // CAP
+    .replace(/\s+[A-Z]{2}\s*$/, "") // sigla della provincia
+    .replace(/,\s*(\d+[A-Za-z]?(?:\/\d+)?)\s*,/, " $1,") // «Via X, 24, » → «Via X 24, »
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s*,\s*$/, "")
+    .trim();
 }
 
 // Google aggiunge ", Italy" in coda: sullo scontrino e a voce è solo rumore.

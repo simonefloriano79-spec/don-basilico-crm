@@ -6,9 +6,22 @@ export interface Geocode {
   indirizzoFormattato: string;
 }
 
+// Tipi di risultato Google che arrivano al livello della via/civico. Una via che Google non trova ricade spesso
+// sulla città intera («Pescara, Province of Pescara»): per una consegna non basta.
+const TIPI_VIA = new Set(["street_address", "premise", "subpremise", "route", "intersection", "establishment", "point_of_interest"]);
+
+// Zona delle nostre pizzerie (Pescara, Montesilvano, Chieti): serve solo a far preferire a Google le vie di qui
+// rispetto a omonime lontane; non esclude nulla.
+const ZONA_PIZZERIE = "42.25,13.95|42.60,14.35";
+
+export interface OpzioniGeocode {
+  /** Per le consegne: scarta i risultati che non arrivano a una via (solo città, quartiere…). */
+  richiediVia?: boolean;
+}
+
 // Geocoding via Google Maps. Ritorna null se l'indirizzo non è riconosciuto
 // (l'assistente dovrà chiedere al cliente di ripeterlo/precisarlo).
-export async function geocodificaIndirizzo(indirizzo: string): Promise<Geocode | null> {
+export async function geocodificaIndirizzo(indirizzo: string, opzioni: OpzioniGeocode = {}): Promise<Geocode | null> {
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey) throw new Error("GOOGLE_MAPS_API_KEY non configurata");
 
@@ -16,6 +29,7 @@ export async function geocodificaIndirizzo(indirizzo: string): Promise<Geocode |
   url.searchParams.set("address", indirizzo);
   url.searchParams.set("region", "it");
   url.searchParams.set("components", "country:IT");
+  if (opzioni.richiediVia) url.searchParams.set("bounds", ZONA_PIZZERIE);
   url.searchParams.set("key", apiKey);
 
   const res = await fetch(url.toString());
@@ -24,6 +38,7 @@ export async function geocodificaIndirizzo(indirizzo: string): Promise<Geocode |
   if (data.status !== "OK" || !data.results?.length) return null;
 
   const result = data.results[0];
+  if (opzioni.richiediVia && !(result.types ?? []).some((t: string) => TIPI_VIA.has(t))) return null;
   return {
     lat: result.geometry.location.lat,
     lng: result.geometry.location.lng,
