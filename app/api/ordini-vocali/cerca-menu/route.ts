@@ -35,9 +35,11 @@ async function cerca(q: string, sedeSlug?: string | null) {
     casistica
       ? Promise.resolve([] as { id: string; punteggio: number }[])
       : prisma.$queryRaw<{ id: string; punteggio: number }[]>`
-      SELECT id, GREATEST(similarity(nome, ${q}), word_similarity(${q}, nome))::float8 AS punteggio FROM menu_items
+      SELECT id, similarity(nome, ${q})::float8 AS punteggio FROM menu_items
       WHERE is_attivo = true AND (similarity(nome, ${q}) > 0.2 OR word_similarity(${q}, nome) > 0.45)
-      ORDER BY GREATEST(similarity(nome, ${q}), word_similarity(${q}, nome)) DESC
+      ORDER BY (lower(nome) = lower(${q})) DESC,
+               GREATEST(similarity(nome, ${q}), word_similarity(${q}, nome)) DESC,
+               similarity(nome, ${q}) DESC
       LIMIT 12
     `,
     casistica
