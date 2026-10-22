@@ -3,7 +3,7 @@ import { verificaSegretoWebhook } from "@/lib/ordini-vocali/auth";
 import { elaboraRichiestaOrdine } from "@/lib/ordini-vocali/orchestrazione";
 import { trovaClientePerTelefono } from "@/lib/ordini-vocali/cliente";
 import { anteprimaSconti } from "@/lib/ordini-vocali/sconti";
-import { RichiestaTelefonica, senzaItalia, totaliTelefonici, validaDatiTelefonici } from "@/lib/ordini-vocali/telefono";
+import { RichiestaTelefonica, datiMancanti, senzaItalia, totaliTelefonici, validaDatiTelefonici } from "@/lib/ordini-vocali/telefono";
 
 // POST /api/ordini-vocali/prepara
 // Tool "preventivo": l'assistente lo chiama quando il cliente ha finito di
@@ -17,9 +17,8 @@ export async function POST(req: NextRequest) {
 
   const body = (await req.json()) as RichiestaTelefonica;
 
-  if (!body.clienteNome || !body.clienteTelefono || !body.tipo || !body.articoli?.length) {
-    return NextResponse.json({ ok: false, esito: "errore", motivo: "Dati ordine incompleti" }, { status: 400 });
-  }
+  const incompleti = datiMancanti(body);
+  if (incompleti) return NextResponse.json({ ok: false, esito: "errore", motivo: incompleti }, { status: 200 });
 
   const mancante = validaDatiTelefonici(body);
   if (mancante) return NextResponse.json({ ok: false, esito: "errore", motivo: mancante }, { status: 200 });

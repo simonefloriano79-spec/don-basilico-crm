@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { verificaSegretoWebhook } from "@/lib/ordini-vocali/auth";
 import { geocodificaIndirizzo, trovaSedeCompetente } from "@/lib/ordini-vocali/copertura";
 import { verificaSedeAperta } from "@/lib/ordini-vocali/capacita";
-import { senzaItalia } from "@/lib/ordini-vocali/telefono";
+import { indirizzoParlato, senzaItalia } from "@/lib/ordini-vocali/telefono";
 
 // POST /api/ordini-vocali/verifica-indirizzo  { indirizzo }
 // Tool da chiamare appena il cliente dice l'indirizzo di consegna, PRIMA degli articoli: dice se è
@@ -19,12 +19,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, esito: "errore", motivo: "Indirizzo mancante" }, { status: 400 });
   }
 
-  const geo = await geocodificaIndirizzo(indirizzo);
+  const geo = await geocodificaIndirizzo(indirizzo, { richiediVia: true });
   if (!geo) {
     return NextResponse.json({
       ok: false,
       esito: "errore",
-      motivo: "Indirizzo non riconosciuto: chiedi al cliente di ripeterlo con via, numero civico e città",
+      motivo:
+        "Non trovo questa via: NON dire che è in zona. Chiedi al cliente di ripetere il nome della via o di sillabarlo lettera per lettera (per esempio «M di Milano, O di Otranto…»), poi richiama questo strumento",
     });
   }
 
@@ -49,6 +50,8 @@ export async function POST(req: NextRequest) {
     sedeSlug: sede?.slug,
     sedeNome: copertura.nome,
     indirizzoConfermato: senzaItalia(geo.indirizzoFormattato),
+    // Via, civico e città da rileggere al cliente per farsi confermare che è proprio quella.
+    indirizzoDaRileggere: indirizzoParlato(geo.indirizzoFormattato),
     apertaOra: aperta.ok,
     orario: sede ? `${sede.orarioApertura}-${sede.orarioChiusura}` : null,
   });

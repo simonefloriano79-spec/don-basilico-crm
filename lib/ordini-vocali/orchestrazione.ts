@@ -59,7 +59,7 @@ export async function elaboraRichiestaOrdine(input: RichiestaOrdine): Promise<Es
       return { ok: false, esito: "errore", motivo: "Indirizzo mancante per una consegna a domicilio" };
     }
 
-    const geo = await geocodificaIndirizzo(input.clienteIndirizzo);
+    const geo = await geocodificaIndirizzo(input.clienteIndirizzo, { richiediVia: input.canale !== "online" });
     if (!geo) {
       return {
         ok: false,
