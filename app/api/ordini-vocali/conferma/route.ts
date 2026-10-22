@@ -7,6 +7,7 @@ import { righeOrdineDaArticoli } from "@/lib/ordina-righe";
 import { assicuraTessera, statoTessera, usaSconto as usaScontoTessera } from "@/lib/fedelta";
 import { normalizzaCodice, scontoDaCodice, verificaCodice } from "@/lib/codice-sconto";
 import { trovaClientePerTelefono } from "@/lib/ordini-vocali/cliente";
+import { telefonoE164 } from "@/lib/telefono";
 import { verificaSegretoWebhook } from "@/lib/ordini-vocali/auth";
 import { elaboraRichiestaOrdine } from "@/lib/ordini-vocali/orchestrazione";
 import { notificaSede } from "@/lib/ordini-vocali/notifiche";
@@ -67,6 +68,9 @@ export async function POST(req: NextRequest) {
   if (!body.provider || !body.providerRefId) {
     return NextResponse.json({ ok: false, esito: "errore", motivo: "provider/providerRefId richiesti" }, { status: 400 });
   }
+  // Il numero dettato a voce si salva col prefisso internazionale (serve all'SMS di conferma).
+  body.clienteTelefono = telefonoE164(body.clienteTelefono);
+
   const incompleti = datiMancanti(body);
   if (incompleti) return NextResponse.json({ ok: false, esito: "errore", motivo: incompleti }, { status: 200 });
 
