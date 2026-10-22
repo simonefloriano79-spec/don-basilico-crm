@@ -8,13 +8,13 @@ import { scontoDaCodice } from "@/lib/codice-sconto";
 import { inviaSmsDettaglio } from "@/lib/customer-auth/sms";
 import { verificaSegretoWebhook } from "@/lib/ordini-vocali/auth";
 import { elaboraRichiestaOrdine } from "@/lib/ordini-vocali/orchestrazione";
-import { articoliDaRighe, euroTesto } from "@/lib/ordini-vocali/ordine-aperto";
+import { articoliDaRighe, euroTesto, trovaOrdineAperto } from "@/lib/ordini-vocali/ordine-aperto";
 import type { ArticoloOrdinatoInput } from "@/lib/ordini-vocali/pricing";
 import { normalizzaPagamento } from "@/lib/ordini-vocali/telefono";
 
 interface RichiestaModifica {
-  ordineId: string;
-  clienteTelefono: string; // serve a verificare che l'ordine sia di chi chiama
+  clienteTelefono: string; // il numero DA CUI SI CHIAMA (lo mette la piattaforma, non l'assistente): l'ordine si trova da qui
+  vedi?: boolean; // restituisce l'ordine aperto di chi chiama, senza cambiare nulla
   salva?: boolean; // false/assente = solo anteprima del nuovo totale; true = applica
   annulla?: boolean; // annulla l'ordine invece di modificarlo
   articoli?: ArticoloOrdinatoInput[]; // elenco COMPLETO dopo la modifica (non solo le differenze)
@@ -32,22 +32,40 @@ const rifiuto = (motivo: string) => NextResponse.json({ ok: false, esito: "error
 // «annullo tutto»). Stesse regole dell'app (lib/modifica-ordine.ts): fino a 30 minuti prima dell'orario concordato, finché
 // non è in preparazione, al massimo 2 modifiche. Prezzi e capienza si ricalcolano sul server; l'ordine torna «da accettare»
 // (marcato MODIFICATO) e la pizzeria deve riaccettarlo: il cliente riceve un nuovo SMS di conferma.
+// SICUREZZA: l'ordine non si sceglie con un id né con un numero detto a voce. Si trova da solo, partendo dal numero da cui
+// il cliente sta chiamando (passato dalla piattaforma): da un altro telefono (anche del marito/della moglie) non si trova
+// nulla e non si può cambiare niente; il cliente deve chiamare la pizzeria.
 // Va chiamato prima con salva=false (anteprima del nuovo totale da leggere al cliente) e poi con salva=true.
 export async function POST(req: NextRequest) {
   if (!verificaSegretoWebhook(req)) return NextResponse.json({ error: "Non autorizzato" }, { status: 401 });
 
   const body = (await req.json().catch(() => ({}))) as RichiestaModifica;
-  if (!body.ordineId || !/^[0-9a-f-]{36}$/i.test(body.ordineId)) return rifiuto("Ordine non indicato");
-  if (!body.clienteTelefono) return rifiuto("Manca il numero di telefono del cliente: chiedilo e richiama questo strumento");
+  if (telefonoTessera(body.clienteTelefono ?? "").length < 7) {
+    return rifiuto(
+      "Non riesco a vedere il numero da cui sta chiamando: per sicurezza un ordine si può cambiare solo chiamando dallo stesso numero con cui è stato fatto. Il cliente deve chiamare direttamente la pizzeria. NON chiedere né usare un altro numero"
+    );
+  }
+
+  const aperto = await trovaOrdineAperto(body.clienteTelefono);
+  if (!aperto) {
+    return rifiuto(
+      "Non trovo ordini recenti fatti con il numero da cui sta chiamando. Per sicurezza un ordine si può cambiare solo chiamando dallo stesso numero con cui è stato fatto: se ha ordinato da un altro telefono deve chiamare direttamente la pizzeria. NON chiedere né usare un altro numero"
+    );
+  }
+  if (body.vedi) return NextResponse.json({ ok: true, ordineAperto: aperto });
+
+  // Per modificare serve un ordine modificabile; per annullare basta che sia annullabile.
+  const idOrdine = aperto.modificabile ? aperto.id : body.annulla && aperto.puoAnnullare ? aperto.id : null;
+  if (!idOrdine) return rifiuto(aperto.modificabile ? "Ordine non trovato" : aperto.motivo);
 
   const ordine = await prisma.ordine.findUnique({
-    where: { id: body.ordineId },
+    where: { id: idOrdine },
     include: { sede: true, items: true },
   });
   if (!ordine || !richiedeAccettazione(ordine)) return rifiuto("Ordine non trovato");
-  // Solo chi ha fatto l'ordine (stesso numero di telefono) può cambiarlo.
+  // Ulteriore controllo: l'ordine deve essere stato fatto con questo stesso numero.
   if (!ordine.clienteTelefono || telefonoTessera(ordine.clienteTelefono) !== telefonoTessera(body.clienteTelefono)) {
-    return rifiuto("Questo ordine non risulta fatto con questo numero di telefono: per cambiarlo il cliente deve chiamare la pizzeria");
+    return rifiuto("Questo ordine non risulta fatto con il numero da cui sta chiamando: per cambiarlo il cliente deve chiamare direttamente la pizzeria");
   }
 
   const f = finestraCliente(ordine);

@@ -161,10 +161,16 @@ Risposta: `{ ok: true, numeroOrdine, sede, totale, prossimoPasso }` — chiudi l
 
 ### 5. `modifica_ordine` → `/modifica` (il cliente richiama dopo aver ordinato)
 
-Per «devo aggiungere una pizza», «mi sono dimenticato la mozzarella senza lattosio», «cambio l'orario», «annullo tutto». `riconosci_cliente` restituisce `ordineAperto` se il cliente ha un ordine recente che si può ancora cambiare (stesse regole dell'app: fino a 30 minuti prima dell'orario concordato, finché non è in preparazione, al massimo 2 modifiche); se non si può più, `ordineAperto.modificabile=false` con il motivo (il cliente deve chiamare la pizzeria).
+Per «devo aggiungere una pizza», «mi sono dimenticato la mozzarella senza lattosio», «cambio l'orario», «annullo tutto».
 
-Parametri: `ordineId` (da `ordineAperto.id`), `clienteTelefono` (deve coincidere con quello dell'ordine), `articoli` (elenco **completo** dopo la modifica, partendo da `ordineAperto.articoli`), e se serve `note`, `nomeCitofono`, `metodoPagamento`, `oraRichiesta`. Oppure `annulla: true`.
-**Due passaggi**: prima `salva=false` → anteprima con `totale`, `totaleAttuale` e `differenza` da leggere al cliente; dopo il sì, `salva=true`. Dopo la modifica l'ordine torna «da accettare» (marcato MODIFICATO nel CRM, la comanda si ristampa) e il cliente riceve un nuovo SMS quando la pizzeria lo riconferma.
+**Sicurezza**: l'ordine NON si sceglie con un id né con un numero detto a voce. Si trova dal **numero da cui il cliente sta chiamando** (`clienteTelefono`, che la piattaforma passa come variabile di sistema `system__caller_id`, non l'assistente). Da un altro telefono (anche del marito o della moglie) o con numero nascosto non si trova nulla e il cliente deve chiamare la pizzeria. Per questo il tool **non funziona dal widget di prova** (non c'è numero chiamante) ma solo con chiamate telefoniche vere.
+
+Usi, tutti con `clienteTelefono`:
+- `vedi: true` → restituisce `ordineAperto` (numero, righe, `articoli` nel formato di `prepara_ordine`, totale, modifiche rimaste) oppure il motivo per cui non si può più cambiare.
+- `articoli` (elenco **completo** dopo la modifica, partendo da `ordineAperto.articoli`) e, se serve, `note`, `nomeCitofono`, `metodoPagamento`, `oraRichiesta`: prima con `salva=false` (anteprima: `totale`, `totaleAttuale`, `differenza` da leggere al cliente), poi, dopo il sì, con `salva=true`.
+- `annulla: true` (con `salva=true` dopo il sì).
+
+Stesse regole dell'app: fino a 30 minuti prima dell'orario concordato, finché non è in preparazione, al massimo 2 modifiche. Dopo la modifica l'ordine torna «da accettare» (marcato MODIFICATO nel CRM, la comanda si ristampa) e il cliente riceve un nuovo SMS quando la pizzeria lo riconferma.
 
 ## Sedi (per `sedeSlug` / `sedeSlugAsporto`)
 

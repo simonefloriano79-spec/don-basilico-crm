@@ -3,7 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { statoTessera, TIMBRI_PER_CICLO } from "@/lib/fedelta";
 import { verificaSegretoWebhook } from "@/lib/ordini-vocali/auth";
 import { trovaClientePerTelefono } from "@/lib/ordini-vocali/cliente";
-import { trovaOrdineAperto } from "@/lib/ordini-vocali/ordine-aperto";
 import { geocodificaIndirizzo, trovaSedeCompetente } from "@/lib/ordini-vocali/copertura";
 import { senzaItalia } from "@/lib/ordini-vocali/telefono";
 
@@ -44,7 +43,7 @@ async function riconosci(telefonoGrezzo: string) {
     });
   }
 
-  const [ordini, tessera, ordineAperto] = await Promise.all([
+  const [ordini, tessera] = await Promise.all([
     prisma.ordine.findMany({
       where: { clienteId: cliente.id, stato: { not: "annullato" } },
       orderBy: { createdAt: "desc" },
@@ -61,7 +60,6 @@ async function riconosci(telefonoGrezzo: string) {
       },
     }),
     statoTessera(telefono),
-    trovaOrdineAperto(telefono),
   ]);
 
   const ultimo = ordini[0] ?? null;
@@ -105,9 +103,6 @@ async function riconosci(telefonoGrezzo: string) {
           note: i.notaCliente,
         })),
     },
-    // Ordine fatto da poco che il cliente può ancora cambiare o annullare (stesse regole dell'app). Se il cliente dice
-    // «ho appena ordinato, devo cambiare/aggiungere…» si usa questo, con lo strumento di modifica.
-    ...(ordineAperto ? { ordineAperto } : {}),
     indirizzoAbituale: abituale && { ...abituale, nomeCitofono: ultimoDomicilio?.nomeCitofono ?? null },
     fedelta: stato,
     // Stesse informazioni in forma piatta, per le piattaforme che iniettano «variabili dinamiche» nel prompt prima del saluto.
