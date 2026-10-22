@@ -15,10 +15,18 @@ export function coloreDellaPizza(m: { categoria: string; ingredienti: { ingredie
   return m.ingredienti.some((i) => /pomodoro|passata/i.test(i.ingrediente.nome)) ? "rossa" : "bianca";
 }
 
+// Fritti venduti anche «a pezzo» (crocchette e supplì): la porzione costa 4 euro, il pezzo singolo 2 euro.
+// «3 porzioni» = 12 euro, «3 di numero» = 6 euro: l'assistente deve chiedere quale dei due intende il cliente.
+export const PREZZO_PEZZO_FRITTO = 2;
+export const vendutoAPezzo = (m: { categoria: string; nome: string }) => m.categoria === "fritti" && /crocchett|suppl/i.test(m.nome);
+export const SUFFISSO_A_PEZZO = " (a pezzo)";
+
 export interface ArticoloOrdinatoInput {
   menuItemId: string;
   quantita: number;
   taglia?: "normale" | "maxi";
+  /** Solo crocchette e supplì: `quantita` sono pezzi singoli (2 euro l'uno) invece di porzioni. */
+  aPezzo?: boolean;
   ingredientiAggiuntiIds?: string[];
   ingredientiRimossi?: string[];
   impastoId?: string;
@@ -155,6 +163,27 @@ export async function calcolaOrdine(
         impasto: null,
         note: a.note ?? null,
         combo: { scelte: sc, dettaglio: testoDettaglioCombo(nomiFissi, { bibite: nomiBibite, pizze: nomiPizze }), pizze: cfg.pizze },
+      };
+    }
+
+    // A pezzo: crocchette e supplì, 2 euro al pezzo (la quantità sono i pezzi).
+    if (a.aPezzo) {
+      if (!vendutoAPezzo(menuItem)) throw new ErrorePricing(`${menuItem.nome} non si vende a pezzo: solo crocchette e supplì`);
+      const pezzi = Math.max(1, Math.round(a.quantita) || 1);
+      totale += PREZZO_PEZZO_FRITTO * pezzi;
+      return {
+        menuItemId: menuItem.id,
+        nomeSnapshot: `${menuItem.nome}${SUFFISSO_A_PEZZO}`,
+        categoria: menuItem.categoria,
+        taglia: "normale" as const,
+        prezzoSnapshot: PREZZO_PEZZO_FRITTO,
+        quantita: pezzi,
+        extra: [],
+        rimossi: [],
+        impasto: null,
+        dettaglioPrezzo: `${pezzi} ${pezzi === 1 ? "pezzo" : "pezzi"} a ${PREZZO_PEZZO_FRITTO} euro l'uno (non porzioni intere)`,
+        note: a.note ?? null,
+        combo: null,
       };
     }
 

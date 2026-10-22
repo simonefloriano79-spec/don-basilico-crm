@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verificaSegretoWebhook } from "@/lib/ordini-vocali/auth";
 import { elaboraRichiestaOrdine } from "@/lib/ordini-vocali/orchestrazione";
 import { trovaClientePerTelefono } from "@/lib/ordini-vocali/cliente";
+import { SUFFISSO_A_PEZZO } from "@/lib/ordini-vocali/pricing";
 import { anteprimaSconti } from "@/lib/ordini-vocali/sconti";
 import { RichiestaTelefonica, datiMancanti, senzaItalia, totaliTelefonici, validaDatiTelefonici } from "@/lib/ordini-vocali/telefono";
 
@@ -61,6 +62,7 @@ export async function POST(req: NextRequest) {
       nome: a.nomeSnapshot,
       quantita: a.quantita,
       maxi: a.taglia === "maxi",
+      aPezzo: a.nomeSnapshot.endsWith(SUFFISSO_A_PEZZO),
       prezzoUnitario: a.prezzoSnapshot,
       // Come si è formato il prezzo (aggiunte, ingredienti tolti, impasto): è QUESTO da dire al cliente se chiede.
       dettaglioPrezzo: a.dettaglioPrezzo ?? null,
