@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verificaSegretoWebhook } from "@/lib/ordini-vocali/auth";
-import { CATEGORIE_MAXI } from "@/lib/ordini-vocali/pricing";
+import { CATEGORIE_MAXI, CATEGORIE_META_E_META, coloreDellaPizza } from "@/lib/ordini-vocali/pricing";
 import { CATEGORIE_IMPASTO, impastiDellaSede } from "@/lib/impasti";
 import { trovaCasistica } from "@/lib/ordini-vocali/casistiche";
 import { cercaPerIngredienti } from "@/lib/ordini-vocali/ricerca-ingredienti";
@@ -156,6 +156,8 @@ async function cerca(q: string, sedeSlug?: string | null) {
       ingredienti: p.ingredienti.map((i) => ({ ingredienteId: i.ingrediente.id, nome: i.ingrediente.nome })),
       maxi: moltiplicatore && CATEGORIE_MAXI.has(p.categoria) ? { prezzo: Math.round(prezzo * moltiplicatore * 100) / 100 } : null,
       impastoSpeciale: CATEGORIE_IMPASTO.has(p.categoria),
+      // «Metà e metà» (si paga la pizza che costa di più): solo tra pizze dello stesso colore, o tutta bianca o tutta rossa.
+      ...(CATEGORIE_META_E_META.has(p.categoria) ? { colore: coloreDellaPizza(p) } : {}),
     };
   });
 
