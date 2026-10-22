@@ -1,4 +1,5 @@
 import twilio from "twilio";
+import { telefonoE164 } from "@/lib/telefono";
 
 // SMS "liberi" (conferma/rifiuto/spostamento ordine) via Twilio Messaging.
 // Distinti dall'OTP, che usa Twilio Verify. Richiede un mittente in
@@ -21,7 +22,7 @@ export async function inviaSmsDettaglio(telefono: string, testo: string): Promis
     return { ok: false, errore: `Variabili mancanti in Vercel: ${mancanti}` };
   }
   try {
-    const m = await twilio(sid, token).messages.create({ from, to: telefono, body: testo });
+    const m = await twilio(sid, token).messages.create({ from, to: telefonoE164(telefono), body: testo });
     console.log(`SMS accettato da Twilio: ${m.sid} stato=${m.status}`);
     return { ok: true, sid: m.sid };
   } catch (err: any) {
