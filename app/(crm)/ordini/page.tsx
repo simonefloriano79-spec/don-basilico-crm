@@ -48,8 +48,8 @@ function inAttesaOnline(o: any) {
   return richiedeAccettazione(o) && o?.stato === "nuovo";
 }
 // Modifiche e annullamenti fatti dal cliente dall'app («I miei ordini»).
-const modificatoDalCliente = (o: any) => o?.canale === "online" && !!o?.modificatoAt && o?.stato === "nuovo";
-const annullatoDalCliente = (o: any) => o?.canale === "online" && !!o?.modificatoAt && o?.stato === "annullato";
+const modificatoDalCliente = (o: any) => richiedeAccettazione(o) && !!o?.modificatoAt && o?.stato === "nuovo";
+const annullatoDalCliente = (o: any) => richiedeAccettazione(o) && !!o?.modificatoAt && o?.stato === "annullato";
 // Un annullamento del cliente resta visibile tra gli «attivi» per 3 ore: se la comanda era già in cucina va fermata.
 const annullatoRecente = (o: any) => annullatoDalCliente(o) && Date.now() - new Date(o.modificatoAt).getTime() < 3 * 3600 * 1000;
 const statoEtichetta = (o: any) =>
@@ -254,7 +254,7 @@ export default function OrdiniPage() {
       scontoFedelta: parseFloat(ordine.scontoFedelta ?? 0) || undefined,
       scontoCodice: parseFloat(ordine.scontoCodice ?? 0) || undefined,
       codiceSconto: ordine.codiceSconto ?? undefined,
-      modificato: ordine.canale === "online" && !!ordine.modificatoAt ? true : undefined,
+      modificato: richiedeAccettazione(ordine) && !!ordine.modificatoAt ? true : undefined,
       note: ordine.note,
       noteDomicilio: ordine.noteDomicilio,
       oraConsegnaComunicata: ordine.oraConsegnaComunicata ? quando(ordine.oraConsegnaComunicata) : undefined,

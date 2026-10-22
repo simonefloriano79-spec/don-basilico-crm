@@ -17,6 +17,9 @@ export function righeOrdineDaArticoli(articoli: ArticoloPrezzato[]) {
     impasto: a.impasto?.nome ?? null,
     // Combo: le scelte restano salvate in forma strutturata (servono per modificare l'ordine dall'app).
     ...(a.combo ? { comboScelte: a.combo.scelte as unknown as object } : {}),
+    // «Metà e metà»: la seconda pizza resta salvata (nel campo delle scelte, che per le pizze normali non si usa),
+    // così l'ordine si può rimettere insieme per modificarlo.
+    ...(a.secondaMetaId ? { comboScelte: { secondaMeta: a.secondaMetaId } as object } : {}),
     noteItem:
       [
         a.combo ? a.combo.dettaglio : "",

@@ -14,6 +14,7 @@ export interface RichiestaOrdine {
   note?: string;
   oraRichiesta?: string; // ISO 8601, opzionale (default: adesso)
   canale?: "online"; // ordini dall'app clienti: valgono i prezzi dell'app
+  escludiOrdineId?: string; // modifica di un ordine esistente: non conta due volte nella capienza della cucina
 }
 
 export type EsitoOrchestrazione =
@@ -106,7 +107,7 @@ export async function elaboraRichiestaOrdine(input: RichiestaOrdine): Promise<Es
         (acc, a) => acc + pesoRiga(a.categoria, a.taglia === "maxi" ? `${a.nomeSnapshot} (Maxi)` : a.nomeSnapshot, a.quantita, a.combo?.pizze),
         0
       );
-      const capienza = await verificaCapienza(sedeId, oraRichiesta, peso);
+      const capienza = await verificaCapienza(sedeId, oraRichiesta, peso, input.escludiOrdineId);
       if (!capienza.ok) {
         return { ok: false, esito: "cucina_piena", motivo: capienza.motivo ?? "Cucina piena per la fascia oraria richiesta", sedeId };
       }
