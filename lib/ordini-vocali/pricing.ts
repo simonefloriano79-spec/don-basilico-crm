@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { CATEGORIE_IMPASTO, impastiDellaSede } from "@/lib/impasti";
+import { èCodiceBreve, risolviCodice } from "./id-brevi";
 import { bevandaAmmessaInCombo, leggiComboConfig, leggiComboScelte, testoDettaglioCombo, type ComboScelte } from "@/lib/combo";
 
 // Pizza maxi: rosse, bianche, speciali e focacce (non i calzoni), e solo nelle sedi con la maxi attiva (tabella sedi_pizza_maxi).
@@ -58,6 +59,42 @@ export interface ArticoloPrezzato {
 
 export class ErrorePricing extends Error {}
 
+// Gli id possono arrivare come codici brevi di 8 caratteri (vedi id-brevi.ts): qui diventano gli id completi.
+async function espandiCodici(sedeId: string, articoli: ArticoloOrdinatoInput[]): Promise<ArticoloOrdinatoInput[]> {
+  const campi = (a: ArticoloOrdinatoInput) => [
+    a.menuItemId, a.secondaMeta, a.impastoId, ...(a.ingredientiAggiuntiIds ?? []), ...(a.ingredientiRimossi ?? []),
+    ...(a.comboScelte?.bibite ?? []), ...(a.comboScelte?.pizze ?? []),
+  ];
+  if (!articoli.some((a) => campi(a).some(èCodiceBreve))) return articoli;
+
+  const [menu, ingredienti, impasti] = await Promise.all([
+    prisma.menuItem.findMany({ select: { id: true } }),
+    prisma.ingrediente.findMany({ select: { id: true } }),
+    impastiDellaSede(sedeId),
+  ]);
+  const idMenu = menu.map((m) => m.id);
+  const idIngredienti = ingredienti.map((i) => i.id);
+  const idImpasti = impasti.map((i) => i.id);
+  const risolvi = (v: string, noti: string[]) => {
+    if (!èCodiceBreve(v)) return v;
+    const r = risolviCodice(v, noti);
+    if (r === null) throw new ErrorePricing(`Codice non riconosciuto: ${v}. Cerca di nuovo il prodotto con cerca_menu`);
+    if (r === "ambiguo") throw new ErrorePricing(`Codice ambiguo: ${v}. Cerca di nuovo il prodotto con cerca_menu`);
+    return r;
+  };
+  return articoli.map((a) => ({
+    ...a,
+    menuItemId: risolvi(a.menuItemId, idMenu),
+    secondaMeta: a.secondaMeta ? risolvi(a.secondaMeta, idMenu) : a.secondaMeta,
+    impastoId: a.impastoId ? risolvi(a.impastoId, idImpasti) : a.impastoId,
+    ingredientiAggiuntiIds: a.ingredientiAggiuntiIds?.map((x) => risolvi(x, idIngredienti)),
+    ingredientiRimossi: a.ingredientiRimossi?.map((x) => risolvi(x, idIngredienti)),
+    comboScelte: a.comboScelte
+      ? { bibite: a.comboScelte.bibite?.map((x) => risolvi(x, idMenu)), pizze: a.comboScelte.pizze?.map((x) => risolvi(x, idMenu)) }
+      : a.comboScelte,
+  }));
+}
+
 // Calcola il totale reale di un ordine lato server: non fidarsi mai del
 // prezzo che arriva dal client o dall'assistente vocale.
 //
@@ -72,6 +109,7 @@ export async function calcolaOrdine(
   canale?: "online"
 ): Promise<{ articoli: ArticoloPrezzato[]; totale: number }> {
   if (!articoli.length) throw new ErrorePricing("Nessun articolo nell'ordine");
+  articoli = await espandiCodici(sedeId, articoli);
 
   const menuItemIds = Array.from(new Set(articoli.flatMap((a) => [a.menuItemId, a.secondaMeta].filter((x): x is string => !!x))));
   const ingredienteIds = Array.from(

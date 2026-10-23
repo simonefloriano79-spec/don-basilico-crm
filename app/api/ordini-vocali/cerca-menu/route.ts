@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verificaSegretoWebhook } from "@/lib/ordini-vocali/auth";
+import { idBreve } from "@/lib/ordini-vocali/id-brevi";
 import { CATEGORIE_MAXI, CATEGORIE_META_E_META, PREZZO_PEZZO_FRITTO, coloreDellaPizza, vendutoAPezzo } from "@/lib/ordini-vocali/pricing";
 import { CATEGORIE_IMPASTO, impastiDellaSede } from "@/lib/impasti";
 import { trovaCasistica } from "@/lib/ordini-vocali/casistiche";
@@ -105,7 +106,7 @@ async function cerca(q: string, sedeSlug?: string | null) {
     const extra = o.conExtra
       .map((n) => extraCasistica.find((e) => e.nome.toLowerCase() === n.toLowerCase()))
       .filter((e): e is NonNullable<typeof e> => !!e && !ingDisabilitati.has(e.id))
-      .map((e) => ({ ingredienteId: e.id, nome: e.nome, prezzoAggiunta: parseFloat(e.prezzoAggiunta.toString()) }));
+      .map((e) => ({ ingredienteId: idBreve(e.id), nome: e.nome, prezzoAggiunta: parseFloat(e.prezzoAggiunta.toString()) }));
     // Se un ingrediente da aggiungere non è disponibile in questa pizzeria, l'opzione non va offerta.
     return {
       ...(casistica.chiedi ? { rispostaCasistica: o.risposta } : { casisticaPizzeria: true }),
@@ -118,7 +119,7 @@ async function cerca(q: string, sedeSlug?: string | null) {
     const override = overrideMap.get(p.id);
     const prezzo = parseFloat((override?.prezzoCustom ?? p.prezzoBase).toString());
     const base = {
-      menuItemId: p.id,
+      menuItemId: idBreve(p.id),
       nome: p.nome,
       categoria: p.categoria,
       descrizione: p.descrizione,
@@ -144,10 +145,10 @@ async function cerca(q: string, sedeSlug?: string | null) {
           pizzeSpecialiDaScegliere: cfg.pizzeSpeciali,
           bibiteAmmesse: disponibiliInSede
             .filter((m) => m.categoria === "bevande" && bevandaAmmessaInCombo(m.nome))
-            .map((m) => ({ menuItemId: m.id, nome: m.nome })),
+            .map((m) => ({ menuItemId: idBreve(m.id), nome: m.nome })),
           pizzeSpecialiAmmesse: disponibiliInSede
             .filter((m) => m.categoria === "menu_speciale")
-            .map((m) => ({ menuItemId: m.id, nome: m.nome })),
+            .map((m) => ({ menuItemId: idBreve(m.id), nome: m.nome })),
         },
       };
     }
@@ -155,7 +156,7 @@ async function cerca(q: string, sedeSlug?: string | null) {
     return {
       ...base,
       // Ingredienti di base: servono per i «senza» (si passa l'ingredienteId in ingredientiRimossi).
-      ingredienti: p.ingredienti.map((i) => ({ ingredienteId: i.ingrediente.id, nome: i.ingrediente.nome })),
+      ingredienti: p.ingredienti.map((i) => ({ ingredienteId: idBreve(i.ingrediente.id), nome: i.ingrediente.nome })),
       maxi: moltiplicatore && CATEGORIE_MAXI.has(p.categoria) ? { prezzo: Math.round(prezzo * moltiplicatore * 100) / 100 } : null,
       impastoSpeciale: CATEGORIE_IMPASTO.has(p.categoria),
       // Crocchette e supplì si vendono anche a pezzo: se il cliente dice un numero senza «porzioni» (es. «3 crocchette»)
@@ -171,13 +172,13 @@ async function cerca(q: string, sedeSlug?: string | null) {
   // Impasti speciali della sede, una volta sola e solo se tra i risultati c'è una pizza che li accetta.
   const impasti =
     sede && prodotti.some((p) => CATEGORIE_IMPASTO.has(p.categoria))
-      ? (await impastiDellaSede(sede.id)).map((i) => ({ impastoId: i.id, nome: i.nome, supplemento: i.supplemento }))
+      ? (await impastiDellaSede(sede.id)).map((i) => ({ impastoId: idBreve(i.id), nome: i.nome, supplemento: i.supplemento }))
       : undefined;
 
   const ingredientiExtra = perRilevanza(ingredientiDb, idIngredienti)
     .filter((i) => !ingDisabilitati.has(i.id))
     .slice(0, MAX_RISULTATI)
-    .map((i) => ({ ingredienteId: i.id, nome: i.nome, prezzoAggiunta: parseFloat(i.prezzoAggiunta.toString()) }));
+    .map((i) => ({ ingredienteId: idBreve(i.id), nome: i.nome, prezzoAggiunta: parseFloat(i.prezzoAggiunta.toString()) }));
 
   return NextResponse.json({
     sede: sede?.nome ?? null,
