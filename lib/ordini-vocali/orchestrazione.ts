@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { geocodificaIndirizzo, trovaSedeCompetente } from "./copertura";
 import { verificaSedeAperta, verificaCapienza } from "./capacita";
+import { oraRomaDaTesto } from "./ora-roma";
 import { calcolaOrdine, ArticoloOrdinatoInput, ArticoloPrezzato, ErrorePricing } from "./pricing";
 import { pesoRiga } from "@/lib/peso-pizze";
 
@@ -40,7 +41,7 @@ export type EsitoOrchestrazione =
 // calcolo per il "preventivo" e per il salvataggio finale, per evitare che il
 // totale detto al cliente e quello salvato possano mai divergere.
 export async function elaboraRichiestaOrdine(input: RichiestaOrdine): Promise<EsitoOrchestrazione> {
-  const oraRichiesta = input.oraRichiesta ? new Date(input.oraRichiesta) : new Date();
+  const oraRichiesta = input.oraRichiesta ? oraRomaDaTesto(input.oraRichiesta) : new Date();
   if (Number.isNaN(oraRichiesta.getTime())) {
     return { ok: false, esito: "errore", motivo: "oraRichiesta non valida" };
   }
