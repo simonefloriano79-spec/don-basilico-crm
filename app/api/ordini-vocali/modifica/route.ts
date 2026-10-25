@@ -7,6 +7,7 @@ import { righeOrdineDaArticoli } from "@/lib/ordina-righe";
 import { scontoDaCodice } from "@/lib/codice-sconto";
 import { inviaSmsDettaglio } from "@/lib/customer-auth/sms";
 import { verificaSegretoWebhook } from "@/lib/ordini-vocali/auth";
+import { oraRomaDaTesto } from "@/lib/ordini-vocali/ora-roma";
 import { elaboraRichiestaOrdine } from "@/lib/ordini-vocali/orchestrazione";
 import { articoliDaRighe, euroTesto, trovaOrdineAperto } from "@/lib/ordini-vocali/ordine-aperto";
 import type { ArticoloOrdinatoInput } from "@/lib/ordini-vocali/pricing";
@@ -114,7 +115,7 @@ export async function POST(req: NextRequest) {
 
   let oraNuova: Date | undefined;
   if (body.oraRichiesta) {
-    oraNuova = new Date(String(body.oraRichiesta));
+    oraNuova = oraRomaDaTesto(String(body.oraRichiesta));
     if (Number.isNaN(oraNuova.getTime())) return rifiuto("Orario non valido");
   }
   // Orario attuale concordato: quello confermato dalla pizzeria, altrimenti quello richiesto se prenotato.
