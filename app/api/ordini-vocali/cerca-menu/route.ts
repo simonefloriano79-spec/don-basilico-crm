@@ -110,6 +110,7 @@ async function cerca(q: string, sedeSlug?: string | null) {
     // Se un ingrediente da aggiungere non è disponibile in questa pizzeria, l'opzione non va offerta.
     return {
       ...(casistica.chiedi ? { rispostaCasistica: o.risposta } : { casisticaPizzeria: true }),
+      ...(o.istruzione ? { istruzioneAssistente: o.istruzione } : {}),
       ...(o.conExtra.length ? { extraDaAggiungere: extra } : {}),
       ...(extra.length < o.conExtra.length ? { opzioneNonDisponibile: true } : {}),
     };

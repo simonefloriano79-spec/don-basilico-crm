@@ -16,6 +16,7 @@ export interface OpzioneCasistica {
   risposta: string; // cosa risponde il cliente alla domanda, es. "cotto"
   pizza: string; // nome esatto della pizza nel menù
   conExtra?: string[]; // nomi esatti degli ingredienti da aggiungere
+  istruzione?: string; // cosa deve sapere l'assistente su questa scelta (arriva nella risposta di cerca_menu)
 }
 
 export interface Casistica {
@@ -23,11 +24,22 @@ export interface Casistica {
   /** In alternativa alle frasi: un'espressione regolare sulla richiesta (per le famiglie di modi di dire). */
   pattern?: RegExp;
   intendono?: string;
+  /** Solo con `intendono`: spiegazione per l'assistente. */
+  istruzione?: string;
   chiedi?: string;
   opzioni?: OpzioneCasistica[];
 }
 
 export const CASISTICHE_PRODOTTI: Casistica[] = [
+  {
+    // «Una focaccia con zucchine e gamberetti»: la focaccia (senza pomodoro né mozzarella) è la base «Olio e Sale» più gli
+    // ingredienti scelti, ognuno come extra. Mai una pizza del menù con ingredienti diversi. Se il cliente dice il nome di una
+    // focaccia del menù (Leonardo, Maris, Olio e Sale) la ricerca normale la trova.
+    pattern: /^(?!.*(leonardo|maris|olio e sale)).*focacci[ae]/i,
+    intendono: "Olio e Sale",
+    istruzione:
+      "BASE FOCACCIA: se il cliente vuole una focaccia con degli ingredienti, questa è la base (senza pomodoro né mozzarella). Cerca ogni ingrediente con cerca_menu e aggiungilo come extra (ingredientiAggiuntiIds). Non proporre mai una pizza del menù. Se ha detto solo «una focaccia» chiedi: «La vuole semplice, olio e sale, o con degli ingredienti?».",
+  },
   {
     // «La vorrei comporre», «una pizza personalizzata», «crea la tua pizza», «da zero»: si parte dalla base
     // «Crea la tua pizza» (pomodoro e mozzarella; per la bianca si toglie il pomodoro) e si aggiungono gli ingredienti.
@@ -57,7 +69,7 @@ export const CASISTICHE_PRODOTTI: Casistica[] = [
 
 export interface RisoluzioneCasistica {
   chiedi?: string;
-  opzioni: { risposta?: string; pizza: string; conExtra: string[] }[];
+  opzioni: { risposta?: string; pizza: string; conExtra: string[]; istruzione?: string }[];
 }
 
 const chiave = (frase: string) => radiciRichiesta(frase).sort().join("|");
@@ -72,5 +84,5 @@ export function trovaCasistica(richiesta: string): RisoluzioneCasistica | null {
   if (c.opzioni?.length) {
     return { ...(c.chiedi ? { chiedi: c.chiedi } : {}), opzioni: c.opzioni.map((o) => ({ risposta: o.risposta, pizza: o.pizza, conExtra: o.conExtra ?? [] })) };
   }
-  return c.intendono ? { opzioni: [{ pizza: c.intendono, conExtra: [] }] } : null;
+  return c.intendono ? { opzioni: [{ pizza: c.intendono, conExtra: [], ...(c.istruzione ? { istruzione: c.istruzione } : {}) }] } : null;
 }
