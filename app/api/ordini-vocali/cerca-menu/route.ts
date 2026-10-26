@@ -1,3 +1,4 @@
+import { parlatoDeep } from "@/lib/ordini-vocali/parlato";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verificaSegretoWebhook } from "@/lib/ordini-vocali/auth";
@@ -181,13 +182,13 @@ async function cerca(q: string, sedeSlug?: string | null) {
     .slice(0, MAX_RISULTATI)
     .map((i) => ({ ingredienteId: idBreve(i.id), nome: i.nome, prezzoAggiunta: parseFloat(i.prezzoAggiunta.toString()) }));
 
-  return NextResponse.json({
+  return NextResponse.json(parlatoDeep({
     sede: sede?.nome ?? null,
     ...(casistica?.chiedi ? { casisticaDomanda: casistica.chiedi } : {}),
     prodotti: risposteProdotti,
     ingredientiExtra,
     ...(impasti ? { impasti } : {}),
-  });
+  }));
 }
 
 // GET /api/ordini-vocali/cerca-menu?q=diavola&sedeSlug=centro

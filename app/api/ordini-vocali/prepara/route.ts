@@ -1,3 +1,4 @@
+import { parlatoDeep } from "@/lib/ordini-vocali/parlato";
 import { NextRequest, NextResponse } from "next/server";
 import { verificaSegretoWebhook } from "@/lib/ordini-vocali/auth";
 import { elaboraRichiestaOrdine } from "@/lib/ordini-vocali/orchestrazione";
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
     body.tipo, esito.totale, sconti.scontoFedelta, sconti.scontoCodice
   );
 
-  return NextResponse.json({
+  return NextResponse.json(parlatoDeep({
     ok: true,
     sede: esito.sedeNome,
     totale,
@@ -76,5 +77,5 @@ export async function POST(req: NextRequest) {
       note: a.note,
     })),
     indirizzoConfermato: senzaItalia(esito.indirizzoFormattato),
-  });
+  }));
 }
