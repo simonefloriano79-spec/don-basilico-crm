@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { inAppNativa } from "@/lib/app-nativa";
 
 type Telefono = "android" | "ios" | "computer";
 
@@ -42,7 +43,7 @@ export default function InstallaApp({ qrSvg }: { qrSvg: string }) {
 
   useEffect(() => {
     // Già installata e aperta dall'icona: questa pagina non serve, si va dritti agli ordini.
-    if (window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone === true) {
+    if (window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone === true || inAppNativa()) {
       window.location.replace("/ordina");
       return;
     }

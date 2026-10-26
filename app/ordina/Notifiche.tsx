@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { inAppNativa } from "@/lib/app-nativa";
 
 // Notifiche push dell'app ordini: «ordine confermato», «nuovo orario», «ordine pronto».
 // Si attivano solo con un tocco del cliente (lo richiedono i telefoni). Su iPhone funzionano solo se l'app è stata
@@ -44,7 +45,7 @@ async function inviaIscrizione(sub: PushSubscription): Promise<boolean> {
 export function infoDispositivo() {
   const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
   const ios = /iPad|iPhone|iPod/.test(ua) || (typeof navigator !== "undefined" && navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  const installata = typeof window !== "undefined" && (window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone === true);
+  const installata = typeof window !== "undefined" && (window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone === true || inAppNativa());
   return { ios, installata };
 }
 
