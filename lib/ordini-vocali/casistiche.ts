@@ -35,7 +35,7 @@ export const CASISTICHE_PRODOTTI: Casistica[] = [
     // «Una focaccia con zucchine e gamberetti»: la focaccia (senza pomodoro né mozzarella) è la base «Olio e Sale» più gli
     // ingredienti scelti, ognuno come extra. Mai una pizza del menù con ingredienti diversi. Se il cliente dice il nome di una
     // focaccia del menù (Leonardo, Maris, Olio e Sale) la ricerca normale la trova.
-    pattern: /^(?!.*(leonardo|maris|olio e sale)).*focacci[ae]/i,
+    pattern: /^(?!.*\b(leonardo|maris|olio e sale)\b).*\bfocacci[ae]\b/i,
     intendono: "Olio e Sale",
     istruzione:
       "BASE FOCACCIA: se il cliente vuole una focaccia con degli ingredienti, questa è la base (senza pomodoro né mozzarella). Cerca ogni ingrediente con cerca_menu e aggiungilo come extra (ingredientiAggiuntiIds). Non proporre mai una pizza del menù. Se ha detto solo «una focaccia» chiedi: «La vuole semplice, olio e sale, o con degli ingredienti?».",
