@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verificaSegretoWebhook } from "@/lib/ordini-vocali/auth";
 import { elaboraRichiestaOrdine } from "@/lib/ordini-vocali/orchestrazione";
 import { trovaClientePerTelefono } from "@/lib/ordini-vocali/cliente";
+import { orarioParlato } from "@/lib/ordini-vocali/ora-roma";
 import { SUFFISSO_A_PEZZO } from "@/lib/ordini-vocali/pricing";
 import { anteprimaSconti } from "@/lib/ordini-vocali/sconti";
 import { RichiestaTelefonica, datiMancanti, senzaItalia, totaliTelefonici, validaDatiTelefonici } from "@/lib/ordini-vocali/telefono";
@@ -49,6 +50,8 @@ export async function POST(req: NextRequest) {
     ok: true,
     sede: esito.sedeNome,
     totale,
+    // Orario da leggere al cliente nel riepilogo, già in parole («stasera alle ventuno e trenta»); null se vuole «subito».
+    orarioParlato: body.oraRichiesta ? orarioParlato(esito.oraRichiesta) : null,
     totaleProdotti,
     costoConsegna,
     scontoFedelta,
