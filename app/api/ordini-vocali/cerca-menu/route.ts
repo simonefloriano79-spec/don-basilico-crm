@@ -162,7 +162,7 @@ async function cerca(q: string, sedeSlug?: string | null) {
       // Crocchette e supplì si vendono anche a pezzo: se il cliente dice un numero senza «porzioni» (es. «3 crocchette»)
       // chiedi «3 porzioni o 3 di numero?» e con «di numero» usa aPezzo=true (quantita = pezzi, prezzo per pezzo).
       ...(vendutoAPezzo(p)
-        ? { venduto: { porzione: Math.round(prezzo * 100) / 100, pezzo: PREZZO_PEZZO_FRITTO, domanda: "Porzioni intere o pezzi singoli?" } }
+        ? { venduto: { porzione: Math.round(prezzo * 100) / 100, pezzo: PREZZO_PEZZO_FRITTO, domanda: "Porzioni intere, o pezzi singoli?" } }
         : {}),
       // «Metà e metà» (si paga la pizza che costa di più): solo tra pizze dello stesso colore, o tutta bianca o tutta rossa.
       ...(CATEGORIE_META_E_META.has(p.categoria) ? { colore: coloreDellaPizza(p) } : {}),

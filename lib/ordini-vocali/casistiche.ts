@@ -42,7 +42,7 @@ export const CASISTICHE_PRODOTTI: Casistica[] = [
   {
     // Non esiste una «crudo e funghi» in menù: col crudo è la pizza «Crudo» con i funghi aggiunti.
     dicono: ["prosciutto e funghi"],
-    chiedi: "Prosciutto crudo o prosciutto cotto?",
+    chiedi: "Prosciutto crudo, o prosciutto cotto?",
     opzioni: [
       { risposta: "cotto", pizza: "Cotto e Funghi" },
       { risposta: "crudo", pizza: "Crudo", conExtra: ["Funghi"] },
