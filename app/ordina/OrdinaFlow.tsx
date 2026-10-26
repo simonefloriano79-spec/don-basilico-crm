@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { COSTO_CONSEGNA_DEFAULT } from "@/lib/consegna";
 import PaginaTessera from "./PaginaTessera";
 import BoxNotifiche from "./Notifiche";
+import { inAppNativa } from "@/lib/app-nativa";
 import { allergeniProdotto, allergeniCombo, testoAllergeni } from "@/lib/allergeni";
 import { bevandaAmmessaInCombo, leggiComboConfig, leggiComboScelte, testoDettaglioCombo, type ComboScelte } from "@/lib/combo";
 
@@ -341,7 +342,7 @@ function BottoneInstalla({ discreto = false }: { discreto?: boolean }) {
 
   useEffect(() => {
     const standalone = window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone === true;
-    if (standalone) setInstallata(true);
+    if (standalone || inAppNativa()) setInstallata(true);
     const fatto = () => setInstallata(true);
     window.addEventListener("appinstalled", fatto);
     return () => window.removeEventListener("appinstalled", fatto);
