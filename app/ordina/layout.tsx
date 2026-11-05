@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-
+import PushNativoTocco from "./PushNativoTocco";
 
 export const metadata: Metadata = {
   title: "Ordina online — Don Basilico",
@@ -25,6 +25,7 @@ export default function OrdinaLayout({ children }: { children: React.ReactNode }
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&display=swap" />
+      <PushNativoTocco />
       <main style={{ maxWidth: 640, width: "100%", margin: "0 auto", padding: "14px 16px 60px" }}>
         {children}
       </main>

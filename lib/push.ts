@@ -1,5 +1,6 @@
 import webpush from "web-push";
 import { prisma } from "@/lib/prisma";
+import { inviaPushNativo, pushNativoAttivo } from "@/lib/push-nativo";
 
 // Notifiche push per i clienti dell'app ordini (affiancano gli SMS, non li sostituiscono).
 // Servono 3 variabili su Vercel: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (mailto:...).
@@ -46,9 +47,39 @@ export interface NotificaPush {
   tag?: string; // notifiche con lo stesso tag si sostituiscono (es. un solo avviso per ordine)
 }
 
-// Invia la notifica a tutti i telefoni iscritti del cliente. Restituisce quanti l'hanno accettata.
+// Invia la notifica a tutti i telefoni iscritti del cliente (browser/app installata e app nativa).
+// Restituisce quanti l'hanno accettata.
 export async function inviaPushCliente(clienteId: string | null | undefined, n: NotificaPush): Promise<number> {
-  if (!clienteId || !configura()) return 0;
+  if (!clienteId) return 0;
+  const [web, nativi] = await Promise.all([inviaPushWeb(clienteId, n), inviaPushNativiCliente(clienteId, n)]);
+  return web + nativi;
+}
+
+// App nativa Android/iOS (Firebase): un token per ogni telefono.
+async function inviaPushNativiCliente(clienteId: string, n: NotificaPush): Promise<number> {
+  if (!pushNativoAttivo()) return 0;
+  try {
+    const token = await prisma.pushTokenNativo.findMany({ where: { clienteId }, select: { id: true, token: true } });
+    if (!token.length) return 0;
+    let ok = 0;
+    const scaduti: string[] = [];
+    await Promise.all(
+      token.map(async (t) => {
+        const esito = await inviaPushNativo(t.token, { titolo: n.titolo, testo: n.testo, url: n.url, tag: n.tag });
+        if (esito === "ok") ok++;
+        else if (esito === "token-scaduto") scaduti.push(t.id);
+      })
+    );
+    if (scaduti.length) await prisma.pushTokenNativo.deleteMany({ where: { id: { in: scaduti } } }).catch(() => {});
+    return ok;
+  } catch (err) {
+    console.error("Errore invio push native", err);
+    return 0;
+  }
+}
+
+async function inviaPushWeb(clienteId: string, n: NotificaPush): Promise<number> {
+  if (!configura()) return 0;
   try {
     const iscrizioni = await prisma.pushIscrizione.findMany({ where: { clienteId } });
     if (!iscrizioni.length) return 0;
