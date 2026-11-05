@@ -42,6 +42,55 @@ async function inviaIscrizione(sub: PushSubscription): Promise<boolean> {
   }
 }
 
+// --- App nativa (Android/iOS): le notifiche arrivano da Firebase tramite il plugin del contenitore. ---
+// La pagina è caricata da internet dentro l'app, quindi il plugin si prende dal ponte Capacitor (non dal pacchetto npm).
+export function pluginPushNativo(): any | null {
+  try {
+    const cap = (window as any).Capacitor;
+    if (!cap?.isNativePlatform?.()) return null;
+    return cap.Plugins?.PushNotifications ?? cap.registerPlugin?.("PushNotifications") ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function inviaTokenNativo(token: string): Promise<boolean> {
+  try {
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const r = await fetch("/api/ordina/push/nativo", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, piattaforma: ios ? "ios" : "android" }),
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Chiede il token al telefono e lo collega al cliente. Vero se il collegamento è riuscito.
+function registraNativo(plugin: any): Promise<boolean> {
+  return new Promise((risolvi) => {
+    let chiuso = false;
+    const ascoltatori: any[] = [];
+    const fine = (v: boolean) => {
+      if (chiuso) return;
+      chiuso = true;
+      ascoltatori.forEach((a) => { try { a?.remove?.(); } catch {} });
+      risolvi(v);
+    };
+    setTimeout(() => fine(false), 15000);
+    (async () => {
+      try {
+        ascoltatori.push(await plugin.addListener("registration", async (t: { value?: string }) => fine(t?.value ? await inviaTokenNativo(t.value) : false)));
+        ascoltatori.push(await plugin.addListener("registrationError", () => fine(false)));
+        await plugin.register();
+      } catch {
+        fine(false);
+      }
+    })();
+  });
+}
+
 export function infoDispositivo() {
   const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
   const ios = /iPad|iPhone|iPod/.test(ua) || (typeof navigator !== "undefined" && navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
@@ -58,8 +107,19 @@ export default function BoxNotifiche({ compatto = false }: { compatto?: boolean 
   useEffect(() => {
     let vivo = true;
     (async () => {
+      if (inAppNativa()) {
+        const plugin = pluginPushNativo();
+        if (!plugin) { if (vivo) setStato("non-supportate"); return; } // versione dell'app senza notifiche: nessun box
+        try {
+          const perm = (await plugin.checkPermissions())?.receive;
+          if (perm === "denied") { if (vivo) setStato("bloccate"); return; }
+          if (perm === "granted" && (await registraNativo(plugin))) { if (vivo) setStato("attive"); return; }
+        } catch {}
+        if (vivo) setStato("da-attivare");
+        return;
+      }
       const { ios, installata } = infoDispositivo();
-      const supportate = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+      const supportate ="serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
       if (!supportate) { if (vivo) setStato(ios && !installata ? "serve-installazione" : "non-supportate"); return; }
       if (Notification.permission === "denied") { if (vivo) setStato("bloccate"); return; }
       if (Notification.permission === "granted") {
@@ -78,6 +138,14 @@ export default function BoxNotifiche({ compatto = false }: { compatto?: boolean 
   const attiva = async () => {
     setOccupato(true);
     try {
+      if (inAppNativa()) {
+        const plugin = pluginPushNativo();
+        if (!plugin) { setStato("errore"); return; }
+        const perm = (await plugin.requestPermissions())?.receive;
+        if (perm !== "granted") { setStato(perm === "denied" ? "bloccate" : "da-attivare"); return; }
+        setStato((await registraNativo(plugin)) ? "attive" : "errore");
+        return;
+      }
       const permesso = await Notification.requestPermission();
       if (permesso !== "granted") { setStato(permesso === "denied" ? "bloccate" : "da-attivare"); return; }
       const chiave = (await fetch("/api/ordina/push/chiave").then((r) => r.json()).catch(() => ({}))).chiave as string | undefined;

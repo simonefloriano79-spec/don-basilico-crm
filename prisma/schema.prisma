@@ -267,6 +267,7 @@ model Cliente {
 
   ordini Ordine[]
   pushIscrizioni PushIscrizione[]
+  pushTokenNativi PushTokenNativo[]
 
   @@map("clienti")
 }
@@ -551,4 +552,19 @@ model PushIscrizione {
 
   @@index([clienteId])
   @@map("push_iscrizioni")
+}
+
+// Notifiche push dell'app nativa (Android/iOS, via Firebase Cloud Messaging): il «token» identifica l'app su un telefono.
+model PushTokenNativo {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clienteId   String   @map("cliente_id") @db.Uuid
+  token       String   @unique
+  piattaforma String   @default("android")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@index([clienteId])
+  @@map("push_token_nativi")
 }

@@ -25,10 +25,11 @@ export default function PrivacyPage() {
       <h2 style={h2}>Quali dati e perché</h2>
       <p style={p}><strong>Per gestire il tuo ordine</strong> (necessario): nome, numero di telefono, indirizzo di consegna e citofono (per i domicili), contenuto e importo dell'ordine, orario richiesto. Servono per preparare e consegnare l'ordine, contattarti in caso di problemi e inviarti il codice di accesso e l'SMS di conferma.</p>
       <p style={p}><strong>Per la tessera fedeltà</strong>: telefono, nome, storico degli ordini e degli importi, per assegnare timbri e sconti (ogni 5 ordini, sconto del 10% sulla spesa del ciclo). La tessera si attiva con la registrazione.</p>
+      <p style={p}><strong>Per le notifiche sul telefono</strong> (facoltativo): solo se le attivi, nel browser o nell'app Don Basilico, salviamo un identificativo tecnico del tuo telefono (non il tuo nome) per avvisarti quando l'ordine è confermato, cambia orario o è pronto. Puoi disattivarle in qualsiasi momento dalle impostazioni del telefono; gli SMS di servizio continuano ad arrivare.</p>
       <p style={p}><strong>Per comunicazioni promozionali</strong> (facoltativo): solo se dai il consenso con l'apposita casella, per inviarti offerte e novità. Puoi non darlo e ordinare comunque.</p>
 
       <h2 style={h2}>A chi li comunichiamo</h2>
-      <p style={p}>Al personale della pizzeria che prepara e consegna l'ordine e ai fornitori tecnici che ci permettono di offrire il servizio (hosting, database, invio SMS e verifica del numero di telefono, mappe per le zone di consegna), che trattano i dati solo per nostro conto. Non vendiamo i tuoi dati.</p>
+      <p style={p}>Al personale della pizzeria che prepara e consegna l'ordine e ai fornitori tecnici che ci permettono di offrire il servizio (hosting, database, invio SMS e verifica del numero di telefono, mappe per le zone di consegna, recapito delle notifiche tramite i servizi di Google e dei produttori dei telefoni), che trattano i dati solo per nostro conto. Non vendiamo i tuoi dati.</p>
 
       <h2 style={h2}>Per quanto tempo</h2>
       <p style={p}>Per il tempo necessario alle finalità indicate; i dati degli ordini che servono alla contabilità sono conservati per i termini previsti dalla legge. I dati della tessera restano finché la tessera è attiva; puoi chiederne la cancellazione in qualsiasi momento.</p>
