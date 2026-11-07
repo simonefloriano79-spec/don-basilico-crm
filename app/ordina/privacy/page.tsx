@@ -34,6 +34,9 @@ export default function PrivacyPage() {
       <h2 style={h2}>Per quanto tempo</h2>
       <p style={p}>Per il tempo necessario alle finalità indicate; i dati degli ordini che servono alla contabilità sono conservati per i termini previsti dalla legge. I dati della tessera restano finché la tessera è attiva; puoi chiederne la cancellazione in qualsiasi momento.</p>
 
+      <h2 style={h2}>Eliminare il tuo account</h2>
+      <p style={p}>Puoi chiedere la cancellazione dell'account e dei dati in qualsiasi momento: i passaggi sono su <a href="/ordina/elimina-account" style={{ color: "var(--accent-ink)", textDecoration: "underline" }}>questa pagina</a>.</p>
+
       <h2 style={h2}>I tuoi diritti</h2>
       <p style={p}>Puoi chiedere accesso, rettifica, cancellazione, limitazione e portabilità dei tuoi dati, opporti al trattamento e revocare in qualsiasi momento il consenso al marketing, senza effetti sui trattamenti già fatti. Puoi presentare reclamo al Garante per la protezione dei dati personali (garanteprivacy.it).</p>
     </div>
