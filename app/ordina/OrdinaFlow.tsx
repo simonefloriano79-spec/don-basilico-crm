@@ -1706,6 +1706,19 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
 
         {cliente && <BoxNotifiche compatto />}
         <BottoneInstalla discreto />
+        {cliente && (
+          <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: 6, marginTop: 18 }}>
+            <button type="button"
+              onClick={() => { fetch("/api/ordina/sessione", { method: "DELETE" }).catch(() => {}).finally(() => { window.location.href = "/ordina"; }); }}
+              style={{ background: "none", border: "none", padding: "10px 12px", minHeight: 44, color: "#5F6457", fontSize: 13, textDecoration: "underline", cursor: "pointer", fontFamily: "inherit" }}>
+              Esci
+            </button>
+            <a href="/ordina/elimina-account"
+              style={{ padding: "10px 12px", minHeight: 44, display: "inline-flex", alignItems: "center", color: "#5F6457", fontSize: 13, textDecoration: "underline" }}>
+              Elimina il mio account
+            </a>
+          </div>
+        )}
       </div>
     );
   }
