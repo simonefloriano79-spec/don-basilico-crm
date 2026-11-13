@@ -1,6 +1,7 @@
 import webpush from "web-push";
 import { prisma } from "@/lib/prisma";
 import { inviaPushNativo, pushNativoAttivo } from "@/lib/push-nativo";
+import { inviaPushApns, pushApnsAttivo } from "@/lib/push-apns";
 
 // Notifiche push per i clienti dell'app ordini (affiancano gli SMS, non li sostituiscono).
 // Servono 3 variabili su Vercel: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (mailto:...).
@@ -55,17 +56,23 @@ export async function inviaPushCliente(clienteId: string | null | undefined, n: 
   return web + nativi;
 }
 
-// App nativa Android/iOS (Firebase): un token per ogni telefono.
+// App nativa: un token per ogni telefono. Android passa da Firebase, iPhone direttamente da Apple (APNs):
+// ogni strada resta spenta finché mancano le sue variabili su Vercel.
 async function inviaPushNativiCliente(clienteId: string, n: NotificaPush): Promise<number> {
-  if (!pushNativoAttivo()) return 0;
+  const fcmAttivo = pushNativoAttivo();
+  const apnsAttivo = pushApnsAttivo();
+  if (!fcmAttivo && !apnsAttivo) return 0;
   try {
-    const token = await prisma.pushTokenNativo.findMany({ where: { clienteId }, select: { id: true, token: true } });
+    const token = await prisma.pushTokenNativo.findMany({ where: { clienteId }, select: { id: true, token: true, piattaforma: true } });
     if (!token.length) return 0;
     let ok = 0;
     const scaduti: string[] = [];
     await Promise.all(
       token.map(async (t) => {
-        const esito = await inviaPushNativo(t.token, { titolo: n.titolo, testo: n.testo, url: n.url, tag: n.tag });
+        const ios = t.piattaforma === "ios";
+        if (ios ? !apnsAttivo : !fcmAttivo) return;
+        const messaggio = { titolo: n.titolo, testo: n.testo, url: n.url, tag: n.tag };
+        const esito = ios ? await inviaPushApns(t.token, messaggio) : await inviaPushNativo(t.token, messaggio);
         if (esito === "ok") ok++;
         else if (esito === "token-scaduto") scaduti.push(t.id);
       })
