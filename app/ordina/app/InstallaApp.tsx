@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { inAppNativa } from "@/lib/app-nativa";
+import { inAppNativa, URL_PLAY_STORE } from "@/lib/app-nativa";
 
 type Telefono = "android" | "ios" | "computer";
 
@@ -167,7 +167,18 @@ export default function InstallaApp({ qrSvg }: { qrSvg: string }) {
           <a href="/ordina" style={{ width: "100%", height: 58, borderRadius: 18, background: TESTO, color: "#FFFFFF", fontSize: 17, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}>Ordina ora</a>
         ) : (
           <>
-            {telefono !== "computer" && (
+            {telefono === "android" && (
+              <>
+                <a href={URL_PLAY_STORE} style={{ width: "100%", height: 58, borderRadius: 18, background: TESTO, color: "#FFFFFF", fontSize: 17, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, textDecoration: "none" }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={VERDE} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4v11" /><path d="M7 10l5 5 5-5" /><path d="M5 20h14" /></svg>
+                  Scarica l'app da Google Play
+                </a>
+                <button type="button" onClick={clicInstalla} style={{ width: "100%", minHeight: 44, border: "none", background: "transparent", color: "#5F6457", fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>
+                  Oppure installala dal browser
+                </button>
+              </>
+            )}
+            {telefono === "ios" && (
               <button type="button" onClick={clicInstalla} style={{ width: "100%", height: 58, border: "none", borderRadius: 18, background: TESTO, color: "#FFFFFF", fontSize: 17, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, cursor: "pointer", fontFamily: "inherit" }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={VERDE} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4v11" /><path d="M7 10l5 5 5-5" /><path d="M5 20h14" /></svg>
                 Installa l'app
