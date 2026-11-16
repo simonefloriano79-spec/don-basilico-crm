@@ -1,3 +1,6 @@
+// Scheda dell'app Android su Google Play (pubblicata il 16/11/2026): il sito la propone ai visitatori Android.
+export const URL_PLAY_STORE = "https://play.google.com/store/apps/details?id=it.donbasilico.ordina";
+
 // Vero quando la pagina gira dentro l'app Android/iOS di Don Basilico (contenitore Capacitor), non nel browser.
 // Il contenitore si riconosce da "DonBasilicoApp" nello user agent (impostato in capacitor.config.ts dell'app)
 // oppure dal ponte Capacitor, che la WebView inietta anche sulle pagine caricate da un indirizzo remoto.

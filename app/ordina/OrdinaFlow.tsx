@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { COSTO_CONSEGNA_DEFAULT } from "@/lib/consegna";
 import PaginaTessera from "./PaginaTessera";
 import BoxNotifiche from "./Notifiche";
-import { inAppNativa } from "@/lib/app-nativa";
+import { inAppNativa, URL_PLAY_STORE } from "@/lib/app-nativa";
 import { allergeniProdotto, allergeniCombo, testoAllergeni } from "@/lib/allergeni";
 import { bevandaAmmessaInCombo, leggiComboConfig, leggiComboScelte, testoDettaglioCombo, type ComboScelte } from "@/lib/combo";
 
@@ -353,6 +353,22 @@ function BottoneInstalla({ discreto = false }: { discreto?: boolean }) {
   const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
   const ios = /iPad|iPhone|iPod/.test(ua) || (typeof navigator !== "undefined" && navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   const appInterna = /FBAN|FBAV|Instagram|Line\/|MicroMessenger/i.test(ua);
+
+  // Su Android c'è l'app vera su Google Play: si propone quella al posto dell'icona dal browser.
+  if (/Android/i.test(ua)) {
+    return (
+      <a href={URL_PLAY_STORE} style={{
+        ...btnPrimarySt, background: "transparent", color: "var(--text)", border: "1.5px solid var(--text)",
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 10, textDecoration: "none",
+        ...(discreto ? { border: "none", color: "#555950", fontSize: 14, minHeight: 44, padding: "8px" } : {}),
+      }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 3v12" /><path d="M7 11l5 5 5-5" /><path d="M5 21h14" />
+        </svg>
+        Scarica l'app da Google Play
+      </a>
+    );
+  }
 
   const clic = async () => {
     if (eventoInstalla) {
