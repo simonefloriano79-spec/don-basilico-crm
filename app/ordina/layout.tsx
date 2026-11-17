@@ -13,7 +13,11 @@ export const metadata: Metadata = {
     images: [{ url: "/ordina-icons/icon-512.png", width: 512, height: 512 }],
   },
   manifest: "/manifest-ordina.webmanifest",
-  icons: { icon: "/ordina-icons/icon-192.png", apple: "/ordina-icons/apple-touch-icon.png" },
+  // favicon.ico in radice: è il file che Google e i browser cercano per primo (icona accanto al nome del sito nei risultati).
+  icons: {
+    icon: [{ url: "/favicon.ico", sizes: "any" }, { url: "/ordina-icons/icon-192.png", type: "image/png", sizes: "192x192" }],
+    apple: "/ordina-icons/apple-touch-icon.png",
+  },
   appleWebApp: { capable: true, title: "Don Basilico", statusBarStyle: "default" },
 };
 
