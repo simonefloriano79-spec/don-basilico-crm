@@ -56,6 +56,7 @@ export function Sidebar({ session, pannello = false }: Props) {
       items: [
         { href: "/clienti",     glyph: "◍", label: "Clienti" },
         { href: "/statistiche", glyph: "▤", label: "Report"  },
+        { href: "/statistiche-app", glyph: "◐", label: "App ordini" },
       ],
     },
     {

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { inAppNativa, URL_PLAY_STORE } from "@/lib/app-nativa";
+import { segnala } from "@/lib/eventi-app";
 
 type Telefono = "android" | "ios" | "computer";
 
@@ -52,10 +53,11 @@ export default function InstallaApp({ qrSvg }: { qrSvg: string }) {
     setTelefono(ios ? "ios" : /Android/i.test(ua) ? "android" : "computer");
     setAppInterna(/FBAN|FBAV|Instagram|Line\/|MicroMessenger|TikTok|Snapchat/i.test(ua));
     setPronto(true);
+    segnala("pagina_app", { unaVolta: true });
 
     // Android/Chrome: il browser permette di far partire l'installazione con un nostro pulsante.
     const prima = (e: Event) => { e.preventDefault(); setEvento(e); };
-    const fatto = () => { setInstallata(true); setEsito("ok"); };
+    const fatto = () => { setInstallata(true); setEsito("ok"); segnala("installata"); };
     window.addEventListener("beforeinstallprompt", prima);
     window.addEventListener("appinstalled", fatto);
     // Registra subito il service worker: senza, il browser non offre l'installazione.
@@ -75,6 +77,7 @@ export default function InstallaApp({ qrSvg }: { qrSvg: string }) {
 
   // Il pulsante nero: dove il browser lo permette parte l'installazione, altrimenti (iPhone, altri browser) si aprono i passaggi.
   const clicInstalla = () => {
+    segnala("tocco_installa");
     if (telefono === "android" && evento && !appInterna) { installa(); return; }
     setAperto(true);
     // I passaggi si aprono sopra il pulsante fisso: si scorre in fondo così si leggono tutti, fino all'ultimo.
@@ -169,7 +172,7 @@ export default function InstallaApp({ qrSvg }: { qrSvg: string }) {
           <>
             {telefono === "android" && (
               <>
-                <a href={URL_PLAY_STORE} style={{ width: "100%", height: 58, borderRadius: 18, background: TESTO, color: "#FFFFFF", fontSize: 17, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, textDecoration: "none" }}>
+                <a href={URL_PLAY_STORE} onClick={() => segnala("tocco_play")} style={{ width: "100%", height: 58, borderRadius: 18, background: TESTO, color: "#FFFFFF", fontSize: 17, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, textDecoration: "none" }}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={VERDE} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4v11" /><path d="M7 10l5 5 5-5" /><path d="M5 20h14" /></svg>
                   Scarica l'app da Google Play
                 </a>

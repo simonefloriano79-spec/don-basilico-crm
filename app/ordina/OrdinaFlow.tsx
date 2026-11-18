@@ -5,6 +5,7 @@ import { COSTO_CONSEGNA_DEFAULT } from "@/lib/consegna";
 import PaginaTessera from "./PaginaTessera";
 import BoxNotifiche from "./Notifiche";
 import { inAppNativa, URL_PLAY_STORE } from "@/lib/app-nativa";
+import { segnala } from "@/lib/eventi-app";
 import { allergeniProdotto, allergeniCombo, testoAllergeni } from "@/lib/allergeni";
 import { bevandaAmmessaInCombo, leggiComboConfig, leggiComboScelte, testoDettaglioCombo, type ComboScelte } from "@/lib/combo";
 
@@ -343,7 +344,7 @@ function BottoneInstalla({ discreto = false }: { discreto?: boolean }) {
   useEffect(() => {
     const standalone = window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone === true;
     if (standalone || inAppNativa()) setInstallata(true);
-    const fatto = () => setInstallata(true);
+    const fatto = () => { setInstallata(true); segnala("installata"); };
     window.addEventListener("appinstalled", fatto);
     return () => window.removeEventListener("appinstalled", fatto);
   }, []);
@@ -357,7 +358,7 @@ function BottoneInstalla({ discreto = false }: { discreto?: boolean }) {
   // Su Android c'è l'app vera su Google Play: si propone quella al posto dell'icona dal browser.
   if (/Android/i.test(ua)) {
     return (
-      <a href={URL_PLAY_STORE} style={{
+      <a href={URL_PLAY_STORE} onClick={() => segnala("tocco_play")} style={{
         ...btnPrimarySt, background: "transparent", color: "var(--text)", border: "1.5px solid var(--text)",
         display: "flex", alignItems: "center", justifyContent: "center", gap: 10, textDecoration: "none",
         ...(discreto ? { border: "none", color: "#555950", fontSize: 14, minHeight: 44, padding: "8px" } : {}),
@@ -371,6 +372,7 @@ function BottoneInstalla({ discreto = false }: { discreto?: boolean }) {
   }
 
   const clic = async () => {
+    segnala("tocco_installa");
     if (eventoInstalla) {
       eventoInstalla.prompt();
       try { await eventoInstalla.userChoice; } catch {}
