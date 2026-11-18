@@ -12,6 +12,7 @@ const CONSENTITI: RegExp[] = [
   /^\/manifest-ordina\.webmanifest$/,
   /^\/sw-ordina\.js$/,
   /^\/(robots\.txt|sitemap\.xml|favicon\.ico)$/,
+  /^\/_vercel\//,                                // conteggio visite di Vercel Analytics
   /^\/google[0-9a-f]{16}\.html$/,                 // file di verifica di Google Search Console
 ];
 
