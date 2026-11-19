@@ -50,8 +50,20 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
   if (!Object.keys(data).length) return NextResponse.json({ error: "Niente da aggiornare" }, { status: 400 });
 
+  // Per il registro: com'era l'interruttore ordini online prima di questa modifica.
+  const prima = data.ordiniOnlineAttivi !== undefined
+    ? await prisma.sede.findUnique({ where: { id: params.id }, select: { ordiniOnlineAttivi: true } }).catch(() => null)
+    : null;
+
   const sede = await prisma.sede.update({ where: { id: params.id }, data }).catch(() => null);
   if (!sede) return NextResponse.json({ error: "Sede non trovata" }, { status: 404 });
+
+  // Chi ha acceso o spento gli ordini online, e quando. Best effort: se la tabella non c'è ancora, l'interruttore funziona lo stesso.
+  if (prima && prima.ordiniOnlineAttivi !== sede.ordiniOnlineAttivi) {
+    await prisma.registroOrdiniOnline.create({
+      data: { sedeId: sede.id, sedeNome: sede.nome, attivi: sede.ordiniOnlineAttivi, utenteId: user.id ?? null, utenteNome: user.name ?? null },
+    }).catch((e: any) => console.error("Registro ordini online non salvato:", e?.message ?? e));
+  }
   return NextResponse.json({
     ok: true,
     capacitaPizze: sede.capacitaPizze,

@@ -567,6 +567,22 @@ model EventoApp {
   @@map("eventi_app")
 }
 
+// Registro di chi accende o spegne gli ordini online di una sede (interruttore nella pagina Online).
+// Non è collegato alle altre tabelle: se manca la tabella l'interruttore funziona lo stesso, solo non registra.
+model RegistroOrdiniOnline {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sedeId     String   @map("sede_id")
+  sedeNome   String   @map("sede_nome")
+  attivi     Boolean
+  utenteId   String?  @map("utente_id")
+  utenteNome String?  @map("utente_nome")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([sedeId])
+  @@map("registro_ordini_online")
+}
+
 // Notifiche push dell'app nativa (Android/iOS, via Firebase Cloud Messaging): il «token» identifica l'app su un telefono.
 model PushTokenNativo {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid

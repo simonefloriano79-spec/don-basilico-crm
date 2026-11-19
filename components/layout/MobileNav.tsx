@@ -18,6 +18,22 @@ export function MobileNav({ session }: Props) {
   const [altroAperto, setAltroAperto] = useState(false);
   const installaCrm = useInstallaCrm();
 
+  // Come nella barra laterale del computer: ordini online da accettare e sedi con gli ordini online sospesi.
+  const [daAccettare, setDaAccettare] = useState(0);
+  const [sospese, setSospese] = useState(0);
+  useEffect(() => {
+    let attivo = true;
+    const carica = () =>
+      fetch("/api/ordini/da-accettare").then((r) => (r.ok ? r.json() : null)).then((d) => {
+        if (!attivo || !d) return;
+        setDaAccettare(d.n ?? 0);
+        setSospese(Array.isArray(d.sospese) ? d.sospese.length : 0);
+      }).catch(() => {});
+    carica();
+    const iv = setInterval(carica, 15000);
+    return () => { attivo = false; clearInterval(iv); };
+  }, []);
+
   // Si richiude da solo quando si cambia pagina.
   useEffect(() => { setAltroAperto(false); }, [pathname]);
 
@@ -58,7 +74,7 @@ export function MobileNav({ session }: Props) {
   );
   const stileVoce = (attiva: boolean, nuova: boolean): React.CSSProperties => ({
     display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3,
-    flex: 1, padding: "6px 2px", borderRadius: 10, textDecoration: "none", minWidth: 0,
+    flex: 1, padding: "6px 2px", borderRadius: 10, textDecoration: "none", minWidth: 0, position: "relative",
     background: nuova ? "var(--text)" : attiva ? "var(--accent-bg-2)" : "transparent",
     border: "none", cursor: "pointer", transition: "background .15s, color .15s",
   });
@@ -93,6 +109,12 @@ export function MobileNav({ session }: Props) {
                 >
                   <span style={{ fontSize: 16, color: "var(--text-3)", width: 18, textAlign: "center" }}>{a.glyph}</span>
                   {a.label}
+                  {a.href === "/online" && daAccettare > 0 && (
+                    <span style={{ marginLeft: "auto", background: "var(--danger)", color: "#fff", borderRadius: 20, fontSize: 11, fontWeight: 600, padding: "1px 8px" }}>{daAccettare}</span>
+                  )}
+                  {a.href === "/online" && daAccettare === 0 && sospese > 0 && (
+                    <span title="Ordini online sospesi" style={{ marginLeft: "auto", background: "#fff", color: "var(--danger)", border: "1px solid var(--danger-border)", borderRadius: 20, fontSize: 10.5, fontWeight: 700, padding: "1px 7px" }}>STOP</span>
+                  )}
                 </Link>
               ))}
             </div>
@@ -122,6 +144,12 @@ export function MobileNav({ session }: Props) {
         })}
         <button type="button" onClick={() => setAltroAperto((v) => !v)} style={stileVoce(altroAperto || altroAttivo, false)} aria-expanded={altroAperto}>
           {voce({ icon: "⋯", label: "Altro", attiva: altroAperto || altroAttivo })}
+          {/* Numero rosso = ordini online da accettare; pallino rosso = ci sono sedi con gli ordini online sospesi. */}
+          {daAccettare > 0 ? (
+            <span style={{ position: "absolute", top: 2, right: "18%", background: "var(--danger)", color: "#fff", borderRadius: 20, fontSize: 10, fontWeight: 700, minWidth: 16, height: 16, lineHeight: "16px", textAlign: "center", padding: "0 4px" }}>{daAccettare}</span>
+          ) : sospese > 0 ? (
+            <span title="Ordini online sospesi" style={{ position: "absolute", top: 4, right: "24%", width: 9, height: 9, borderRadius: "50%", background: "var(--danger)" }} />
+          ) : null}
         </button>
       </nav>
     </>

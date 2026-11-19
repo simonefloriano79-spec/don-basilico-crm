@@ -1,4 +1,6 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
+import { metadataInstallabile } from "@/lib/crm-metadata";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -6,7 +8,10 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { PannelloControlli } from "./PannelloControlli";
 
-export const metadata = { title: "Ordini online — Don Basilico", robots: { index: false, follow: false } };
+// Anche il pannello è installabile come app «CRM» (vedi lib/crm-metadata.ts).
+export async function generateMetadata(): Promise<Metadata> {
+  return { ...metadataInstallabile(), title: "Ordini online — Don Basilico", robots: { index: false, follow: false } };
+}
 
 // Pannello ordini online: stesso aspetto dell'app ordini del CRM (barra laterale e barra in alto),
 // ma con la sola voce "Online". Usa gli stessi accessi e gli stessi dati del CRM.
