@@ -135,6 +135,19 @@ html { overflow-x: hidden; }
     padding-bottom: env(safe-area-inset-bottom);
   }
   .main-content { padding-bottom: 80px !important; }
+  /* Intestazione compatta: nessun elemento deve uscire dallo schermo. */
+  .topbar { padding: 0 14px !important; gap: 10px !important; }
+  .topbar-sub { display: none !important; }
+  .topbar-right { gap: 8px !important; flex: 1 1 auto; min-width: 0; justify-content: flex-end; }
+  .topbar-live { padding: 6px 9px !important; }
+  .topbar-live-text { display: none !important; }
+  .topbar-sede { min-width: 0; flex: 1 1 auto; max-width: 100%; text-overflow: ellipsis; }
+  .topbar-esci { display: none !important; }
+  /* Importi grandi (Panoramica): su una riga sola, più piccoli. */
+  .kpi-value { font-size: clamp(22px, 6.4vw, 30px) !important; white-space: nowrap; }
+  /* Menù: schede al posto della tabella. */
+  .menu-table-desktop { display: none !important; }
+  .menu-cards-mobile { display: flex !important; flex-direction: column; gap: 8px; }
   .cart-mobile-fab { display: block !important; }
   .dashboard-stats { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
   .dashboard-bottom { grid-template-columns: 1fr !important; }
@@ -153,4 +166,5 @@ html { overflow-x: hidden; }
   .sidebar-desktop { display: flex !important; }
   .cart-mobile-fab { display: none !important; }
   .ordini-cards-mobile { display: none !important; }
+  .menu-cards-mobile { display: none !important; }
 }

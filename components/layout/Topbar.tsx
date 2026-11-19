@@ -57,6 +57,7 @@ export function Topbar({ session }: { session: Session }) {
 
   return (
     <header
+      className="topbar"
       style={{
         height: 64, background: "var(--surface)", borderBottom: "1px solid var(--border)",
         display: "flex", alignItems: "center", padding: "0 26px", gap: 16, flexShrink: 0,
@@ -69,7 +70,7 @@ export function Topbar({ session }: { session: Session }) {
         {page.title}
       </h1>
       {subtitle && (
-        <span style={{
+        <span className="topbar-sub" style={{
           fontSize: 12, color: "var(--text-muted)", overflow: "hidden",
           textOverflow: "ellipsis", whiteSpace: "nowrap",
         }}>
@@ -77,20 +78,21 @@ export function Topbar({ session }: { session: Session }) {
         </span>
       )}
 
-      <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
-        <div style={{
+      <div className="topbar-right" style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
+        <div className="topbar-live" style={{
           display: "flex", alignItems: "center", gap: 6,
-          padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)",
+          padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", flexShrink: 0,
         }}>
           <span style={{
             width: 6, height: 6, borderRadius: "50%", background: "var(--accent)",
             animation: "db-pulse 2.4s infinite",
           }} />
-          <span style={{ fontSize: 11.5, color: "var(--text-3)" }}>Live · aggiornato ora</span>
+          <span className="topbar-live-text" style={{ fontSize: 11.5, color: "var(--text-3)", whiteSpace: "nowrap" }}>Live · aggiornato ora</span>
         </div>
 
         {isSuperAdmin && (
           <select
+            className="topbar-sede"
             value={sedeAttiva}
             onChange={(e) => cambiaSede(e.target.value)}
             style={{
@@ -106,7 +108,7 @@ export function Topbar({ session }: { session: Session }) {
         )}
 
         {!isSuperAdmin && user.sedeNome && (
-          <span style={{
+          <span className="topbar-sede" style={{
             background: "var(--surface-muted)", border: "1px solid var(--border)",
             color: "var(--text-3)", padding: "6px 12px", borderRadius: 8, fontSize: 12,
           }}>
@@ -114,12 +116,14 @@ export function Topbar({ session }: { session: Session }) {
           </span>
         )}
 
+        {/* Da telefono "Esci" sta nella voce «Altro» della barra in basso; il pannello ordini non ha quella barra, quindi lì resta qui. */}
         <button
+          className={pathname === "/pannello" ? undefined : "topbar-esci"}
           onClick={() => signOut({ callbackUrl: pathname === "/pannello" ? "/login?da=/pannello" : "/login" })}
           style={{
             background: "#fff", border: "1px solid var(--border)",
             color: "var(--text-2)", padding: "7px 14px", borderRadius: 8, fontSize: 12.5,
-            cursor: "pointer", fontFamily: "var(--font-ui)",
+            cursor: "pointer", fontFamily: "var(--font-ui)", flexShrink: 0,
           }}
         >
           Esci

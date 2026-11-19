@@ -130,7 +130,54 @@ export default function MenuPage() {
         </div>
       )}
 
-      <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflowX: "auto" }}>
+      {/* Da telefono: una scheda per prodotto, con tutti i comandi visibili (la tabella resta solo su schermi larghi). */}
+      <div className="menu-cards-mobile" style={{ display: "none" }}>
+        {itemsFiltrati.map((item) => {
+          const prezzo = item.prezzoEffettivo ?? parseFloat(item.prezzoBase);
+          const chip = (attivo: boolean): React.CSSProperties => ({
+            padding: "6px 13px", borderRadius: 20, fontSize: 12, fontWeight: 500, whiteSpace: "nowrap",
+            border: `1px solid ${attivo ? "var(--accent-border)" : "var(--danger-border)"}`,
+            background: attivo ? "var(--accent-bg-2)" : "var(--danger-bg)",
+            color: attivo ? "var(--accent-ink)" : "var(--danger)",
+            fontFamily: "var(--font-ui)",
+          });
+          return (
+            <div key={item.id} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: "14px 16px", opacity: item.isAttivo ? 1 : 0.7 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontFamily: "var(--font-display)", fontSize: 17, color: "var(--text)" }}>{item.nome}</div>
+                  <div style={{ fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 2 }}>{CAT_LABEL[item.categoria] ?? item.categoria}</div>
+                </div>
+                <div className="num" style={{ fontSize: 15, fontWeight: 600, color: "var(--text)", whiteSpace: "nowrap" }}>{euro(prezzo)}</div>
+              </div>
+              {item.descrizione && <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 6 }}>{item.descrizione}</div>}
+              {item.prezzoOnline != null && (
+                <div style={{ marginTop: 8 }}>
+                  <span style={{ fontSize: 11, background: "var(--accent-bg-2)", border: "1px solid var(--accent-border)", borderRadius: 20, padding: "1px 8px", color: "var(--text-2)" }}>app € {parseFloat(item.prezzoOnline).toFixed(2).replace(".", ",")}</span>
+                </div>
+              )}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+                <button onClick={() => isSuperAdmin && toggleGlobale(item)} disabled={!isSuperAdmin} style={{ ...chip(item.isAttivo), cursor: isSuperAdmin ? "pointer" : "default" }}>
+                  {item.isAttivo ? "Attivo" : "Disattivato"}
+                </button>
+                {sedeId && (
+                  <button onClick={() => toggleDisponibilitaSede(item)} style={{ ...chip(!!item.disponibileInSede), cursor: "pointer" }}>
+                    {item.disponibileInSede ? "Disponibile" : "Esaurito"}
+                  </button>
+                )}
+                {isSuperAdmin && (
+                  <button onClick={() => { setEditItem(item); setForm({ nome: item.nome, descrizione: item.descrizione ?? "", categoria: item.categoria, prezzoBase: item.prezzoBase.toString(), prezzoOnline: item.prezzoOnline != null ? item.prezzoOnline.toString() : "" }); setShowModal(true); }} style={{
+                    background: "#fff", border: "1px solid var(--border)", color: "var(--text-2)",
+                    padding: "6px 13px", borderRadius: 20, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-ui)", marginLeft: "auto",
+                  }}>Modifica</button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="menu-table-desktop" style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "var(--surface-muted)" }}>

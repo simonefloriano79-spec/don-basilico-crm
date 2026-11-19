@@ -27,7 +27,7 @@ function KpiCard({ label, value, sub }: { label: string; value: string; sub: str
   return (
     <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: "20px 20px 18px" }}>
       <div className="num" style={{ fontSize: 10, letterSpacing: 1.8, textTransform: "uppercase", color: "var(--text-muted)" }}>{label}</div>
-      <div className="num" style={{ fontFamily: "var(--font-display)", fontSize: 36, letterSpacing: "-1px", color: "var(--text)", marginTop: 10 }}>{value}</div>
+      <div className="num kpi-value" style={{ fontFamily: "var(--font-display)", fontSize: 36, letterSpacing: "-1px", color: "var(--text)", marginTop: 10 }}>{value}</div>
       <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 8 }}>{sub}</div>
     </div>
   );
