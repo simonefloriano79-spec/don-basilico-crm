@@ -88,11 +88,11 @@ export default function DashboardPage() {
             </h2>
           </div>
           <div style={{ overflow: "hidden" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <table className="dash-table" style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: "var(--surface-muted)" }}>
                   {["Sede", "Ordini", "Attivi", "Pronti", "Canali", "Incasso", "Stato"].map((h) => (
-                    <th key={h} style={{ padding: "11px 14px", textAlign: "left", fontSize: 9.5, letterSpacing: 1.7, textTransform: "uppercase", color: "var(--text-muted)", fontWeight: 500, whiteSpace: "nowrap" }}>{h}</th>
+                    <th key={h} className={h === "Canali" || h === "Stato" ? "col-mh" : undefined} style={{ padding: "11px 14px", textAlign: "left", fontSize: 9.5, letterSpacing: 1.7, textTransform: "uppercase", color: "var(--text-muted)", fontWeight: 500, whiteSpace: "nowrap" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -110,7 +110,7 @@ export default function DashboardPage() {
                       <td className="num" style={{ padding: "12px 14px", fontSize: 13, color: "var(--text-2)" }}>{s.totaleOrdiniOggi}</td>
                       <td className="num" style={{ padding: "12px 14px", fontSize: 13, color: "var(--text-2)" }}>{s.ordiniAttivi}</td>
                       <td className="num" style={{ padding: "12px 14px", fontSize: 13, color: "var(--text-2)" }}>{s.pronti}</td>
-                      <td style={{ padding: "12px 14px" }}>
+                      <td className="col-mh" style={{ padding: "12px 14px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 90 }}>
                           <div style={{ width: 44, height: 5, borderRadius: 3, background: "var(--border-soft)", overflow: "hidden" }}>
                             <div style={{ width: `${pctOnline}%`, height: "100%", background: "var(--text)" }} />
@@ -119,7 +119,7 @@ export default function DashboardPage() {
                         </div>
                       </td>
                       <td className="num" style={{ padding: "12px 14px", fontSize: 13.5, color: "var(--text)", fontWeight: 500 }}>{euro(s.incassoOggi)}</td>
-                      <td style={{ padding: "12px 14px" }}>
+                      <td className="col-mh" style={{ padding: "12px 14px" }}>
                         {s.ordiniAttivi === 0 ? (
                           <span style={{ fontSize: 11.5, color: "var(--text-muted)" }}>— inattiva</span>
                         ) : (
@@ -138,9 +138,9 @@ export default function DashboardPage() {
                     <td className="num" style={{ padding: "12px 14px", fontSize: 13, fontWeight: 500, color: "var(--text)" }}>{stats.totali.ordiniOggi}</td>
                     <td className="num" style={{ padding: "12px 14px", fontSize: 13, fontWeight: 500, color: "var(--text)" }}>{stats.ordiniAttivi}</td>
                     <td className="num" style={{ padding: "12px 14px", fontSize: 13, fontWeight: 500, color: "var(--text)" }}>{stats.pronti}</td>
-                    <td />
+                    <td className="col-mh" />
                     <td className="num" style={{ padding: "12px 14px", fontFamily: "var(--font-display)", fontSize: 19, color: "var(--text)" }}>{euro(stats.totali.incasso)}</td>
-                    <td />
+                    <td className="col-mh" />
                   </tr>
                 )}
               </tbody>
@@ -164,15 +164,15 @@ export default function DashboardPage() {
             ) : ordiniRecenti.map((o) => {
               const riepilogo = (o.items ?? []).map((i: any) => `${i.quantita}x ${i.nomeSnapshot}`).join(", ");
               return (
-                <div key={o.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderTop: "1px solid var(--border-soft)" }}>
-                  <span className="num" style={{ fontSize: 12.5, color: "var(--text-muted)", width: 34, flexShrink: 0 }}>#{o.numeroOrdine}</span>
+                <div key={o.id} className="dash-ordine" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderTop: "1px solid var(--border-soft)" }}>
+                  <span className="num ord-num" style={{ fontSize: 12.5, color: "var(--text-muted)", width: 34, flexShrink: 0 }}>#{o.numeroOrdine}</span>
                   <span style={{ fontSize: 14, width: 16, flexShrink: 0, textAlign: "center" }}>{CANALE_GLYPH[o.canale]}</span>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>{o.clienteNome || o.cliente?.nome || "Anonimo"}</div>
                     <div style={{ fontSize: 11.5, color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{riepilogo}</div>
                   </div>
                   {isSuperAdmin && (
-                    <span style={{ fontSize: 11.5, color: "var(--text-3)", whiteSpace: "nowrap", flexShrink: 0 }}>
+                    <span className="ord-sede" style={{ fontSize: 11.5, color: "var(--text-3)", whiteSpace: "nowrap", flexShrink: 0 }}>
                       {o.sede?.nome?.replace("Don Basilico ", "") ?? "—"}
                     </span>
                   )}
