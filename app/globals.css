@@ -149,8 +149,17 @@ html { overflow-x: hidden; }
   .menu-table-desktop { display: none !important; }
   .menu-cards-mobile { display: flex !important; flex-direction: column; gap: 8px; }
   .cart-mobile-fab { display: block !important; }
-  .dashboard-stats { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
-  .dashboard-bottom { grid-template-columns: 1fr !important; }
+  /* minmax(0,1fr): le colonne non si allargano mai oltre lo schermo per colpa del contenuto. */
+  .dashboard-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+  .dashboard-bottom { grid-template-columns: minmax(0, 1fr) !important; }
+  .main-content { overflow-x: hidden !important; }
+  /* Confronto sedi: tabella compatta (senza Canali e Stato). */
+  .col-mh { display: none !important; }
+  .dash-table th, .dash-table td { padding-left: 8px !important; padding-right: 8px !important; }
+  .dash-table td:first-child span { white-space: normal; }
+  /* Ultimi ordini: righe più strette (niente numero e sede). */
+  .dash-ordine { gap: 8px !important; }
+  .ord-num, .ord-sede { display: none !important; }
   .kds-grid { grid-template-columns: 1fr !important; }
   .ordini-table-desktop { display: none !important; }
   .ordini-cards-mobile { display: flex !important; flex-direction: column; gap: 8px; }
