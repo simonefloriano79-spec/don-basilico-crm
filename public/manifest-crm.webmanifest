@@ -1,0 +1,32 @@
+{
+  "name": "Don Basilico CRM",
+  "short_name": "CRM",
+  "description": "Gestione ordini e sedi di Don Basilico.",
+  "lang": "it",
+  "id": "/dashboard",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#1B1E17",
+  "theme_color": "#F7F6F1",
+  "icons": [
+    {
+      "src": "/crm-icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/crm-icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/crm-icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
