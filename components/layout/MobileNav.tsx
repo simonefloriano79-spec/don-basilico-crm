@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Session } from "next-auth";
 import { signOut } from "next-auth/react";
+import { PulsanteInstallaCrm, useInstallaCrm } from "./InstallaCrm";
 
 interface Props {
   session: Session;
@@ -15,6 +16,7 @@ export function MobileNav({ session }: Props) {
   const user = session.user as any;
   const isSuperAdmin = user?.ruolo === "super_admin";
   const [altroAperto, setAltroAperto] = useState(false);
+  const installaCrm = useInstallaCrm();
 
   // Si richiude da solo quando si cambia pagina.
   useEffect(() => { setAltroAperto(false); }, [pathname]);
@@ -76,6 +78,7 @@ export function MobileNav({ session }: Props) {
               borderRadius: "16px 16px 0 0", padding: "14px 12px 12px", maxHeight: "70vh", overflowY: "auto",
             }}
           >
+            <PulsanteInstallaCrm stato={installaCrm} />
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               {altro.map((a) => (
                 <Link
