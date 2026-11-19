@@ -8,6 +8,7 @@ import styles from "./Sidebar.module.css";
 import { ORDINA_BETA } from "@/lib/beta";
 import { AutoStampa } from "./AutoStampa";
 import { suonaNuovoOrdine } from "@/lib/suono-ordine";
+import { PulsanteInstallaCrm, useInstallaCrm } from "./InstallaCrm";
 
 // `pannello`: versione ridotta per il pannello ordini online (solo la voce Online); il suono lo gestisce il pannello.
 interface Props { session: Session; pannello?: boolean; }
@@ -20,6 +21,7 @@ export function Sidebar({ session, pannello = false }: Props) {
   // Ordini online in attesa di accettazione: contatore sulla voce "Online" + suono se ne arriva uno nuovo.
   const [daAccettare, setDaAccettare] = useState(0);
   const [sospese, setSospese] = useState(0);
+  const installaCrm = useInstallaCrm();
   const precedente = useRef<number | null>(null);
   useEffect(() => {
     let attivo = true;
@@ -123,6 +125,8 @@ export function Sidebar({ session, pannello = false }: Props) {
       <AutoStampa sedeId={user.sedeId} isSuperAdmin={isSuperAdmin} />
 
       <div className={styles.footer}>
+        {/* Installa il CRM sul computer (sparisce se è già aperto dall'icona). */}
+        <PulsanteInstallaCrm stato={installaCrm} dispositivo="computer" />
         <Link href={pannello ? "/pannello" : "/profilo"} className={styles.userPill}>
           <div className={styles.avatar}>{initials}</div>
           <div>

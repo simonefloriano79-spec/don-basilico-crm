@@ -134,7 +134,15 @@ export default function SediPage() {
                     fontSize: 11, fontWeight: 500, padding: "3px 10px", borderRadius: 20,
                     background: s.attiva ? "var(--accent-bg)" : "var(--danger-bg)",
                     color: s.attiva ? "var(--accent-ink)" : "var(--danger)",
-                  }}>{s.attiva ? "Aperta" : "Chiusa"}</span>
+                  }}>{s.attiva ? "Sede attiva" : "Sede disattivata"}</span>
+                </div>
+                {/* Stato degli ordini online: lo cambia l'interruttore nella pagina «Online», non questa scheda. */}
+                <div style={{ marginBottom: 8 }}>
+                  <span title="Si cambia dalla pagina Online" style={{
+                    fontSize: 11, fontWeight: 500, padding: "3px 10px", borderRadius: 20,
+                    background: s.ordiniOnlineAttivi === false ? "var(--danger-bg)" : "var(--accent-bg)",
+                    color: s.ordiniOnlineAttivi === false ? "var(--danger)" : "var(--accent-ink)",
+                  }}>{s.ordiniOnlineAttivi === false ? "Ordini online: sospesi" : "Ordini online: attivi"}</span>
                 </div>
                 <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.65 }}>
                   <div>{s.indirizzo}, {s.citta}</div>

@@ -8,6 +8,7 @@ import { stampaBrowser } from "@/lib/print";
 import { nomeOrdine } from "@/lib/ordine-utils";
 import { pesoRiga } from "@/lib/peso-pizze";
 import { richiedeAccettazione } from "@/lib/accettazione";
+import { RegistroOnline } from "./RegistroOnline";
 
 const STATI_FLOW = ["nuovo", "confermato", "in_preparazione", "pronto", "consegnato"];
 const STATO_LABEL: Record<string, string> = {
@@ -92,6 +93,7 @@ export default function OrdiniPage() {
   const primoCaricoFatto = useRef(false);
   // Interruttore "ordini online" per sede (solo nella vista Online).
   const [sediOnline, setSediOnline] = useState<{ id: string; nome: string; ordiniOnlineAttivi: boolean }[]>([]);
+  const [versioneRegistro, setVersioneRegistro] = useState(0);
   const [ricerca, setRicerca] = useState("");
   const [selezionato, setSelezionato] = useState<any>(null);
   const [orarioConferma, setOrarioConferma] = useState("");
@@ -137,6 +139,7 @@ export default function OrdiniPage() {
     if (!res.ok) return toast.error(data.error ?? "Errore");
     toast.success(attivi ? `Ordini online riattivati: ${sede.nome}` : `Ordini online SOSPESI: ${sede.nome}`);
     caricaSediOnline();
+    setVersioneRegistro((v) => v + 1);
   };
 
   // In "Online", al primo caricamento si parte da "Da accettare" se ce ne sono.
@@ -319,6 +322,7 @@ export default function OrdiniPage() {
             ))}
           </div>
         )}
+        {soloOnline && sediOnline.length > 0 && <RegistroOnline versione={versioneRegistro} superAdmin={isSuperAdmin} />}
         {/* Filtri */}
         <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
