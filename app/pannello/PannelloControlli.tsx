@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { fermaSquillo, impostaSuonoMuto, suonaNuovoOrdine, suonaSquillo, suonoMuto, vibraNuovoOrdine } from "@/lib/suono-ordine";
+import { fermaSquillo, impostaSuonoMuto, sbloccaAudio, suonaNuovoOrdine, suonaSquillo, suonoMuto, vibraNuovoOrdine } from "@/lib/suono-ordine";
+import { avviaBattito, tieniSchedaSveglia } from "@/lib/battito";
 
 // Il suono suona 4 secondi, poi tace 5 secondi, e si ripete di continuo finché c'è un ordine da accettare che
 // nessuno ha ancora VISUALIZZATO (aperto) su questo dispositivo. Aprire l'ordine o accettarlo/rifiutarlo lo ferma.
@@ -25,6 +26,7 @@ export function PannelloControlli() {
   const [audioPronto, setAudioPronto] = useState(false);
   const [saltato, setSaltato] = useState(false); // «Continua senza suono»: il popup non si riapre finché non si ricarica la pagina
   const [schermoAcceso, setSchermoAcceso] = useState(false);
+  const [ultimoControllo, setUltimoControllo] = useState<Date | null>(null);
   const wakeLock = useRef<any>(null);
 
   const daAccettare = ids.length;
@@ -55,27 +57,33 @@ export function PannelloControlli() {
     return () => window.removeEventListener("db-ordine-visto", onVisto);
   }, []);
 
-  // Ordini in attesa: ogni 3 secondi.
+  // Controllo degli ordini in attesa (ogni 3 secondi) e suono (ogni secondo), guidati da un «battito» in un Web Worker:
+  // i timer normali di Chrome, con la finestra coperta da un'altra o in una scheda dietro, dopo pochi minuti scattano una
+  // volta al minuto e il pannello sembrerebbe addormentato; il battito del worker non viene rallentato (vedi lib/battito.ts).
   useEffect(() => {
     let attivo = true;
-    const carica = () =>
+    let inCorso = false;
+    const carica = () => {
+      if (inCorso) return;
+      inCorso = true;
       fetch("/api/ordini/da-accettare", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => {
         if (!attivo || !d) return;
+        setUltimoControllo(new Date());
         const nuoviIds: string[] = Array.isArray(d.ids) ? d.ids : [];
         setIds((prima) => {
           // Un ordine nuovo fa suonare subito, senza aspettare la pausa.
           if (nuoviIds.some((id) => !prima.includes(id))) prossimoSuono.current = 0;
           return nuoviIds;
         });
-      }).catch(() => {});
+      }).catch(() => {}).finally(() => { inCorso = false; });
+    };
     carica();
-    const iv = setInterval(carica, 3000);
-    return () => { attivo = false; clearInterval(iv); fermaSquillo(); };
-  }, []);
 
-  // Il suono: finché c'è un ordine non visto, 4 secondi di allarme, 5 di pausa, e così via.
-  useEffect(() => {
-    const iv = setInterval(() => {
+    let battiti = 0;
+    const ferma = avviaBattito(1000, () => {
+      battiti++;
+      if (battiti % 3 === 0) carica();
+      // Il suono: finché c'è un ordine non visto, 4 secondi di allarme, 5 di pausa, e così via.
       if (nonVistiRef.current === 0) { fermaSquillo(); prossimoSuono.current = 0; return; }
       if (!audioRef.current) return; // suono non ancora attivato dal popup
       const adesso = Date.now();
@@ -84,8 +92,12 @@ export function PannelloControlli() {
         vibraNuovoOrdine();
         prossimoSuono.current = adesso + SUONO_SEC * 1000 + PAUSA_MS;
       }
-    }, 1000);
-    return () => clearInterval(iv);
+    });
+    // Appena la finestra torna visibile si ricontrolla subito.
+    const alRitorno = () => { if (document.visibilityState === "visible") carica(); };
+    document.addEventListener("visibilitychange", alRitorno);
+    const rilascia = tieniSchedaSveglia("db-pannello-ordini");
+    return () => { attivo = false; ferma(); rilascia(); document.removeEventListener("visibilitychange", alRitorno); fermaSquillo(); };
   }, []);
 
   // Titolo della scheda col numero: si vede anche con la scheda in background.
@@ -113,6 +125,7 @@ export function PannelloControlli() {
   // Il browser permette l'audio solo dopo un tocco: il popup «sblocca» suono e schermo acceso. Se c'è già un ordine non
   // visto, subito dopo il tocco il suono parte da solo (il timer lo avvia entro un secondo).
   const attiva = async () => {
+    sbloccaAudio(); // un solo contesto audio, sbloccato da questo tocco, usato per tutti i suoni successivi
     suonaNuovoOrdine(true);
     vibraNuovoOrdine();
     setAudioPronto(true);
@@ -195,6 +208,10 @@ export function PannelloControlli() {
       )}
 
       <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, padding: "8px 26px", background: "var(--surface-muted)", borderBottom: "1px solid var(--border)" }}>
+        {/* Segno di vita: l'ora dell'ultimo controllo degli ordini. Se è ferma da minuti, il pannello non sta controllando. */}
+        <span title="Ora dell'ultimo controllo degli ordini online" style={{ color: "var(--text-muted)", fontSize: 12 }}>
+          Ultimo controllo: {ultimoControllo ? ultimoControllo.toLocaleTimeString("it-IT") : "…"}
+        </span>
         {audioPronto && !schermoAcceso && (
           <span style={{ color: "var(--text-muted)", fontSize: 12 }}>
             Lo schermo potrebbe spegnersi: impostalo su «mai» dalle impostazioni del dispositivo.
