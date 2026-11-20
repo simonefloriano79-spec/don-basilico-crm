@@ -48,6 +48,7 @@ export function MobileNav({ session }: Props) {
   // Tutto ciò che sul telefono non ha posto nella barra: la barra laterale qui è nascosta.
   const altro = [
     { href: "/online",          glyph: "☁", label: "Online" },
+    { href: "/pannello",        glyph: "♪", label: "Pannello ordini" },
     { href: "/schermo-cassa",   glyph: "☏", label: "Ordini vocali" },
     { href: "/clienti",         glyph: "◍", label: "Clienti" },
     { href: "/statistiche",     glyph: "▤", label: "Report" },
