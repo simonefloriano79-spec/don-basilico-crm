@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
@@ -719,15 +719,25 @@ export default function NuovoOrdinePage() {
     });
   }, []);
 
-  useEffect(() => {
+  // Menù e ingredienti della sede: si ricaricano da soli ogni 30 secondi e quando si torna sulla scheda, così chi sta
+  // prendendo un ordine vede subito un prodotto o un ingrediente segnato esaurito da un collega.
+  const caricaMenuSede = useCallback(() => {
     if (!sedeSelezionata) return;
     fetch(`/api/menu?sedeId=${sedeSelezionata}`).then((r) => r.json()).then((d) => {
       setMaxi(d.maxi?.moltiplicatore ?? null);
       setMenuItems((d.items ?? []).filter((i: any) => i.isAttivo));
-    });
+    }).catch(() => {});
     fetch(`/api/ingredienti?sedeId=${sedeSelezionata}`).then((r) => r.json()).then((d) =>
-      setIngredienti(Array.isArray(d) ? d : []));
+      setIngredienti(Array.isArray(d) ? d : [])).catch(() => {});
   }, [sedeSelezionata]);
+
+  useEffect(() => {
+    caricaMenuSede();
+    const iv = setInterval(caricaMenuSede, 30000);
+    const alRitorno = () => { if (document.visibilityState === "visible") caricaMenuSede(); };
+    document.addEventListener("visibilitychange", alRitorno);
+    return () => { clearInterval(iv); document.removeEventListener("visibilitychange", alRitorno); };
+  }, [caricaMenuSede]);
 
   // In cassa "Speciali" viene dopo i calzoni; sul sito clienti (OrdinaFlow) è invece la prima sezione.
   const cats = ["pizze_rosse", "pizze_bianche", "calzoni", "focacce", "menu_speciale", "combo", "fritti", "dolci", "bevande", "extra"];
@@ -850,7 +860,13 @@ export default function NuovoOrdinePage() {
       setTimeout(() => setJustSent(false), 1800);
       setDomandeFatte([]);
       setCart([]); setTavolo(""); setClienteNome(""); setClienteTel(""); setAddr(""); setNomeCitofono(""); setCostoConsegna("1.50"); setNote(""); setNoteDomicilio(""); setOraConsegna(""); setModConsegna(""); setMetodoPagamento(""); setShowCart(false);
-    } else { toast.error("Errore nella creazione dell'ordine"); }
+    } else {
+      // Il server dice perché (es. «Capricciosa non è disponibile: Prosciutto cotto è finito in questa sede»): si mostra per intero
+      // e si aggiorna subito il menù, così il prodotto risulta già non disponibile.
+      const errore = await res.json().catch(() => null);
+      toast.error(errore?.error ? String(errore.error) : "Errore nella creazione dell'ordine", { duration: 8000 });
+      caricaMenuSede();
+    }
   };
 
   const cartProps = {

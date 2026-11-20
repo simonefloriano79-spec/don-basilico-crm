@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { CATEGORIE_IMPASTO, impastiDellaSede } from "@/lib/impasti";
 import { prossimoNumeroOrdine } from "@/lib/numero-ordine";
 import { calcolaOrdine, CATEGORIE_MAXI, type ArticoloPrezzato } from "@/lib/ordini-vocali/pricing";
+import { esauritoAttivo, filtroIngredientiFiniti, ingredienteMancante, overrideDisponibile } from "@/lib/esauriti";
 // GET /api/ordini
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -83,12 +84,20 @@ export async function POST(req: NextRequest) {
     ...(i.ingredientiRimossi ?? []),
   ])));
 
-  const [menuItemsDb, overrideDb, sedeExtraDb, ingredientiDb] = await Promise.all([
-    menuItemIds.length ? prisma.menuItem.findMany({ where: { id: { in: menuItemIds } } }) : [],
+  const [menuItemsDb, overrideDb, sedeExtraDb, ingredientiDb, finitiDb] = await Promise.all([
+    menuItemIds.length
+      ? prisma.menuItem.findMany({
+          where: { id: { in: menuItemIds } },
+          include: { ingredienti: { select: { ingredienteId: true, ingrediente: { select: { nome: true } } } } },
+        })
+      : [],
     menuItemIds.length ? prisma.sedeMenuOverride.findMany({ where: { sedeId, menuItemId: { in: menuItemIds } } }) : [],
     sedeExtraIds.length ? prisma.sedeMenuExtra.findMany({ where: { id: { in: sedeExtraIds }, sedeId } }) : [],
     ingredienteIds.length ? prisma.ingrediente.findMany({ where: { id: { in: ingredienteIds as string[] } } }) : [],
+    // Ingredienti finiti oggi in questa sede (scadono alle 5:00 del giorno dopo, vedi lib/esauriti.ts).
+    prisma.sedeIngredienteDisabilitato.findMany({ where: { sedeId, ...filtroIngredientiFiniti() }, select: { ingredienteId: true } }),
   ]);
+  const ingredientiFiniti = new Set(finitiDb.map((d) => d.ingredienteId));
 
   // Pizza maxi: serve sapere se la sede la fa e con che moltiplicatore.
   const maxiConfig = items.some((i: any) => i.taglia === "maxi") ? await prisma.sedePizzaMaxi.findUnique({ where: { sedeId } }) : null;
@@ -144,12 +153,22 @@ export async function POST(req: NextRequest) {
         const menuItem = menuItemMap.get(i.menuItemId);
         if (!menuItem) throw new Error(`Prodotto non trovato: ${i.menuItemId}`);
         const override = overrideMap.get(i.menuItemId);
+        // Non si può prendere un ordine con un prodotto non disponibile in questa sede, anche se lo schermo era rimasto
+        // aperto da prima: esaurito oggi, disattivato, oppure con un ingrediente finito (es. il prosciutto crudo).
+        if (override ? !overrideDisponibile(override) : !menuItem.disponibileDefault) {
+          throw new Error(override && override.disponibile && esauritoAttivo(override.esauritoIl)
+            ? `${menuItem.nome} è esaurito in questa sede: toglilo dall'ordine`
+            : `${menuItem.nome} non è disponibile in questa sede: toglilo dall'ordine`);
+        }
+        const manca = ingredienteMancante((menuItem as any).ingredienti as { ingredienteId: string; ingrediente: { nome: string } }[], ingredientiFiniti);
+        if (manca) throw new Error(`${menuItem.nome} non è disponibile: ${manca.ingrediente.nome} è finito in questa sede. Toglilo dall'ordine`);
         const base = override?.prezzoCustom != null
           ? parseFloat(override.prezzoCustom.toString())
           : parseFloat(menuItem.prezzoBase.toString());
         const extraLordo = (i.ingredientiAggiuntiIds ?? []).reduce((acc: number, id: string) => {
           const ing = ingredienteMap.get(id);
           if (!ing) throw new Error(`Ingrediente non trovato: ${id}`);
+          if (ingredientiFiniti.has(id)) throw new Error(`${ing.nome} è finito in questa sede: toglilo dagli extra di ${menuItem.nome}`);
           return acc + parseFloat(ing.prezzoAggiunta.toString());
         }, 0);
         // Compensazione: un ingrediente rimosso non genera mai uno sconto da solo,
@@ -177,6 +196,7 @@ export async function POST(req: NextRequest) {
       } else if (i.sedeExtraId) {
         const sedeExtra = sedeExtraMap.get(i.sedeExtraId);
         if (!sedeExtra) throw new Error(`Prodotto non trovato: ${i.sedeExtraId}`);
+        if (!sedeExtra.disponibile) throw new Error(`${sedeExtra.nome} non è disponibile in questa sede: toglilo dall'ordine`);
         prezzoUnitario = parseFloat(sedeExtra.prezzo.toString());
       } else {
         throw new Error("Riga ordine senza prodotto valido");
