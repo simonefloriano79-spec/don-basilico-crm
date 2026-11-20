@@ -11,7 +11,13 @@ export function metadataInstallabile(): Metadata {
   return {
     metadataBase: new URL(`${proto}://${host}`),
     manifest: "/manifest-crm.webmanifest",
-    icons: { apple: "/crm-icons/apple-touch-icon.png" },
+    // Anche l'icona «normale» è quella del CRM: se il telefono crea un semplice collegamento (invece di installare l'app)
+    // mostra il baffo verde + CRM e non il mappamondo generico.
+    icons: {
+      icon: [{ url: "/crm-icons/icon-192.png", sizes: "192x192", type: "image/png" }, { url: "/favicon.ico", sizes: "any" }],
+      shortcut: "/crm-icons/icon-192.png",
+      apple: [{ url: "/crm-icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    },
     appleWebApp: { capable: true, title: "CRM", statusBarStyle: "default" },
   };
 }
