@@ -36,6 +36,17 @@ function contesto(): AudioContext | null {
 // Da chiamare nel gestore del tocco (popup «Attiva suono»): sblocca l'audio per tutto il resto della sessione.
 export function sbloccaAudio() { contesto(); }
 
+// Stato del contesto audio («running» = può suonare, «suspended» = bloccato dal browser): serve alla diagnostica del pannello.
+export function statoAudio(): string { return ctxCondiviso ? ctxCondiviso.state : "non creato"; }
+
+// Il browser lascia già suonare senza un tocco (es. collegamento Chrome con autoplay consentito)? Allora il popup non serve.
+export async function audioGiaConsentito(): Promise<boolean> {
+  const ctx = contesto();
+  if (!ctx) return false;
+  try { await ctx.resume(); } catch {}
+  return ctx.state === "running";
+}
+
 // Programma `cicli` cicli dell'allarme sul contesto audio, a partire da adesso. Restituisce il volume generale
 // (scollegarlo ferma subito il suono).
 function programmaAllarme(ctx: AudioContext, cicli: number): GainNode {
