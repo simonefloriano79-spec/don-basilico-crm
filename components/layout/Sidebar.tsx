@@ -39,7 +39,14 @@ export function Sidebar({ session, pannello = false }: Props) {
   }, []);
 
   const sezioniPannello = [
-    { label: "Operatività", items: [{ href: "/pannello", glyph: "☁", label: "Online" }] },
+    {
+      label: "Operatività",
+      items: [
+        { href: "/pannello", glyph: "☁", label: "Online" },
+        // Dal pannello si deve poter tornare al resto del CRM.
+        { href: "/dashboard", glyph: "←", label: "Torna al CRM" },
+      ],
+    },
   ];
   const sections = pannello ? sezioniPannello : [
     {

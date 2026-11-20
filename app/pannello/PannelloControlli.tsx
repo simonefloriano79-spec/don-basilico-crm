@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { fermaSquillo, impostaSuonoMuto, sbloccaAudio, suonaNuovoOrdine, suonaSquillo, suonoMuto, vibraNuovoOrdine } from "@/lib/suono-ordine";
+import { audioGiaConsentito, fermaSquillo, impostaSuonoMuto, sbloccaAudio, statoAudio, suonaNuovoOrdine, suonaSquillo, suonoMuto, vibraNuovoOrdine } from "@/lib/suono-ordine";
 import { avviaBattito, tieniSchedaSveglia } from "@/lib/battito";
 
 // Il suono suona 4 secondi, poi tace 5 secondi, e si ripete di continuo finché c'è un ordine da accettare che
@@ -27,6 +27,10 @@ export function PannelloControlli() {
   const [saltato, setSaltato] = useState(false); // «Continua senza suono»: il popup non si riapre finché non si ricarica la pagina
   const [schermoAcceso, setSchermoAcceso] = useState(false);
   const [ultimoControllo, setUltimoControllo] = useState<Date | null>(null);
+  // Diagnostica (visibile nella barra): quanto è stata lunga al massimo la pausa tra due controlli e com'era la pagina all'ultimo suono.
+  const [pausaMaxSec, setPausaMaxSec] = useState(0);
+  const [ultimoSuonoInfo, setUltimoSuonoInfo] = useState("");
+  const ultimaCaricaMs = useRef(0);
   const wakeLock = useRef<any>(null);
 
   const daAccettare = ids.length;
@@ -40,6 +44,14 @@ export function PannelloControlli() {
   useEffect(() => { audioRef.current = audioPronto; if (audioPronto) prossimoSuono.current = 0; }, [audioPronto]);
 
   useEffect(() => { setMuto(suonoMuto()); setVisti(leggiVisti()); }, []);
+
+  // Se il browser lascia già suonare senza un tocco (es. collegamento Chrome con autoplay consentito) il popup non serve:
+  // si attiva da solo, e il pannello è pronto appena aperto.
+  useEffect(() => {
+    let vivo = true;
+    audioGiaConsentito().then((ok) => { if (vivo && ok) { setAudioPronto(true); accendiSchermo(); } }).catch(() => {});
+    return () => { vivo = false; };
+  }, []);
 
   const segnaVisti = (nuovi: string[]) => {
     setVisti((prima) => {
@@ -68,6 +80,9 @@ export function PannelloControlli() {
       inCorso = true;
       fetch("/api/ordini/da-accettare", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => {
         if (!attivo || !d) return;
+        const adessoMs = Date.now();
+        if (ultimaCaricaMs.current) setPausaMaxSec((m) => Math.max(m, Math.round((adessoMs - ultimaCaricaMs.current) / 1000)));
+        ultimaCaricaMs.current = adessoMs;
         setUltimoControllo(new Date());
         const nuoviIds: string[] = Array.isArray(d.ids) ? d.ids : [];
         setIds((prima) => {
@@ -91,6 +106,7 @@ export function PannelloControlli() {
         suonaSquillo(SUONO_SEC);
         vibraNuovoOrdine();
         prossimoSuono.current = adesso + SUONO_SEC * 1000 + PAUSA_MS;
+        setUltimoSuonoInfo(`${new Date().toLocaleTimeString("it-IT")} · audio ${statoAudio()} · pagina ${document.visibilityState === "visible" ? "davanti" : "dietro"}`);
       }
     });
     // Appena la finestra torna visibile si ricontrolla subito.
@@ -209,8 +225,9 @@ export function PannelloControlli() {
 
       <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, padding: "8px 26px", background: "var(--surface-muted)", borderBottom: "1px solid var(--border)" }}>
         {/* Segno di vita: l'ora dell'ultimo controllo degli ordini. Se è ferma da minuti, il pannello non sta controllando. */}
-        <span title="Ora dell'ultimo controllo degli ordini online" style={{ color: "var(--text-muted)", fontSize: 12 }}>
-          Ultimo controllo: {ultimoControllo ? ultimoControllo.toLocaleTimeString("it-IT") : "…"}
+        <span title="Ora dell'ultimo controllo degli ordini online e pausa più lunga tra due controlli da quando la pagina è aperta" style={{ color: "var(--text-muted)", fontSize: 12 }}>
+          Ultimo controllo: {ultimoControllo ? ultimoControllo.toLocaleTimeString("it-IT") : "…"} · pausa max {pausaMaxSec} s
+          {ultimoSuonoInfo ? ` · ultimo suono ${ultimoSuonoInfo}` : ""}
         </span>
         {audioPronto && !schermoAcceso && (
           <span style={{ color: "var(--text-muted)", fontSize: 12 }}>
