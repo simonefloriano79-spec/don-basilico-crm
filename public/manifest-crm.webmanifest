@@ -4,7 +4,7 @@
   "description": "Gestione ordini e sedi di Don Basilico.",
   "lang": "it",
   "id": "/dashboard",
-  "start_url": "/dashboard",
+  "start_url": "/avvio",
   "scope": "/",
   "display": "standalone",
   "background_color": "#1B1E17",

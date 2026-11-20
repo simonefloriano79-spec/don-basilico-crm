@@ -36,6 +36,27 @@ function contesto(): AudioContext | null {
 // Da chiamare nel gestore del tocco (popup «Attiva suono»): sblocca l'audio per tutto il resto della sessione.
 export function sbloccaAudio() { contesto(); }
 
+let oscMantieniSveglio: OscillatorNode | null = null;
+
+// Un tono continuo a 30 Hz a volume bassissimo (sotto ciò che gli altoparlanti di un PC riproducono): Chrome non rallenta né
+// mette «a dormire» le finestre che emettono audio, quindi il pannello resta sveglio anche se coperto da altre finestre.
+// Da chiamare dopo il tocco di attivazione. Restituisce true se il tono è partito.
+export function mantieniSveglio(): boolean {
+  if (oscMantieniSveglio) return true;
+  const ctx = contesto();
+  if (!ctx) return false;
+  try {
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = "sine"; o.frequency.value = 30;
+    g.gain.value = 0.01;
+    o.connect(g); g.connect(ctx.destination);
+    o.start();
+    oscMantieniSveglio = o;
+    return true;
+  } catch { return false; }
+}
+
 // Stato del contesto audio («running» = può suonare, «suspended» = bloccato dal browser): serve alla diagnostica del pannello.
 export function statoAudio(): string { return ctxCondiviso ? ctxCondiviso.state : "non creato"; }
 
