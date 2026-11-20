@@ -8,6 +8,7 @@ import { CATEGORIE_IMPASTO, impastiDellaSede } from "@/lib/impasti";
 import { trovaCasistica } from "@/lib/ordini-vocali/casistiche";
 import { cercaPerIngredienti } from "@/lib/ordini-vocali/ricerca-ingredienti";
 import { bevandaAmmessaInCombo, comboDisponibileIn, leggiComboConfig } from "@/lib/combo";
+import { overrideDisponibile } from "@/lib/esauriti";
 
 const MAX_RISULTATI = 5;
 
@@ -91,14 +92,14 @@ async function cerca(q: string, sedeSlug?: string | null) {
     [...righe].sort((a, b) => ordine.indexOf(a.id) - ordine.indexOf(b.id));
 
   const prodotti = perRilevanza(prodottiDb, idProdotti)
-    .filter((p) => overrideMap.get(p.id)?.disponibile !== false)
+    .filter((p) => { const o = overrideMap.get(p.id); return !o || overrideDisponibile(o); })
     .slice(0, MAX_RISULTATI);
 
   // Combo: servono i prodotti della sede per dire cosa contiene e tra cosa si può scegliere.
   let disponibiliInSede: { id: string; nome: string; categoria: string }[] = [];
   if (prodotti.some((p) => p.categoria === "combo")) {
     const tutti = await prisma.menuItem.findMany({ where: { isAttivo: true }, select: { id: true, nome: true, categoria: true } });
-    disponibiliInSede = tutti.filter((m) => overrideMap.get(m.id)?.disponibile !== false);
+    disponibiliInSede = tutti.filter((m) => { const o = overrideMap.get(m.id); return !o || overrideDisponibile(o); });
   }
 
   const casisticaDelProdotto = (nome: string) => {

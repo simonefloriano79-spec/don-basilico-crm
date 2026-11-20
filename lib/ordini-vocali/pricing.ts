@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { resetEsauritiScaduti } from "@/lib/esauriti";
+import { overrideDisponibile } from "@/lib/esauriti";
 import { CATEGORIE_IMPASTO, impastiDellaSede } from "@/lib/impasti";
 import { èCodiceBreve, risolviCodice } from "./id-brevi";
 import { bevandaAmmessaInCombo, leggiComboConfig, leggiComboScelte, testoDettaglioCombo, type ComboScelte } from "@/lib/combo";
@@ -110,7 +110,6 @@ export async function calcolaOrdine(
   canale?: "online"
 ): Promise<{ articoli: ArticoloPrezzato[]; totale: number }> {
   if (!articoli.length) throw new ErrorePricing("Nessun articolo nell'ordine");
-  await resetEsauritiScaduti(); // «Esaurito» di ieri: torna disponibile (vedi lib/esauriti.ts)
   articoli = await espandiCodici(sedeId, articoli);
 
   const menuItemIds = Array.from(new Set(articoli.flatMap((a) => [a.menuItemId, a.secondaMeta].filter((x): x is string => !!x))));
@@ -156,7 +155,8 @@ export async function calcolaOrdine(
       ])
     : [[], []];
   const collegatiMap = new Map(itemCollegati.map((i) => [i.id, i]));
-  const nonDisponibiliInSede = new Set(overrideCollegati.filter((o) => o.disponibile === false).map((o) => o.menuItemId));
+  // Non si possono ordinare se disattivati in sede o segnati «Esaurito» (fino alle 5:00 del giorno dopo).
+  const nonDisponibiliInSede = new Set(overrideCollegati.filter((o) => !overrideDisponibile(o)).map((o) => o.menuItemId));
 
   let totale = 0;
   const articoliPrezzati: ArticoloPrezzato[] = articoli.map((a) => {
@@ -164,7 +164,7 @@ export async function calcolaOrdine(
     if (!menuItem) throw new ErrorePricing(`Prodotto non trovato o non disponibile: ${a.menuItemId}`);
 
     const override = overrideMap.get(menuItem.id);
-    if (override && override.disponibile === false) {
+    if (override && !overrideDisponibile(override)) {
       throw new ErrorePricing(`${menuItem.nome} non è disponibile in questa sede`);
     }
 
@@ -250,7 +250,8 @@ export async function calcolaOrdine(
     if (a.secondaMeta && a.secondaMeta !== a.menuItemId) {
       altraMeta = menuItemMap.get(a.secondaMeta) ?? null;
       if (!altraMeta) throw new ErrorePricing(`Prodotto non trovato o non disponibile: ${a.secondaMeta}`);
-      if (overrideMap.get(altraMeta.id)?.disponibile === false) throw new ErrorePricing(`${altraMeta.nome} non è disponibile in questa sede`);
+      const overrideAltra = overrideMap.get(altraMeta.id);
+      if (overrideAltra && !overrideDisponibile(overrideAltra)) throw new ErrorePricing(`${altraMeta.nome} non è disponibile in questa sede`);
       if (!CATEGORIE_META_E_META.has(menuItem.categoria) || !CATEGORIE_META_E_META.has(altraMeta.categoria)) {
         throw new ErrorePricing("Metà e metà si può fare solo tra due pizze");
       }
