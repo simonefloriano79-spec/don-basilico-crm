@@ -14,11 +14,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   // Super admin: modifica globale, oppure override su una sede a sua scelta
   if (user.ruolo === "super_admin") {
     const { sedeId: sedeIdAdmin, disponibile: disponibileAdmin, prezzoCustom: prezzoCustomAdmin, noteSede: noteSedeAdmin } = body;
+    // permanente: «Non vendere qui» (solo il super admin): resta disattivato finché non lo si rimette in vendita, senza reset notturno.
+    const permanente = body.permanente === true;
     if (sedeIdAdmin) {
       const override = await prisma.sedeMenuOverride.upsert({
         where: { sedeId_menuItemId: { sedeId: sedeIdAdmin, menuItemId: params.id } },
         update: {
-          ...(disponibileAdmin !== undefined && { disponibile: disponibileAdmin }),
+          // «Esaurito» dura fino alle 5:00 del giorno dopo (vedi lib/esauriti.ts); riattivando a mano il segno si toglie.
+          ...(disponibileAdmin !== undefined && { disponibile: disponibileAdmin, esauritoIl: disponibileAdmin === false && !permanente ? new Date() : null }),
           ...(prezzoCustomAdmin !== undefined && { prezzoCustom: prezzoCustomAdmin }),
           ...(noteSedeAdmin !== undefined && { noteSede: noteSedeAdmin }),
         },
@@ -26,6 +29,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
           sedeId: sedeIdAdmin,
           menuItemId: params.id,
           disponibile: disponibileAdmin ?? true,
+          esauritoIl: disponibileAdmin === false && !permanente ? new Date() : null,
           prezzoCustom: prezzoCustomAdmin ?? null,
           noteSede: noteSedeAdmin ?? null,
         },
@@ -65,7 +69,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const override = await prisma.sedeMenuOverride.upsert({
     where: { sedeId_menuItemId: { sedeId, menuItemId: params.id } },
     update: {
-      ...(disponibile !== undefined && { disponibile }),
+      ...(disponibile !== undefined && { disponibile, esauritoIl: disponibile === false ? new Date() : null }),
       ...(prezzoCustom !== undefined && { prezzoCustom }),
       ...(noteSede !== undefined && { noteSede }),
     },
@@ -73,6 +77,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       sedeId,
       menuItemId: params.id,
       disponibile: disponibile ?? true,
+      esauritoIl: disponibile === false ? new Date() : null,
       prezzoCustom: prezzoCustom ?? null,
       noteSede: noteSede ?? null,
     },

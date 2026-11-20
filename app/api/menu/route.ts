@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { resetEsauritiScaduti } from "@/lib/esauriti";
 
 // GET /api/menu?sedeId=xxx&tutti=1
 // tutti=1 include anche i prodotti disattivati globalmente — usato dalla
@@ -14,6 +15,9 @@ export async function GET(req: NextRequest) {
   const includiDisattivi = searchParams.get("tutti") === "1";
   // canale=online: l'app dei clienti (e il menù pubblico) usano il «prezzo app» dove c'è; la cassa no.
   const perApp = searchParams.get("canale") === "online";
+
+  // I prodotti segnati «Esaurito» nei giorni scorsi tornano disponibili (alle 5:00 del giorno dopo).
+  await resetEsauritiScaduti();
 
   const items = await prisma.menuItem.findMany({
     where: { ...(includiDisattivi ? {} : { isAttivo: true }) },

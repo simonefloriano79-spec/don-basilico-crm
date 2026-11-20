@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { resetEsauritiScaduti } from "@/lib/esauriti";
 import { CATEGORIE_IMPASTO, impastiDellaSede } from "@/lib/impasti";
 import { èCodiceBreve, risolviCodice } from "./id-brevi";
 import { bevandaAmmessaInCombo, leggiComboConfig, leggiComboScelte, testoDettaglioCombo, type ComboScelte } from "@/lib/combo";
@@ -109,6 +110,7 @@ export async function calcolaOrdine(
   canale?: "online"
 ): Promise<{ articoli: ArticoloPrezzato[]; totale: number }> {
   if (!articoli.length) throw new ErrorePricing("Nessun articolo nell'ordine");
+  await resetEsauritiScaduti(); // «Esaurito» di ieri: torna disponibile (vedi lib/esauriti.ts)
   articoli = await espandiCodici(sedeId, articoli);
 
   const menuItemIds = Array.from(new Set(articoli.flatMap((a) => [a.menuItemId, a.secondaMeta].filter((x): x is string => !!x))));

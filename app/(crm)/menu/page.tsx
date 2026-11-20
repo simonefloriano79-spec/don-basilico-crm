@@ -22,6 +22,12 @@ function euro(n: number) {
   return `€ ${n.toFixed(2).replace(".", ",")}`;
 }
 
+// «Esaurito» segnato col tasto torna disponibile da solo alle 5:00 del giorno dopo; senza segno (non venduto in sede, ingrediente finito) resta com'è.
+function etichettaSede(item: any) {
+  if (item.disponibileInSede) return "Disponibile";
+  return item.override?.esauritoIl ? "Esaurito · torna domani" : "Non venduto qui";
+}
+
 export default function MenuPage() {
   const { data: session } = useSession();
   const [items, setItems] = useState<any[]>([]);
@@ -62,6 +68,21 @@ export default function MenuPage() {
     else toast.error("Operazione non riuscita");
   };
 
+  // «Non vendere qui» (solo super admin): il prodotto resta disattivato in questa sede finché non lo si rimette in vendita (tocco sul tasto di stato).
+  // A differenza di «Esaurito», non torna disponibile da solo il giorno dopo.
+  const nonVendereQui = async (item: any) => {
+    if (!sedeId || !isSuperAdmin) return;
+    const nomeSede = sedi.find((s) => s.id === sedeId)?.nome ?? "questa sede";
+    if (!confirm(`Non vendere più "${item.nome}" in ${nomeSede}?\n\nResta disattivato finché non lo rimetti in vendita (non torna da solo domani). Le altre sedi non cambiano.`)) return;
+    const res = await fetch(`/api/menu/${item.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sedeId, disponibile: false, permanente: true }),
+    });
+    if (res.ok) { toast.success(`"${item.nome}" non più venduto in ${nomeSede}`); caricaMenu(); }
+    else toast.error("Operazione non riuscita");
+  };
+  const puoNonVendereQui = (item: any) => isSuperAdmin && !!sedeId && (item.disponibileInSede || !!item.override?.esauritoIl);
+
   const toggleGlobale = async (item: any) => {
     if (item.isAttivo && !confirm(`Vuoi disattivare "${item.nome}"? Non sarà più ordinabile in nessuna sede finché non lo riattivi.`)) return;
     const res = await fetch(`/api/menu/${item.id}`, {
@@ -98,7 +119,7 @@ export default function MenuPage() {
           </select>
           {sedeVista && (
             <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 6 }}>
-              Stai gestendo la disponibilità solo per questa sede. Per disattivare un prodotto ovunque usa "Attivo globale".
+              Stai gestendo la disponibilità solo per questa sede: un prodotto segnato «Esaurito» torna disponibile da solo alle 5:00 del giorno dopo. Per disattivarlo ovunque usa "Attivo globale".
             </div>
           )}
         </div>
@@ -126,7 +147,7 @@ export default function MenuPage() {
 
       {!isSuperAdmin && (
         <div style={{ background: "var(--accent-bg)", border: "1px solid var(--accent-border)", borderRadius: 9, padding: "10px 16px", marginBottom: 16, fontSize: 12.5, color: "var(--accent-ink)" }}>
-          Modalità sede: puoi disabilitare prodotti temporaneamente esauriti. Le modifiche globali sono gestite dall'admin.
+          Modalità sede: puoi disabilitare prodotti temporaneamente esauriti: tornano disponibili da soli alle 5:00 del giorno dopo. Le modifiche globali sono gestite dall'admin.
         </div>
       )}
 
@@ -162,7 +183,12 @@ export default function MenuPage() {
                 </button>
                 {sedeId && (
                   <button onClick={() => toggleDisponibilitaSede(item)} style={{ ...chip(!!item.disponibileInSede), cursor: "pointer" }}>
-                    {item.disponibileInSede ? "Disponibile" : "Esaurito"}
+                    {etichettaSede(item)}
+                  </button>
+                )}
+                {puoNonVendereQui(item) && (
+                  <button onClick={() => nonVendereQui(item)} style={{ background: "#fff", border: "1px solid var(--border)", color: "var(--text-3)", padding: "6px 13px", borderRadius: 20, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-ui)" }}>
+                    Non vendere qui
                   </button>
                 )}
                 {isSuperAdmin && (
@@ -233,7 +259,12 @@ export default function MenuPage() {
                         background: item.disponibileInSede ? "var(--accent-bg-2)" : "var(--danger-bg)",
                         color: item.disponibileInSede ? "var(--accent-ink)" : "var(--danger)",
                         fontFamily: "var(--font-ui)", whiteSpace: "nowrap",
-                      }}>{item.disponibileInSede ? "Disponibile" : "Esaurito"}</button>
+                      }}>{etichettaSede(item)}</button>
+                      {puoNonVendereQui(item) && (
+                        <button onClick={() => nonVendereQui(item)} title="Disattiva in modo permanente in questa sede" style={{ marginLeft: 8, background: "none", border: "none", color: "var(--text-muted)", fontSize: 11.5, cursor: "pointer", textDecoration: "underline", fontFamily: "var(--font-ui)", whiteSpace: "nowrap" }}>
+                          Non vendere qui
+                        </button>
+                      )}
                     </td>
                   )}
                   {isSuperAdmin && (
