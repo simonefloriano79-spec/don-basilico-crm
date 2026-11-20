@@ -11,16 +11,22 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "Non autorizzato" }, { status: 401 });
   const user = session.user as any;
 
-  const n = await prisma.ordine.count({
+  // `ids`: gli ordini in attesa, così il pannello sa quali ha già mostrato (smette di suonare per quelli visualizzati).
+  const inAttesa = await prisma.ordine.findMany({
     where: {
       ...FILTRO_ACCETTAZIONE,
       stato: "nuovo",
       ...(user.ruolo !== "super_admin" && user.sedeId ? { sedeId: user.sedeId } : {}),
     },
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+    take: 100,
   });
+  const n = inAttesa.length;
+  const ids = inAttesa.map((o) => o.id);
   const sospese = await prisma.sede.findMany({
     where: { attiva: true, ordiniOnlineAttivi: false, ...(user.ruolo !== "super_admin" && user.sedeId ? { id: user.sedeId } : {}) },
     select: { id: true, nome: true },
   });
-  return NextResponse.json({ n, sospese });
+  return NextResponse.json({ n, ids, sospese });
 }

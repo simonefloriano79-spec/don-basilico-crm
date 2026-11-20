@@ -164,6 +164,11 @@ export default function OrdiniPage() {
     return () => clearInterval(iv);
   }, [selezionato?.id, caricaDettaglio]);
 
+  // Aprire un ordine = averlo visto: il pannello smette di suonare per quell'ordine (vedi PannelloControlli).
+  useEffect(() => {
+    if (selezionato?.id) window.dispatchEvent(new CustomEvent("db-ordine-visto", { detail: selezionato.id }));
+  }, [selezionato?.id]);
+
   // Orario di default per accettare/spostare un ordine online: quello già confermato,
   // altrimenti quello richiesto (se prenotato), altrimenti tra ~20 minuti.
   useEffect(() => {

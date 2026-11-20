@@ -3,49 +3,89 @@
 import { useEffect, useRef, useState } from "react";
 import { fermaSquillo, impostaSuonoMuto, suonaNuovoOrdine, suonaSquillo, suonoMuto, vibraNuovoOrdine } from "@/lib/suono-ordine";
 
-// Nuovo ordine: suoneria continua per 25 s; poi, finché resta da accettare, un richiamo di 8 s ogni 20 s.
-const SQUILLO_NUOVO_SEC = 25;
-const SQUILLO_RICHIAMO_SEC = 8;
-const RIPETI_OGNI_MS = 20000;
+// Il suono suona 4 secondi, poi tace 5 secondi, e si ripete di continuo finché c'è un ordine da accettare che
+// nessuno ha ancora VISUALIZZATO (aperto) su questo dispositivo. Aprire l'ordine o accettarlo/rifiutarlo lo ferma.
+const SUONO_SEC = 4;
+const PAUSA_MS = 5000;
+const CHIAVE_VISTI = "db_ordini_visti";
 
-// Striscia sotto la barra in alto: suono (che si ripete finché c'è qualcosa da accettare), schermo sempre acceso,
+function leggiVisti(): Set<string> {
+  try { return new Set(JSON.parse(sessionStorage.getItem(CHIAVE_VISTI) ?? "[]")); } catch { return new Set(); }
+}
+function salvaVisti(s: Set<string>) {
+  try { sessionStorage.setItem(CHIAVE_VISTI, JSON.stringify(Array.from(s).slice(-200))); } catch {}
+}
+
+// Striscia sotto la barra in alto: suono (che si ripete finché c'è un ordine non visto), schermo sempre acceso,
 // schermo intero. Il resto dell'aspetto è quello del CRM.
 export function PannelloControlli() {
-  const [daAccettare, setDaAccettare] = useState(0);
+  const [ids, setIds] = useState<string[]>([]);       // ordini online in attesa di accettazione
+  const [visti, setVisti] = useState<Set<string>>(() => new Set());
   const [muto, setMuto] = useState(false);
   const [audioPronto, setAudioPronto] = useState(false);
   const [saltato, setSaltato] = useState(false); // «Continua senza suono»: il popup non si riapre finché non si ricarica la pagina
   const [schermoAcceso, setSchermoAcceso] = useState(false);
-  const precedente = useRef<number | null>(null);
-  const ultimoSuono = useRef(0);
   const wakeLock = useRef<any>(null);
 
-  useEffect(() => { setMuto(suonoMuto()); }, []);
+  const daAccettare = ids.length;
+  const nonVisti = ids.filter((id) => !visti.has(id)).length;
 
+  // Valori aggiornati per il timer del suono (che non si ricrea a ogni render).
+  const nonVistiRef = useRef(0);
+  const audioRef = useRef(false);
+  const prossimoSuono = useRef(0);
+  useEffect(() => { nonVistiRef.current = nonVisti; }, [nonVisti]);
+  useEffect(() => { audioRef.current = audioPronto; if (audioPronto) prossimoSuono.current = 0; }, [audioPronto]);
+
+  useEffect(() => { setMuto(suonoMuto()); setVisti(leggiVisti()); }, []);
+
+  const segnaVisti = (nuovi: string[]) => {
+    setVisti((prima) => {
+      const s = new Set(prima);
+      nuovi.forEach((id) => s.add(id));
+      salvaVisti(s);
+      return s;
+    });
+  };
+
+  // Aprire un ordine (pagina Ordini) = averlo visto.
+  useEffect(() => {
+    const onVisto = (e: Event) => { const id = (e as CustomEvent).detail; if (typeof id === "string") segnaVisti([id]); };
+    window.addEventListener("db-ordine-visto", onVisto);
+    return () => window.removeEventListener("db-ordine-visto", onVisto);
+  }, []);
+
+  // Ordini in attesa: ogni 3 secondi.
   useEffect(() => {
     let attivo = true;
     const carica = () =>
-      fetch("/api/ordini/da-accettare").then((r) => (r.ok ? r.json() : null)).then((d) => {
+      fetch("/api/ordini/da-accettare", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => {
         if (!attivo || !d) return;
-        const adesso = Date.now();
-        const nuovo = d.n > (precedente.current ?? 0);
-        if (d.n === 0) {
-          fermaSquillo();
-        } else if (nuovo) {
-          suonaSquillo(SQUILLO_NUOVO_SEC);
-          vibraNuovoOrdine();
-          ultimoSuono.current = adesso + SQUILLO_NUOVO_SEC * 1000;
-        } else if (adesso - ultimoSuono.current >= RIPETI_OGNI_MS) {
-          suonaSquillo(SQUILLO_RICHIAMO_SEC);
-          vibraNuovoOrdine();
-          ultimoSuono.current = adesso + SQUILLO_RICHIAMO_SEC * 1000;
-        }
-        precedente.current = d.n;
-        setDaAccettare(d.n);
+        const nuoviIds: string[] = Array.isArray(d.ids) ? d.ids : [];
+        setIds((prima) => {
+          // Un ordine nuovo fa suonare subito, senza aspettare la pausa.
+          if (nuoviIds.some((id) => !prima.includes(id))) prossimoSuono.current = 0;
+          return nuoviIds;
+        });
       }).catch(() => {});
     carica();
-    const iv = setInterval(carica, 5000);
+    const iv = setInterval(carica, 3000);
     return () => { attivo = false; clearInterval(iv); fermaSquillo(); };
+  }, []);
+
+  // Il suono: finché c'è un ordine non visto, 4 secondi di allarme, 5 di pausa, e così via.
+  useEffect(() => {
+    const iv = setInterval(() => {
+      if (nonVistiRef.current === 0) { fermaSquillo(); prossimoSuono.current = 0; return; }
+      if (!audioRef.current) return; // suono non ancora attivato dal popup
+      const adesso = Date.now();
+      if (adesso >= prossimoSuono.current) {
+        suonaSquillo(SUONO_SEC);
+        vibraNuovoOrdine();
+        prossimoSuono.current = adesso + SUONO_SEC * 1000 + PAUSA_MS;
+      }
+    }, 1000);
+    return () => clearInterval(iv);
   }, []);
 
   // Titolo della scheda col numero: si vede anche con la scheda in background.
@@ -70,7 +110,8 @@ export function PannelloControlli() {
     return () => document.removeEventListener("visibilitychange", onVis);
   }, [audioPronto]);
 
-  // Il browser permette l'audio solo dopo un tocco: il popup «sblocca» suono e schermo acceso (e fa sentire subito il suono).
+  // Il browser permette l'audio solo dopo un tocco: il popup «sblocca» suono e schermo acceso. Se c'è già un ordine non
+  // visto, subito dopo il tocco il suono parte da solo (il timer lo avvia entro un secondo).
   const attiva = async () => {
     suonaNuovoOrdine(true);
     vibraNuovoOrdine();
@@ -93,27 +134,34 @@ export function PannelloControlli() {
           position: "fixed", inset: 0, zIndex: 2000, background: "rgba(20,22,16,0.9)", display: "flex",
           alignItems: "center", justifyContent: "center", padding: 20,
         }}>
-          <div style={{ background: "#fff", borderRadius: 20, padding: "30px 26px 22px", maxWidth: 460, width: "100%", textAlign: "center", fontFamily: "var(--font-ui)" }}>
-            <div style={{ fontSize: 46, lineHeight: 1 }}>🔔</div>
-            <h2 style={{ fontFamily: "var(--font-display)", fontSize: 24, margin: "14px 0 8px", color: "var(--text)" }}>Attiva gli avvisi degli ordini</h2>
-            <p style={{ fontSize: 14.5, lineHeight: 1.5, color: "var(--text-2)", margin: "0 0 8px" }}>
-              Tocca il pulsante: da questo momento il pannello <strong>suona forte</strong> ogni volta che arriva un ordine online e tiene lo schermo acceso.
-            </p>
-            <p style={{ fontSize: 13, lineHeight: 1.5, color: "var(--text-muted)", margin: "0 0 20px" }}>
-              Metti anche il <strong>volume del dispositivo al massimo</strong>. Va rifatto ogni volta che si apre o si ricarica questa pagina.
-            </p>
-            <button onClick={attiva} style={{
-              width: "100%", border: "none", background: "var(--text)", color: "#fff", padding: "17px 18px", borderRadius: 14,
-              fontSize: 17, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-ui)",
-            }}>
-              Attiva suono e schermo acceso
-            </button>
-            <button onClick={() => setSaltato(true)} style={{
-              marginTop: 10, background: "none", border: "none", color: "var(--text-muted)", fontSize: 12.5, cursor: "pointer",
-              textDecoration: "underline", fontFamily: "var(--font-ui)", padding: 8,
-            }}>
-              Continua senza suono
-            </button>
+          <div style={{ background: "#fff", borderRadius: 20, overflow: "hidden", maxWidth: 460, width: "100%", textAlign: "center", fontFamily: "var(--font-ui)" }}>
+            {daAccettare > 0 && (
+              <div style={{ animation: "dbLampeggia 0.9s infinite", color: "#fff", fontWeight: 700, fontSize: 17, padding: "14px 16px", letterSpacing: 0.4 }}>
+                {daAccettare === 1 ? "C'È 1 ORDINE DA ACCETTARE!" : `CI SONO ${daAccettare} ORDINI DA ACCETTARE!`}
+              </div>
+            )}
+            <div style={{ padding: "26px 26px 22px" }}>
+              <div style={{ fontSize: 46, lineHeight: 1 }}>🔔</div>
+              <h2 style={{ fontFamily: "var(--font-display)", fontSize: 24, margin: "14px 0 8px", color: "var(--text)" }}>Attiva gli avvisi degli ordini</h2>
+              <p style={{ fontSize: 14.5, lineHeight: 1.5, color: "var(--text-2)", margin: "0 0 8px" }}>
+                Tocca il pulsante: da questo momento il pannello <strong>suona forte</strong> ogni volta che arriva un ordine online, e <strong>ripete ogni 5 secondi</strong> finché non lo apri. Tiene anche lo schermo acceso.
+              </p>
+              <p style={{ fontSize: 13, lineHeight: 1.5, color: "var(--text-muted)", margin: "0 0 20px" }}>
+                Metti anche il <strong>volume del dispositivo al massimo</strong>. Va rifatto ogni volta che si apre o si ricarica questa pagina.
+              </p>
+              <button onClick={attiva} style={{
+                width: "100%", border: "none", background: "var(--text)", color: "#fff", padding: "17px 18px", borderRadius: 14,
+                fontSize: 17, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-ui)",
+              }}>
+                Attiva suono e schermo acceso
+              </button>
+              <button onClick={() => setSaltato(true)} style={{
+                marginTop: 10, background: "none", border: "none", color: "var(--text-muted)", fontSize: 12.5, cursor: "pointer",
+                textDecoration: "underline", fontFamily: "var(--font-ui)", padding: 8,
+              }}>
+                Continua senza suono
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -127,13 +175,22 @@ export function PannelloControlli() {
         </button>
       )}
 
-      {/* Ordine da accettare: striscia rossa che lampeggia, impossibile non vederla. */}
+      {/* Ordine da accettare: striscia rossa che lampeggia finché non viene visto; poi resta rossa fissa finché non si accetta. */}
       {daAccettare > 0 && (
         <div role="alert" style={{
-          animation: "dbLampeggia 0.9s infinite", color: "#fff", textAlign: "center", fontWeight: 700,
-          fontSize: 17, letterSpacing: 0.4, padding: "13px 16px", fontFamily: "var(--font-ui)",
+          ...(nonVisti > 0 ? { animation: "dbLampeggia 0.9s infinite" } : { background: "#c0392b" }),
+          color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", gap: 14, flexWrap: "wrap",
+          fontWeight: 700, fontSize: 17, letterSpacing: 0.4, padding: "13px 16px", fontFamily: "var(--font-ui)",
         }}>
-          {daAccettare === 1 ? "1 ORDINE ONLINE DA ACCETTARE" : `${daAccettare} ORDINI ONLINE DA ACCETTARE`}
+          <span>{daAccettare === 1 ? "1 ORDINE ONLINE DA ACCETTARE" : `${daAccettare} ORDINI ONLINE DA ACCETTARE`}</span>
+          {nonVisti > 0 && (
+            <button onClick={() => segnaVisti(ids)} style={{
+              background: "#fff", color: "#7d1f15", border: "none", borderRadius: 8, padding: "7px 14px", fontSize: 13,
+              fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-ui)",
+            }}>
+              Ho visto: ferma il suono
+            </button>
+          )}
         </div>
       )}
 
