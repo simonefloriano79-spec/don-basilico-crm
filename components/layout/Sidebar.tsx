@@ -47,6 +47,8 @@ export function Sidebar({ session, pannello = false }: Props) {
       items: [
         { href: "/dashboard",     glyph: "◇", label: "Panoramica"   },
         { href: "/online",        glyph: "☁", label: "Online"       },
+        // Stessa lista ordini online, ma con il popup di attivazione, il suono forte e l'avviso lampeggiante (per il banco).
+        { href: "/pannello",      glyph: "♪", label: "Pannello ordini", extra: true },
         { href: "/ordini",        glyph: "≡", label: "Ordini"       },
         { href: "/nuovo-ordine",  glyph: "+", label: "Nuovo ordine" },
         { href: "/kds",           glyph: "◉", label: "Cucina"       },
@@ -101,17 +103,17 @@ export function Sidebar({ session, pannello = false }: Props) {
               >
                 <span className={styles.icon}>{item.glyph}</span>
                 {item.label}
-                {(item.href === "/online" || item.href === "/pannello") && ORDINA_BETA && sospese === 0 && daAccettare === 0 && (
+                {(item.href === "/online" || (item.href === "/pannello" && !(item as any).extra)) && ORDINA_BETA && sospese === 0 && daAccettare === 0 && (
                   <span style={{ marginLeft: "auto", background: "var(--accent-bg-2)", border: "1px solid var(--accent-border)", color: "var(--text-2)", borderRadius: 20, fontSize: 10, fontWeight: 700, letterSpacing: 0.8, padding: "1px 7px" }}>
                     BETA
                   </span>
                 )}
-                {(item.href === "/online" || item.href === "/pannello") && sospese > 0 && (
+                {(item.href === "/online" || (item.href === "/pannello" && !(item as any).extra)) && sospese > 0 && (
                   <span title="Ordini online sospesi" style={{ marginLeft: "auto", background: "#fff", color: "var(--danger)", border: "1px solid var(--danger-border)", borderRadius: 20, fontSize: 10.5, fontWeight: 700, padding: "1px 7px" }}>
                     STOP
                   </span>
                 )}
-                {(item.href === "/online" || item.href === "/pannello") && daAccettare > 0 && (
+                {(item.href === "/online" || (item.href === "/pannello" && !(item as any).extra)) && daAccettare > 0 && (
                   <span style={{ marginLeft: "auto", background: "var(--danger)", color: "#fff", borderRadius: 20, fontSize: 11, fontWeight: 600, padding: "1px 8px" }}>
                     {daAccettare}
                   </span>
