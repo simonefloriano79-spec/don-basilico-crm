@@ -17,19 +17,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
   }
 
+  // «Finito» in questa sede: vale fino alle 5:00 del giorno dopo (vedi lib/esauriti.ts). Si ricrea il segno a ogni richiesta.
+  await prisma.sedeIngredienteDisabilitato.deleteMany({ where: { sedeId, ingredienteId } });
   if (disabilita) {
-    // Disabilita ingrediente
-    const record = await prisma.sedeIngredienteDisabilitato.upsert({
-      where: { sedeId_ingredienteId: { sedeId, ingredienteId } },
-      update: { note, disabilitatoDa: user.id },
-      create: { sedeId, ingredienteId, note, disabilitatoDa: user.id },
+    const record = await prisma.sedeIngredienteDisabilitato.create({
+      data: { sedeId, ingredienteId, note, disabilitatoDa: user.id },
     });
     return NextResponse.json(record);
-  } else {
-    // Riabilita ingrediente
-    await prisma.sedeIngredienteDisabilitato.deleteMany({
-      where: { sedeId, ingredienteId },
-    });
-    return NextResponse.json({ ok: true });
   }
+  return NextResponse.json({ ok: true });
 }

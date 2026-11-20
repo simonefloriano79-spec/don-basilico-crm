@@ -8,7 +8,7 @@ import { CATEGORIE_IMPASTO, impastiDellaSede } from "@/lib/impasti";
 import { trovaCasistica } from "@/lib/ordini-vocali/casistiche";
 import { cercaPerIngredienti } from "@/lib/ordini-vocali/ricerca-ingredienti";
 import { bevandaAmmessaInCombo, comboDisponibileIn, leggiComboConfig } from "@/lib/combo";
-import { overrideDisponibile } from "@/lib/esauriti";
+import { filtroIngredientiFiniti, ingredienteMancante, overrideDisponibile } from "@/lib/esauriti";
 
 const MAX_RISULTATI = 5;
 
@@ -81,7 +81,7 @@ async function cerca(q: string, sedeSlug?: string | null) {
     idIngredienti.length ? prisma.ingrediente.findMany({ where: { id: { in: idIngredienti } } }) : [],
     sede ? prisma.sedeMenuOverride.findMany({ where: { sedeId: sede.id } }) : [],
     sede ? prisma.sedePizzaMaxi.findUnique({ where: { sedeId: sede.id } }) : null,
-    sede ? prisma.sedeIngredienteDisabilitato.findMany({ where: { sedeId: sede.id } }) : [],
+    sede ? prisma.sedeIngredienteDisabilitato.findMany({ where: { sedeId: sede.id, ...filtroIngredientiFiniti() } }) : [], // finiti «oggi» (scadono alle 5:00)
   ]);
 
   const overrideMap = new Map(overrides.map((o) => [o.menuItemId, o]));
@@ -92,14 +92,16 @@ async function cerca(q: string, sedeSlug?: string | null) {
     [...righe].sort((a, b) => ordine.indexOf(a.id) - ordine.indexOf(b.id));
 
   const prodotti = perRilevanza(prodottiDb, idProdotti)
-    .filter((p) => { const o = overrideMap.get(p.id); return !o || overrideDisponibile(o); })
+    .filter((p) => { const o = overrideMap.get(p.id); return (!o || overrideDisponibile(o)) && !ingredienteMancante(p.ingredienti, ingDisabilitati); })
     .slice(0, MAX_RISULTATI);
 
   // Combo: servono i prodotti della sede per dire cosa contiene e tra cosa si può scegliere.
   let disponibiliInSede: { id: string; nome: string; categoria: string }[] = [];
   if (prodotti.some((p) => p.categoria === "combo")) {
-    const tutti = await prisma.menuItem.findMany({ where: { isAttivo: true }, select: { id: true, nome: true, categoria: true } });
-    disponibiliInSede = tutti.filter((m) => { const o = overrideMap.get(m.id); return !o || overrideDisponibile(o); });
+    const tutti = await prisma.menuItem.findMany({ where: { isAttivo: true }, select: { id: true, nome: true, categoria: true, ingredienti: { select: { ingredienteId: true } } } });
+    disponibiliInSede = tutti
+      .filter((m) => { const o = overrideMap.get(m.id); return (!o || overrideDisponibile(o)) && !ingredienteMancante(m.ingredienti, ingDisabilitati); })
+      .map(({ id, nome, categoria }) => ({ id, nome, categoria }));
   }
 
   const casisticaDelProdotto = (nome: string) => {

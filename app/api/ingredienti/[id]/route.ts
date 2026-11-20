@@ -69,53 +69,19 @@ export async function PATCH(
     return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
   }
 
-  // Prodotti che usano questo ingrediente come base: la disponibilità in
-  // questa sede segue automaticamente quella dell'ingrediente (es. finiscono
-  // le Alici in questa sede -> la Napoletana risulta esaurita solo qui).
-  const collegati = await prisma.menuItemIngrediente.findMany({
-    where: { ingredienteId: params.id },
-    select: { menuItemId: true },
-  });
+  // «Finito» in questa sede (es. il prosciutto cotto): vale fino alle 5:00 del giorno dopo e poi decade da solo.
+  // Le pizze che lo contengono seguono da sole (calcolato in lettura, vedi lib/esauriti.ts): qui non si scrive sulle pizze,
+  // così alle 5:00 tornano disponibili tutte insieme e una pizza «Disattivata» apposta non viene toccata.
+  await prisma.sedeIngredienteDisabilitato.deleteMany({ where: { sedeId, ingredienteId: params.id } });
 
   if (disabilita) {
-    const record = await prisma.sedeIngredienteDisabilitato.upsert({
-      where: {
-        sedeId_ingredienteId: { sedeId, ingredienteId: params.id },
-      },
-      update: { note, disabilitatoDa: user.id },
-      create: {
-        sedeId,
-        ingredienteId: params.id,
-        note,
-        disabilitatoDa: user.id,
-      },
+    // Si ricrea sempre il segno (createdAt = adesso): segnarlo di nuovo prolunga fino alle 5:00 di domani.
+    const record = await prisma.sedeIngredienteDisabilitato.create({
+      data: { sedeId, ingredienteId: params.id, note, disabilitatoDa: user.id },
     });
-
-    for (const { menuItemId } of collegati) {
-      await prisma.sedeMenuOverride.upsert({
-        where: { sedeId_menuItemId: { sedeId, menuItemId } },
-        // esauritoIl vuoto: il blocco dura finché l'ingrediente non viene riattivato (nessun reset automatico notturno).
-        update: { disponibile: false, esauritoIl: null },
-        create: { sedeId, menuItemId, disponibile: false },
-      });
-    }
-
     return NextResponse.json(record);
-  } else {
-    await prisma.sedeIngredienteDisabilitato.deleteMany({
-      where: { sedeId, ingredienteId: params.id },
-    });
-
-    for (const { menuItemId } of collegati) {
-      await prisma.sedeMenuOverride.upsert({
-        where: { sedeId_menuItemId: { sedeId, menuItemId } },
-        update: { disponibile: true, esauritoIl: null },
-        create: { sedeId, menuItemId, disponibile: true },
-      });
-    }
-
-    return NextResponse.json({ ok: true });
   }
+  return NextResponse.json({ ok: true });
 }
 
 // DELETE /api/ingredienti/[id] — solo admin (soft: disattiva)

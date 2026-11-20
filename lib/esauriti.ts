@@ -20,6 +20,18 @@ export function esauritoAttivo(esauritoIl: Date | string | null | undefined, ade
   return new Date(esauritoIl).getTime() >= inizioGiornoServizio(adesso).getTime();
 }
 
+// Ingrediente «finito» in una sede (es. il prosciutto cotto): vale fino all'inizio della giornata di servizio successiva (le 5:00),
+// poi decade da solo, e con lui tornano disponibili tutte le pizze che lo contengono. `createdAt` = quando è stato segnato.
+// Una pizza è disponibile solo se nessuno dei suoi ingredienti è finito oggi: si calcola in lettura, non si scrive sulle pizze.
+export function filtroIngredientiFiniti(adesso: Date = new Date()) {
+  return { createdAt: { gte: inizioGiornoServizio(adesso) } };
+}
+
+// Il primo ingrediente finito tra quelli di un prodotto (o null se non ne manca nessuno).
+export function ingredienteMancante<T extends { ingredienteId: string }>(ingredientiProdotto: T[] | undefined, finiti: Set<string>): T | null {
+  return (ingredientiProdotto ?? []).find((i) => finiti.has(i.ingredienteId)) ?? null;
+}
+
 // Il prodotto si può ordinare in questa sede? `override` è la riga della sede (se esiste), `predefinito` la disponibilità di base del prodotto.
 export function overrideDisponibile(
   override: { disponibile: boolean; esauritoIl?: Date | string | null } | null | undefined,
