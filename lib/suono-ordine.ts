@@ -19,8 +19,26 @@ const NOTE_BIP = [1900, 2500, 1900];   // alterna due note alte: più fastidioso
 const DURATA_BIP = 0.11;
 const PASSO_BIP = 0.16;
 
-// Programma `cicli` cicli dell'allarme sul contesto audio, a partire da adesso.
-function programmaAllarme(ctx: AudioContext, cicli: number) {
+// Un solo contesto audio per tutta la vita della pagina, creato dopo il tocco del popup: così il suono parte anche
+// quando la finestra è dietro un'altra (un contesto nuovo creato in background potrebbe restare muto).
+let ctxCondiviso: AudioContext | null = null;
+function contesto(): AudioContext | null {
+  try {
+    if (!ctxCondiviso || ctxCondiviso.state === "closed") {
+      const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+      ctxCondiviso = new Ctx();
+    }
+    if (ctxCondiviso!.state === "suspended") ctxCondiviso!.resume().catch(() => {});
+    return ctxCondiviso;
+  } catch { return null; }
+}
+
+// Da chiamare nel gestore del tocco (popup «Attiva suono»): sblocca l'audio per tutto il resto della sessione.
+export function sbloccaAudio() { contesto(); }
+
+// Programma `cicli` cicli dell'allarme sul contesto audio, a partire da adesso. Restituisce il volume generale
+// (scollegarlo ferma subito il suono).
+function programmaAllarme(ctx: AudioContext, cicli: number): GainNode {
   // Compressore + guadagno finale: alza il volume percepito senza distorcere.
   const comp = ctx.createDynamicsCompressor();
   comp.threshold.value = -18; comp.knee.value = 0; comp.ratio.value = 20; comp.attack.value = 0.001; comp.release.value = 0.05;
@@ -46,46 +64,40 @@ function programmaAllarme(ctx: AudioContext, cicli: number) {
       });
     });
   }
-}
-
-function nuovoContesto(): AudioContext | null {
-  try {
-    const Ctx = window.AudioContext || (window as any).webkitAudioContext;
-    return new Ctx();
-  } catch { return null; }
+  return master;
 }
 
 // Un solo allarme (tre bip). `forza`: suona anche se il suono è silenziato (es. tasto «Prova suono»).
 // Se il browser blocca l'audio (nessun tocco ancora sulla pagina) non succede nulla.
 export function suonaNuovoOrdine(forza = false) {
   if (!forza && suonoMuto()) return;
-  const ctx = nuovoContesto();
+  const ctx = contesto();
   if (!ctx) return;
   try {
-    programmaAllarme(ctx, 2);
-    setTimeout(() => ctx.close().catch(() => {}), (2 * CICLO_SEC + 1) * 1000);
+    const master = programmaAllarme(ctx, 2);
+    setTimeout(() => { try { master.disconnect(); } catch {} }, (2 * CICLO_SEC + 1) * 1000);
   } catch {}
 }
 
-let ctxSquillo: AudioContext | null = null;
+let masterSquillo: GainNode | null = null;
 
 // Suoneria prolungata: l'allarme si ripete per `durataSec` secondi. Si può interrompere con fermaSquillo().
 export function suonaSquillo(durataSec: number) {
   if (suonoMuto()) return;
   fermaSquillo();
-  const ctx = nuovoContesto();
+  const ctx = contesto();
   if (!ctx) return;
   try {
-    ctxSquillo = ctx;
-    programmaAllarme(ctx, Math.max(1, Math.ceil(durataSec / CICLO_SEC)));
-    setTimeout(() => { if (ctxSquillo === ctx) { ctx.close().catch(() => {}); ctxSquillo = null; } }, (durataSec + 1) * 1000);
+    const master = programmaAllarme(ctx, Math.max(1, Math.ceil(durataSec / CICLO_SEC)));
+    masterSquillo = master;
+    setTimeout(() => { try { master.disconnect(); } catch {} if (masterSquillo === master) masterSquillo = null; }, (durataSec + 1) * 1000);
   } catch {}
 }
 
 export function fermaSquillo() {
-  if (!ctxSquillo) return;
-  try { ctxSquillo.close().catch(() => {}); } catch {}
-  ctxSquillo = null;
+  if (!masterSquillo) return;
+  try { masterSquillo.disconnect(); } catch {}
+  masterSquillo = null;
 }
 
 // Sul telefono fa anche vibrare (dove il browser lo permette).
