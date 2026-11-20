@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { audioGiaConsentito, fermaSquillo, impostaSuonoMuto, sbloccaAudio, statoAudio, suonaNuovoOrdine, suonaSquillo, suonoMuto, vibraNuovoOrdine } from "@/lib/suono-ordine";
+import { audioGiaConsentito, fermaSquillo, impostaSuonoMuto, mantieniSveglio, sbloccaAudio, statoAudio, suonaNuovoOrdine, suonaSquillo, suonoMuto, vibraNuovoOrdine } from "@/lib/suono-ordine";
 import { avviaBattito, tieniSchedaSveglia } from "@/lib/battito";
 
 // Il suono suona 4 secondi, poi tace 5 secondi, e si ripete di continuo finché c'è un ordine da accettare che
@@ -30,6 +30,7 @@ export function PannelloControlli() {
   // Diagnostica (visibile nella barra): quanto è stata lunga al massimo la pausa tra due controlli e com'era la pagina all'ultimo suono.
   const [pausaMaxSec, setPausaMaxSec] = useState(0);
   const [ultimoSuonoInfo, setUltimoSuonoInfo] = useState("");
+  const [sveglia, setSveglia] = useState(false);
   const ultimaCaricaMs = useRef(0);
   const wakeLock = useRef<any>(null);
 
@@ -49,7 +50,7 @@ export function PannelloControlli() {
   // si attiva da solo, e il pannello è pronto appena aperto.
   useEffect(() => {
     let vivo = true;
-    audioGiaConsentito().then((ok) => { if (vivo && ok) { setAudioPronto(true); accendiSchermo(); } }).catch(() => {});
+    audioGiaConsentito().then((ok) => { if (vivo && ok) { setAudioPronto(true); setSveglia(mantieniSveglio()); accendiSchermo(); } }).catch(() => {});
     return () => { vivo = false; };
   }, []);
 
@@ -142,6 +143,7 @@ export function PannelloControlli() {
   // visto, subito dopo il tocco il suono parte da solo (il timer lo avvia entro un secondo).
   const attiva = async () => {
     sbloccaAudio(); // un solo contesto audio, sbloccato da questo tocco, usato per tutti i suoni successivi
+    setSveglia(mantieniSveglio()); // tono impercettibile: Chrome non addormenta la finestra neppure se coperta
     suonaNuovoOrdine(true);
     vibraNuovoOrdine();
     setAudioPronto(true);
@@ -226,7 +228,7 @@ export function PannelloControlli() {
       <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, padding: "8px 26px", background: "var(--surface-muted)", borderBottom: "1px solid var(--border)" }}>
         {/* Segno di vita: l'ora dell'ultimo controllo degli ordini. Se è ferma da minuti, il pannello non sta controllando. */}
         <span title="Ora dell'ultimo controllo degli ordini online e pausa più lunga tra due controlli da quando la pagina è aperta" style={{ color: "var(--text-muted)", fontSize: 12 }}>
-          Ultimo controllo: {ultimoControllo ? ultimoControllo.toLocaleTimeString("it-IT") : "…"} · pausa max {pausaMaxSec} s
+          Ultimo controllo: {ultimoControllo ? ultimoControllo.toLocaleTimeString("it-IT") : "…"} · pausa max {pausaMaxSec} s · sveglia {sveglia ? "sì" : "no"}
           {ultimoSuonoInfo ? ` · ultimo suono ${ultimoSuonoInfo}` : ""}
         </span>
         {audioPronto && !schermoAcceso && (
