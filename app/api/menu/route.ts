@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { resetEsauritiScaduti } from "@/lib/esauriti";
+import { esauritoAttivo, overrideDisponibile } from "@/lib/esauriti";
 
 // GET /api/menu?sedeId=xxx&tutti=1
 // tutti=1 include anche i prodotti disattivati globalmente — usato dalla
@@ -15,9 +15,6 @@ export async function GET(req: NextRequest) {
   const includiDisattivi = searchParams.get("tutti") === "1";
   // canale=online: l'app dei clienti (e il menù pubblico) usano il «prezzo app» dove c'è; la cassa no.
   const perApp = searchParams.get("canale") === "online";
-
-  // I prodotti segnati «Esaurito» nei giorni scorsi tornano disponibili (alle 5:00 del giorno dopo).
-  await resetEsauritiScaduti();
 
   const items = await prisma.menuItem.findMany({
     where: { ...(includiDisattivi ? {} : { isAttivo: true }) },
@@ -59,7 +56,11 @@ export async function GET(req: NextRequest) {
       : null;
     return {
       ...item,
-      disponibileInSede: override ? override.disponibile : item.disponibileDefault,
+      // disponibileInSede = quello che vedono i clienti (in vendita E non esaurito oggi); attivoInSede = interruttore permanente;
+      // esauritoOggi = «Esaurito» ancora valido (fino alle 5:00 del giorno dopo).
+      disponibileInSede: override ? overrideDisponibile(override) : item.disponibileDefault,
+      attivoInSede: override ? override.disponibile : item.disponibileDefault,
+      esauritoOggi: override ? esauritoAttivo(override.esauritoIl) : false,
       prezzoEffettivo: override?.prezzoCustom
         ? parseFloat(override.prezzoCustom)
         : perApp && item.prezzoOnline != null

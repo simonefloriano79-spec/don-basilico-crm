@@ -5,8 +5,6 @@ import { prisma } from "@/lib/prisma";
 import { CATEGORIE_IMPASTO, impastiDellaSede } from "@/lib/impasti";
 import { prossimoNumeroOrdine } from "@/lib/numero-ordine";
 import { calcolaOrdine, CATEGORIE_MAXI, type ArticoloPrezzato } from "@/lib/ordini-vocali/pricing";
-import { resetEsauritiScaduti } from "@/lib/esauriti";
-
 // GET /api/ordini
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -84,8 +82,6 @@ export async function POST(req: NextRequest) {
     ...(i.ingredientiAggiuntiIds ?? []),
     ...(i.ingredientiRimossi ?? []),
   ])));
-
-  await resetEsauritiScaduti(); // «Esaurito» di ieri: torna disponibile (vedi lib/esauriti.ts)
 
   const [menuItemsDb, overrideDb, sedeExtraDb, ingredientiDb] = await Promise.all([
     menuItemIds.length ? prisma.menuItem.findMany({ where: { id: { in: menuItemIds } } }) : [],

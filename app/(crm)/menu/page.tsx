@@ -22,11 +22,10 @@ function euro(n: number) {
   return `€ ${n.toFixed(2).replace(".", ",")}`;
 }
 
-// «Esaurito» segnato col tasto torna disponibile da solo alle 5:00 del giorno dopo; senza segno (non venduto in sede, ingrediente finito) resta com'è.
-function etichettaSede(item: any) {
-  if (item.disponibileInSede) return "Disponibile";
-  return item.override?.esauritoIl ? "Esaurito · torna domani" : "Non venduto qui";
-}
+// Per ogni prodotto, in ogni sede, due interruttori separati (vedi lib/esauriti.ts):
+//  - «In vendita»: permanente, lo gestisce liberamente ogni sede;
+//  - «Esaurito»: vale fino alle 5:00 del giorno dopo, poi il prodotto torna disponibile da solo.
+const inVendita = (item: any): boolean => item.attivoInSede ?? item.disponibileInSede;
 
 export default function MenuPage() {
   const { data: session } = useSession();
@@ -57,31 +56,29 @@ export default function MenuPage() {
   const cats = ["tutti", ...Array.from(new Set(items.map((m) => m.categoria)))] as string[];
   const itemsFiltrati = items.filter((m) => catFiltro === "tutti" || m.categoria === catFiltro);
 
-  const toggleDisponibilitaSede = async (item: any) => {
+  // «In vendita» (permanente, solo questa sede). Disattivarlo toglie anche un eventuale «Esaurito».
+  const toggleInVendita = async (item: any) => {
     if (!sedeId) return;
-    const nuovaDisp = !item.disponibileInSede;
+    const nuovo = !inVendita(item);
     const res = await fetch(`/api/menu/${item.id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sedeId, disponibile: nuovaDisp }),
+      body: JSON.stringify({ sedeId, disponibile: nuovo }),
     });
-    if (res.ok) { toast.success(nuovaDisp ? "Prodotto riabilitato" : "Prodotto disabilitato in questa sede"); caricaMenu(); }
+    if (res.ok) { toast.success(nuovo ? "Di nuovo in vendita in questa sede" : "Non più in vendita in questa sede (resta così finché non lo riattivi)"); caricaMenu(); }
     else toast.error("Operazione non riuscita");
   };
 
-  // «Non vendere qui» (solo super admin): il prodotto resta disattivato in questa sede finché non lo si rimette in vendita (tocco sul tasto di stato).
-  // A differenza di «Esaurito», non torna disponibile da solo il giorno dopo.
-  const nonVendereQui = async (item: any) => {
-    if (!sedeId || !isSuperAdmin) return;
-    const nomeSede = sedi.find((s) => s.id === sedeId)?.nome ?? "questa sede";
-    if (!confirm(`Non vendere più "${item.nome}" in ${nomeSede}?\n\nResta disattivato finché non lo rimetti in vendita (non torna da solo domani). Le altre sedi non cambiano.`)) return;
+  // «Esaurito»: nascosto ai clienti fino alle 5:00 del giorno dopo, poi torna disponibile da solo. Si può togliere subito.
+  const toggleEsaurito = async (item: any) => {
+    if (!sedeId) return;
+    const nuovo = !item.esauritoOggi;
     const res = await fetch(`/api/menu/${item.id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sedeId, disponibile: false, permanente: true }),
+      body: JSON.stringify({ sedeId, esaurito: nuovo }),
     });
-    if (res.ok) { toast.success(`"${item.nome}" non più venduto in ${nomeSede}`); caricaMenu(); }
+    if (res.ok) { toast.success(nuovo ? "Esaurito: torna disponibile da solo alle 5:00 di domani" : "Di nuovo disponibile"); caricaMenu(); }
     else toast.error("Operazione non riuscita");
   };
-  const puoNonVendereQui = (item: any) => isSuperAdmin && !!sedeId && (item.disponibileInSede || !!item.override?.esauritoIl);
 
   const toggleGlobale = async (item: any) => {
     if (item.isAttivo && !confirm(`Vuoi disattivare "${item.nome}"? Non sarà più ordinabile in nessuna sede finché non lo riattivi.`)) return;
@@ -119,7 +116,7 @@ export default function MenuPage() {
           </select>
           {sedeVista && (
             <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 6 }}>
-              Stai gestendo la disponibilità solo per questa sede: un prodotto segnato «Esaurito» torna disponibile da solo alle 5:00 del giorno dopo. Per disattivarlo ovunque usa "Attivo globale".
+              Stai gestendo solo questa sede. «In vendita» è permanente; «Esaurito» dura fino alle 5:00 del giorno dopo e poi il prodotto torna disponibile da solo. Per disattivarlo ovunque usa "Attivo globale".
             </div>
           )}
         </div>
@@ -147,7 +144,7 @@ export default function MenuPage() {
 
       {!isSuperAdmin && (
         <div style={{ background: "var(--accent-bg)", border: "1px solid var(--accent-border)", borderRadius: 9, padding: "10px 16px", marginBottom: 16, fontSize: 12.5, color: "var(--accent-ink)" }}>
-          Modalità sede: puoi disabilitare prodotti temporaneamente esauriti: tornano disponibili da soli alle 5:00 del giorno dopo. Le modifiche globali sono gestite dall'admin.
+          Modalità sede: per ogni prodotto puoi scegliere «In vendita» (permanente, finché non lo cambi) ed «Esaurito» (nascosto fino alle 5:00 del giorno dopo, poi torna da solo). Le modifiche globali sono gestite dall'admin.
         </div>
       )}
 
@@ -182,13 +179,15 @@ export default function MenuPage() {
                   {item.isAttivo ? "Attivo" : "Disattivato"}
                 </button>
                 {sedeId && (
-                  <button onClick={() => toggleDisponibilitaSede(item)} style={{ ...chip(!!item.disponibileInSede), cursor: "pointer" }}>
-                    {etichettaSede(item)}
+                  <button onClick={() => toggleInVendita(item)} style={{ ...chip(inVendita(item)), cursor: "pointer" }}>
+                    {inVendita(item) ? "In vendita" : "Non in vendita"}
                   </button>
                 )}
-                {puoNonVendereQui(item) && (
-                  <button onClick={() => nonVendereQui(item)} style={{ background: "#fff", border: "1px solid var(--border)", color: "var(--text-3)", padding: "6px 13px", borderRadius: 20, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-ui)" }}>
-                    Non vendere qui
+                {sedeId && inVendita(item) && (
+                  <button onClick={() => toggleEsaurito(item)} style={item.esauritoOggi
+                    ? { ...chip(false), cursor: "pointer" }
+                    : { background: "#fff", border: "1px solid var(--border)", color: "var(--text-3)", padding: "6px 13px", borderRadius: 20, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-ui)", whiteSpace: "nowrap" }}>
+                    {item.esauritoOggi ? "Esaurito · torna domani" : "Segna esaurito"}
                   </button>
                 )}
                 {isSuperAdmin && (
@@ -207,7 +206,7 @@ export default function MenuPage() {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "var(--surface-muted)" }}>
-              {["Prodotto", "Categoria", "Prezzo base", "Attivo globale", ...(sedeId ? ["In questa sede"] : []), ...(isSuperAdmin ? [""] : [])].map((h, i) => (
+              {["Prodotto", "Categoria", "Prezzo base", "Attivo globale", ...(sedeId ? ["In vendita qui", "Esaurito oggi"] : []), ...(isSuperAdmin ? [""] : [])].map((h, i) => (
                 <th key={i} style={{ padding: "11px 14px", textAlign: "left", fontSize: 9.5, letterSpacing: 1.7, textTransform: "uppercase", color: "var(--text-muted)", fontWeight: 500, whiteSpace: "nowrap" }}>{h}</th>
               ))}
             </tr>
@@ -253,17 +252,27 @@ export default function MenuPage() {
                   </td>
                   {sedeId && (
                     <td style={{ padding: "13px 14px" }}>
-                      <button onClick={() => toggleDisponibilitaSede(item)} style={{
+                      <button onClick={() => toggleInVendita(item)} title="Permanente: resta così finché non lo cambi" style={{
                         padding: "5px 13px", borderRadius: 20, fontSize: 11.5, fontWeight: 500, cursor: "pointer",
-                        border: `1px solid ${item.disponibileInSede ? "var(--accent-border)" : "var(--danger-border)"}`,
-                        background: item.disponibileInSede ? "var(--accent-bg-2)" : "var(--danger-bg)",
-                        color: item.disponibileInSede ? "var(--accent-ink)" : "var(--danger)",
+                        border: `1px solid ${inVendita(item) ? "var(--accent-border)" : "var(--danger-border)"}`,
+                        background: inVendita(item) ? "var(--accent-bg-2)" : "var(--danger-bg)",
+                        color: inVendita(item) ? "var(--accent-ink)" : "var(--danger)",
                         fontFamily: "var(--font-ui)", whiteSpace: "nowrap",
-                      }}>{etichettaSede(item)}</button>
-                      {puoNonVendereQui(item) && (
-                        <button onClick={() => nonVendereQui(item)} title="Disattiva in modo permanente in questa sede" style={{ marginLeft: 8, background: "none", border: "none", color: "var(--text-muted)", fontSize: 11.5, cursor: "pointer", textDecoration: "underline", fontFamily: "var(--font-ui)", whiteSpace: "nowrap" }}>
-                          Non vendere qui
-                        </button>
+                      }}>{inVendita(item) ? "In vendita" : "Non in vendita"}</button>
+                    </td>
+                  )}
+                  {sedeId && (
+                    <td style={{ padding: "13px 14px" }}>
+                      {inVendita(item) ? (
+                        <button onClick={() => toggleEsaurito(item)} title="Nascosto ai clienti fino alle 5:00 del giorno dopo, poi torna da solo" style={{
+                          padding: "5px 13px", borderRadius: 20, fontSize: 11.5, fontWeight: 500, cursor: "pointer",
+                          border: `1px solid ${item.esauritoOggi ? "var(--danger-border)" : "var(--border)"}`,
+                          background: item.esauritoOggi ? "var(--danger-bg)" : "#fff",
+                          color: item.esauritoOggi ? "var(--danger)" : "var(--text-3)",
+                          fontFamily: "var(--font-ui)", whiteSpace: "nowrap",
+                        }}>{item.esauritoOggi ? "Esaurito · torna domani" : "Segna esaurito"}</button>
+                      ) : (
+                        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>—</span>
                       )}
                     </td>
                   )}

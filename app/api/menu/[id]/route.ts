@@ -3,6 +3,16 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+// Disponibilità di un prodotto in una sede: due interruttori separati (vedi lib/esauriti.ts).
+//  - `disponibile`: «in vendita» (permanente). Cambiarlo toglie anche un eventuale «esaurito».
+//  - `esaurito`: «Esaurito» fino alle 5:00 del giorno dopo (true) oppure tolto subito (false).
+function datiDisponibilita(disponibile: unknown, esaurito: unknown) {
+  const d: { disponibile?: boolean; esauritoIl?: Date | null } = {};
+  if (typeof disponibile === "boolean") { d.disponibile = disponibile; d.esauritoIl = null; }
+  if (typeof esaurito === "boolean") d.esauritoIl = esaurito ? new Date() : null;
+  return d;
+}
+
 // PATCH /api/menu/[id]
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -13,23 +23,21 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   // Super admin: modifica globale, oppure override su una sede a sua scelta
   if (user.ruolo === "super_admin") {
-    const { sedeId: sedeIdAdmin, disponibile: disponibileAdmin, prezzoCustom: prezzoCustomAdmin, noteSede: noteSedeAdmin } = body;
-    // permanente: «Non vendere qui» (solo il super admin): resta disattivato finché non lo si rimette in vendita, senza reset notturno.
-    const permanente = body.permanente === true;
+    const { sedeId: sedeIdAdmin, disponibile: disponibileAdmin, esaurito: esauritoAdmin, prezzoCustom: prezzoCustomAdmin, noteSede: noteSedeAdmin } = body;
     if (sedeIdAdmin) {
+      const disp = datiDisponibilita(disponibileAdmin, esauritoAdmin);
       const override = await prisma.sedeMenuOverride.upsert({
         where: { sedeId_menuItemId: { sedeId: sedeIdAdmin, menuItemId: params.id } },
         update: {
-          // «Esaurito» dura fino alle 5:00 del giorno dopo (vedi lib/esauriti.ts); riattivando a mano il segno si toglie.
-          ...(disponibileAdmin !== undefined && { disponibile: disponibileAdmin, esauritoIl: disponibileAdmin === false && !permanente ? new Date() : null }),
+          ...disp,
           ...(prezzoCustomAdmin !== undefined && { prezzoCustom: prezzoCustomAdmin }),
           ...(noteSedeAdmin !== undefined && { noteSede: noteSedeAdmin }),
         },
         create: {
           sedeId: sedeIdAdmin,
           menuItemId: params.id,
-          disponibile: disponibileAdmin ?? true,
-          esauritoIl: disponibileAdmin === false && !permanente ? new Date() : null,
+          disponibile: disp.disponibile ?? true,
+          esauritoIl: disp.esauritoIl ?? null,
           prezzoCustom: prezzoCustomAdmin ?? null,
           noteSede: noteSedeAdmin ?? null,
         },
@@ -55,7 +63,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   // Operatore sede: solo override della propria sede
-  const { disponibile, prezzoCustom, sedeId, noteSede } = body;
+  const { disponibile, esaurito, prezzoCustom, sedeId, noteSede } = body;
 
   if (!sedeId) {
     return NextResponse.json({ error: "sedeId richiesto" }, { status: 400 });
@@ -66,18 +74,19 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
   }
 
+  const disp = datiDisponibilita(disponibile, esaurito);
   const override = await prisma.sedeMenuOverride.upsert({
     where: { sedeId_menuItemId: { sedeId, menuItemId: params.id } },
     update: {
-      ...(disponibile !== undefined && { disponibile, esauritoIl: disponibile === false ? new Date() : null }),
+      ...disp,
       ...(prezzoCustom !== undefined && { prezzoCustom }),
       ...(noteSede !== undefined && { noteSede }),
     },
     create: {
       sedeId,
       menuItemId: params.id,
-      disponibile: disponibile ?? true,
-      esauritoIl: disponibile === false ? new Date() : null,
+      disponibile: disp.disponibile ?? true,
+      esauritoIl: disp.esauritoIl ?? null,
       prezzoCustom: prezzoCustom ?? null,
       noteSede: noteSede ?? null,
     },
