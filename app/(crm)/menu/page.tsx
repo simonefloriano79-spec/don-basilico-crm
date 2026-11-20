@@ -23,7 +23,7 @@ function euro(n: number) {
 }
 
 // Per ogni prodotto, in ogni sede, due interruttori separati (vedi lib/esauriti.ts):
-//  - «In vendita»: permanente, lo gestisce liberamente ogni sede;
+//  - «Attiva» / «Disattivata»: permanente, lo gestisce liberamente ogni sede;
 //  - «Esaurito»: vale fino alle 5:00 del giorno dopo, poi il prodotto torna disponibile da solo.
 const inVendita = (item: any): boolean => item.attivoInSede ?? item.disponibileInSede;
 
@@ -56,7 +56,7 @@ export default function MenuPage() {
   const cats = ["tutti", ...Array.from(new Set(items.map((m) => m.categoria)))] as string[];
   const itemsFiltrati = items.filter((m) => catFiltro === "tutti" || m.categoria === catFiltro);
 
-  // «In vendita» (permanente, solo questa sede). Disattivarlo toglie anche un eventuale «Esaurito».
+  // «Attiva» / «Disattivata» (permanente, solo questa sede). Disattivarla toglie anche un eventuale «Esaurito».
   const toggleInVendita = async (item: any) => {
     if (!sedeId) return;
     const nuovo = !inVendita(item);
@@ -64,7 +64,7 @@ export default function MenuPage() {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sedeId, disponibile: nuovo }),
     });
-    if (res.ok) { toast.success(nuovo ? "Di nuovo in vendita in questa sede" : "Non più in vendita in questa sede (resta così finché non lo riattivi)"); caricaMenu(); }
+    if (res.ok) { toast.success(nuovo ? "Prodotto attivo in questa sede" : "Prodotto disattivato in questa sede (resta così finché non lo riattivi)"); caricaMenu(); }
     else toast.error("Operazione non riuscita");
   };
 
@@ -116,7 +116,7 @@ export default function MenuPage() {
           </select>
           {sedeVista && (
             <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 6 }}>
-              Stai gestendo solo questa sede. «In vendita» è permanente; «Esaurito» dura fino alle 5:00 del giorno dopo e poi il prodotto torna disponibile da solo. Per disattivarlo ovunque usa "Attivo globale".
+              Stai gestendo solo questa sede. «Attiva» / «Disattivata» è permanente (resta com'è finché non lo cambi); «Esaurito» dura fino alle 5:00 del giorno dopo e poi il prodotto torna disponibile da solo. Per disattivarlo in tutte le sedi usa "Attivo globale".
             </div>
           )}
         </div>
@@ -144,7 +144,7 @@ export default function MenuPage() {
 
       {!isSuperAdmin && (
         <div style={{ background: "var(--accent-bg)", border: "1px solid var(--accent-border)", borderRadius: 9, padding: "10px 16px", marginBottom: 16, fontSize: 12.5, color: "var(--accent-ink)" }}>
-          Modalità sede: per ogni prodotto puoi scegliere «In vendita» (permanente, finché non lo cambi) ed «Esaurito» (nascosto fino alle 5:00 del giorno dopo, poi torna da solo). Le modifiche globali sono gestite dall'admin.
+          Modalità sede: per ogni prodotto puoi scegliere «Attiva» / «Disattivata» (permanente, finché non la cambi) ed «Esaurito» (nascosto fino alle 5:00 del giorno dopo, poi torna da solo). Le modifiche globali sono gestite dall'admin.
         </div>
       )}
 
@@ -180,7 +180,7 @@ export default function MenuPage() {
                 </button>
                 {sedeId && (
                   <button onClick={() => toggleInVendita(item)} style={{ ...chip(inVendita(item)), cursor: "pointer" }}>
-                    {inVendita(item) ? "In vendita" : "Non in vendita"}
+                    {inVendita(item) ? "Attiva" : "Disattivata"}
                   </button>
                 )}
                 {sedeId && inVendita(item) && (
@@ -206,7 +206,7 @@ export default function MenuPage() {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "var(--surface-muted)" }}>
-              {["Prodotto", "Categoria", "Prezzo base", "Attivo globale", ...(sedeId ? ["In vendita qui", "Esaurito oggi"] : []), ...(isSuperAdmin ? [""] : [])].map((h, i) => (
+              {["Prodotto", "Categoria", "Prezzo base", "Attivo globale", ...(sedeId ? ["Attiva in questa sede", "Esaurito oggi"] : []), ...(isSuperAdmin ? [""] : [])].map((h, i) => (
                 <th key={i} style={{ padding: "11px 14px", textAlign: "left", fontSize: 9.5, letterSpacing: 1.7, textTransform: "uppercase", color: "var(--text-muted)", fontWeight: 500, whiteSpace: "nowrap" }}>{h}</th>
               ))}
             </tr>
@@ -258,7 +258,7 @@ export default function MenuPage() {
                         background: inVendita(item) ? "var(--accent-bg-2)" : "var(--danger-bg)",
                         color: inVendita(item) ? "var(--accent-ink)" : "var(--danger)",
                         fontFamily: "var(--font-ui)", whiteSpace: "nowrap",
-                      }}>{inVendita(item) ? "In vendita" : "Non in vendita"}</button>
+                      }}>{inVendita(item) ? "Attiva" : "Disattivata"}</button>
                     </td>
                   )}
                   {sedeId && (
