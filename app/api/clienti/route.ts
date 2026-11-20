@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { filtroClientiVisibili } from "@/lib/clienti-visibilita";
+import { filtroClientiVisibili, telefoniEsatti } from "@/lib/clienti-visibilita";
 
 // GET /api/clienti?q=mario&sedeId=xxx&limit=50
 export async function GET(req: NextRequest) {
@@ -29,6 +29,8 @@ export async function GET(req: NextRequest) {
                 { nome:             { contains: q, mode: "insensitive" } },
                 { cognome:          { contains: q, mode: "insensitive" } },
                 { telefono:         { contains: q } },
+                // Numero scritto con spazi, trattini o +39: si cerca anche nelle forme in cui può essere salvato.
+                ...(telefoniEsatti(q).length ? [{ telefono: { in: telefoniEsatti(q) } }] : []),
                 { email:            { contains: q, mode: "insensitive" } },
                 { indirizzoDefault: { contains: q, mode: "insensitive" } },
               ],
