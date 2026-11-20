@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { overrideDisponibile } from "@/lib/esauriti";
+import { filtroIngredientiFiniti, ingredienteMancante, overrideDisponibile } from "@/lib/esauriti";
 import { CATEGORIE_IMPASTO, impastiDellaSede } from "@/lib/impasti";
 import { èCodiceBreve, risolviCodice } from "./id-brevi";
 import { bevandaAmmessaInCombo, leggiComboConfig, leggiComboScelte, testoDettaglioCombo, type ComboScelte } from "@/lib/combo";
@@ -130,7 +130,7 @@ export async function calcolaOrdine(
       : Promise.resolve([]),
     prisma.sedePizzaMaxi.findUnique({ where: { sedeId } }),
     prisma.sedeMenuOverride.findMany({ where: { sedeId, menuItemId: { in: menuItemIds } } }),
-    prisma.sedeIngredienteDisabilitato.findMany({ where: { sedeId } }),
+    prisma.sedeIngredienteDisabilitato.findMany({ where: { sedeId, ...filtroIngredientiFiniti() } }), // finiti «oggi» (scadono alle 5:00)
   ]);
 
   const menuItemMap = new Map(menuItems.map((m) => [m.id, m]));
@@ -150,13 +150,15 @@ export async function calcolaOrdine(
   });
   const [itemCollegati, overrideCollegati] = idCollegati.size
     ? await Promise.all([
-        prisma.menuItem.findMany({ where: { id: { in: Array.from(idCollegati) } }, select: { id: true, nome: true, categoria: true, isAttivo: true } }),
+        prisma.menuItem.findMany({ where: { id: { in: Array.from(idCollegati) } }, select: { id: true, nome: true, categoria: true, isAttivo: true, ingredienti: { select: { ingredienteId: true } } } }),
         prisma.sedeMenuOverride.findMany({ where: { sedeId, menuItemId: { in: Array.from(idCollegati) } } }),
       ])
     : [[], []];
   const collegatiMap = new Map(itemCollegati.map((i) => [i.id, i]));
   // Non si possono ordinare se disattivati in sede o segnati «Esaurito» (fino alle 5:00 del giorno dopo).
   const nonDisponibiliInSede = new Set(overrideCollegati.filter((o) => !overrideDisponibile(o)).map((o) => o.menuItemId));
+  // ...e quelli che contengono un ingrediente finito oggi.
+  itemCollegati.forEach((i) => { if (ingredienteMancante(i.ingredienti, ingDisabilitati)) nonDisponibiliInSede.add(i.id); });
 
   let totale = 0;
   const articoliPrezzati: ArticoloPrezzato[] = articoli.map((a) => {
@@ -167,6 +169,9 @@ export async function calcolaOrdine(
     if (override && !overrideDisponibile(override)) {
       throw new ErrorePricing(`${menuItem.nome} non è disponibile in questa sede`);
     }
+    // Un ingrediente finito oggi (fino alle 5:00 del giorno dopo) rende non disponibili le pizze che lo contengono.
+    const manca = ingredienteMancante(menuItem.ingredienti, ingDisabilitati);
+    if (manca) throw new ErrorePricing(`${menuItem.nome} non è disponibile in questa sede: manca ${manca.ingrediente.nome}`);
 
     // «Menù Combo»: prezzo fisso; si controllano le scelte (quante, e che siano ammesse e disponibili in questa sede).
     if (menuItem.categoria === "combo") {
@@ -251,6 +256,8 @@ export async function calcolaOrdine(
       altraMeta = menuItemMap.get(a.secondaMeta) ?? null;
       if (!altraMeta) throw new ErrorePricing(`Prodotto non trovato o non disponibile: ${a.secondaMeta}`);
       const overrideAltra = overrideMap.get(altraMeta.id);
+      const mancaAltra = ingredienteMancante(altraMeta.ingredienti, ingDisabilitati);
+      if (mancaAltra) throw new ErrorePricing(`${altraMeta.nome} non è disponibile in questa sede: manca ${mancaAltra.ingrediente.nome}`);
       if (overrideAltra && !overrideDisponibile(overrideAltra)) throw new ErrorePricing(`${altraMeta.nome} non è disponibile in questa sede`);
       if (!CATEGORIE_META_E_META.has(menuItem.categoria) || !CATEGORIE_META_E_META.has(altraMeta.categoria)) {
         throw new ErrorePricing("Metà e metà si può fare solo tra due pizze");

@@ -174,6 +174,9 @@ export default function MenuPage() {
                   <span style={{ fontSize: 11, background: "var(--accent-bg-2)", border: "1px solid var(--accent-border)", borderRadius: 20, padding: "1px 8px", color: "var(--text-2)" }}>app € {parseFloat(item.prezzoOnline).toFixed(2).replace(".", ",")}</span>
                 </div>
               )}
+              {item.bloccatoDaIngrediente && sedeId && (
+                <div style={{ fontSize: 11.5, color: "var(--danger)", marginTop: 8 }}>Non disponibile oggi: manca {item.bloccatoDaIngrediente}</div>
+              )}
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
                 <button onClick={() => isSuperAdmin && toggleGlobale(item)} disabled={!isSuperAdmin} style={{ ...chip(item.isAttivo), cursor: isSuperAdmin ? "pointer" : "default" }}>
                   {item.isAttivo ? "Attivo" : "Disattivato"}
@@ -273,6 +276,9 @@ export default function MenuPage() {
                         }}>{item.esauritoOggi ? "Esaurito · torna domani" : "Segna esaurito"}</button>
                       ) : (
                         <span style={{ fontSize: 12, color: "var(--text-muted)" }}>—</span>
+                      )}
+                      {item.bloccatoDaIngrediente && (
+                        <div style={{ fontSize: 11, color: "var(--danger)", marginTop: 4 }}>Manca: {item.bloccatoDaIngrediente}</div>
                       )}
                     </td>
                   )}

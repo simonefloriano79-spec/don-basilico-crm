@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { esauritoAttivo, overrideDisponibile } from "@/lib/esauriti";
+import { esauritoAttivo, filtroIngredientiFiniti, ingredienteMancante, overrideDisponibile } from "@/lib/esauriti";
 
 // GET /api/menu?sedeId=xxx&tutti=1
 // tutti=1 include anche i prodotti disattivati globalmente — usato dalla
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
   // Ingredienti disabilitati nella sede
   const ingredientiDis = sedeId
     ? await prisma.sedeIngredienteDisabilitato.findMany({
-        where: { sedeId },
+        where: { sedeId, ...filtroIngredientiFiniti() }, // solo quelli finiti «oggi» (scadono alle 5:00)
         include: { ingrediente: true },
       })
     : [];
@@ -49,16 +49,22 @@ export async function GET(req: NextRequest) {
   // (Se la lettura fallisce il menù si apre comunque, solo senza la scelta maxi.)
   const maxiSede = sedeId ? await prisma.sedePizzaMaxi.findUnique({ where: { sedeId } }).catch(() => null) : null;
 
+  // Ingredienti finiti oggi in questa sede: le pizze che li contengono non sono disponibili (fino alle 5:00 del giorno dopo).
+  const finiti = new Set(ingredientiDis.map((d) => d.ingredienteId));
+
   // Processa items con override
   const itemsConOverride = items.map((item) => {
     const override = sedeId
       ? (item.sedeOverride as any[])?.[0]
       : null;
+    const mancante = sedeId ? ingredienteMancante((item as any).ingredienti as { ingredienteId: string; ingrediente?: { nome: string } }[], finiti) : null;
     return {
       ...item,
-      // disponibileInSede = quello che vedono i clienti (in vendita E non esaurito oggi); attivoInSede = interruttore permanente;
-      // esauritoOggi = «Esaurito» ancora valido (fino alle 5:00 del giorno dopo).
-      disponibileInSede: override ? overrideDisponibile(override) : item.disponibileDefault,
+      // disponibileInSede = quello che vedono i clienti (attiva E non esaurita oggi E senza ingredienti finiti);
+      // attivoInSede = interruttore permanente; esauritoOggi = «Esaurito» ancora valido (fino alle 5:00 del giorno dopo);
+      // bloccatoDaIngrediente = nome dell'ingrediente finito che la rende non disponibile (o null).
+      disponibileInSede: (override ? overrideDisponibile(override) : item.disponibileDefault) && !mancante,
+      bloccatoDaIngrediente: mancante?.ingrediente?.nome ?? null,
       attivoInSede: override ? override.disponibile : item.disponibileDefault,
       esauritoOggi: override ? esauritoAttivo(override.esauritoIl) : false,
       prezzoEffettivo: override?.prezzoCustom

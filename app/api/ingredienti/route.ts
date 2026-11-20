@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { filtroIngredientiFiniti } from "@/lib/esauriti";
 
 // GET /api/ingredienti?sedeId=xxx
 export async function GET(req: NextRequest) {
@@ -12,8 +13,9 @@ export async function GET(req: NextRequest) {
     orderBy: { nome: "asc" },
     include: sedeId
       ? {
+          // Solo gli ingredienti finiti «oggi» (fino alle 5:00 del giorno dopo): quelli di ieri sono già tornati disponibili.
           disabilitati: {
-            where: { sedeId },
+            where: { sedeId, ...filtroIngredientiFiniti() },
           },
         }
       : undefined,

@@ -41,12 +41,12 @@ export default function IngredientiPage() {
 
   const toggleDisabilitatoSede = async (ing: any) => {
     const disabilita = !ing.disabilitatoInSede;
-    if (disabilita && !confirm(`Segnare "${ing.nome}" come esaurito in questa sede? Le pizze che lo usano risulteranno automaticamente esaurite qui.`)) return;
+    if (disabilita && !confirm(`Segnare "${ing.nome}" come esaurito in questa sede?\n\nLe pizze che lo contengono non saranno disponibili qui fino alle 5:00 di domani: poi l'ingrediente e le pizze tornano disponibili da soli.`)) return;
     const res = await fetch(`/api/ingredienti/${ing.id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sedeId, disabilita }),
     });
-    if (res.ok) { toast.success(disabilita ? `"${ing.nome}" segnato come esaurito` : `"${ing.nome}" ripristinato`); carica(); }
+    if (res.ok) { toast.success(disabilita ? `"${ing.nome}" esaurito: torna disponibile da solo alle 5:00 di domani` : `"${ing.nome}" di nuovo disponibile`); carica(); }
   };
 
   const toggleDisponibileGlobale = async (ing: any) => {
@@ -98,7 +98,7 @@ export default function IngredientiPage() {
       <div style={{ background: "var(--accent-bg)", border: "1px solid var(--accent-border)", borderRadius: 9, padding: "10px 16px", marginBottom: 16, fontSize: 12.5, color: "var(--accent-ink)" }}>
         {isSuperAdmin
           ? "Il prezzo di aggiunta viene applicato automaticamente quando un cliente aggiunge l'ingrediente extra a una pizza."
-          : "Puoi segnare un ingrediente come esaurito — verrà disabilitato solo per la tua sede. I prezzi sono gestiti dall'admin."}
+          : "Puoi segnare un ingrediente come esaurito: sparisce solo dalla tua sede fino alle 5:00 del giorno dopo, poi torna da solo (e con lui le pizze che lo contengono). I prezzi sono gestiti dall'admin."}
       </div>
 
       <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
@@ -123,7 +123,7 @@ export default function IngredientiPage() {
                         <span style={{ opacity: 1, fontSize: 10, fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase", padding: "2px 8px", borderRadius: 20, background: "var(--danger)", color: "#fff", flexShrink: 0 }}>Disattivato</span>
                       )}
                       {ing.disponibileDefault && ing.disabilitatoInSede && (
-                        <span style={{ opacity: 1, fontSize: 10, fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase", padding: "2px 8px", borderRadius: 20, background: "var(--danger-bg)", color: "var(--danger)", flexShrink: 0 }}>Esaurito</span>
+                        <span style={{ opacity: 1, fontSize: 10, fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase", padding: "2px 8px", borderRadius: 20, background: "var(--danger-bg)", color: "var(--danger)", flexShrink: 0 }}>Esaurito · torna domani</span>
                       )}
                     </div>
                   )}
@@ -190,7 +190,7 @@ export default function IngredientiPage() {
                       border: `1px solid ${ing.disabilitatoInSede ? "var(--danger-border)" : "var(--accent-border)"}`,
                       background: ing.disabilitatoInSede ? "var(--danger-bg)" : "var(--accent-bg-2)",
                       color: ing.disabilitatoInSede ? "var(--danger)" : "var(--accent-ink)",
-                    }}>{ing.disabilitatoInSede ? "Esaurito" : "Disponibile"}</button>
+                    }}>{ing.disabilitatoInSede ? "Esaurito · torna domani" : "Disponibile"}</button>
                   </td>
                 )}
 
