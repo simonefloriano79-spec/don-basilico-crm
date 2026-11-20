@@ -205,6 +205,9 @@ model SedeMenuOverride {
   disponibile  Boolean  @default(true)
   prezzoCustom Decimal? @map("prezzo_custom") @db.Decimal(10, 2)
   noteSede     String?  @map("note_sede")
+  // Quando il prodotto è stato segnato «Esaurito» col tasto del menù: torna disponibile da solo alle 5:00 del giorno dopo
+  // (lib/esauriti.ts). Vuoto = nessun reset automatico (es. prodotto non venduto in quella sede, o ingrediente finito).
+  esauritoIl   DateTime? @map("esaurito_il")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   sede     Sede     @relation(fields: [sedeId], references: [id], onDelete: Cascade)

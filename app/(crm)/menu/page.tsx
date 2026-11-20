@@ -22,6 +22,12 @@ function euro(n: number) {
   return `€ ${n.toFixed(2).replace(".", ",")}`;
 }
 
+// «Esaurito» segnato col tasto torna disponibile da solo alle 5:00 del giorno dopo; senza segno (non venduto in sede, ingrediente finito) resta com'è.
+function etichettaSede(item: any) {
+  if (item.disponibileInSede) return "Disponibile";
+  return item.override?.esauritoIl ? "Esaurito · torna domani" : "Esaurito";
+}
+
 export default function MenuPage() {
   const { data: session } = useSession();
   const [items, setItems] = useState<any[]>([]);
@@ -98,7 +104,7 @@ export default function MenuPage() {
           </select>
           {sedeVista && (
             <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 6 }}>
-              Stai gestendo la disponibilità solo per questa sede. Per disattivare un prodotto ovunque usa "Attivo globale".
+              Stai gestendo la disponibilità solo per questa sede: un prodotto segnato «Esaurito» torna disponibile da solo alle 5:00 del giorno dopo. Per disattivarlo ovunque usa "Attivo globale".
             </div>
           )}
         </div>
@@ -126,7 +132,7 @@ export default function MenuPage() {
 
       {!isSuperAdmin && (
         <div style={{ background: "var(--accent-bg)", border: "1px solid var(--accent-border)", borderRadius: 9, padding: "10px 16px", marginBottom: 16, fontSize: 12.5, color: "var(--accent-ink)" }}>
-          Modalità sede: puoi disabilitare prodotti temporaneamente esauriti. Le modifiche globali sono gestite dall'admin.
+          Modalità sede: puoi disabilitare prodotti temporaneamente esauriti: tornano disponibili da soli alle 5:00 del giorno dopo. Le modifiche globali sono gestite dall'admin.
         </div>
       )}
 
@@ -162,7 +168,7 @@ export default function MenuPage() {
                 </button>
                 {sedeId && (
                   <button onClick={() => toggleDisponibilitaSede(item)} style={{ ...chip(!!item.disponibileInSede), cursor: "pointer" }}>
-                    {item.disponibileInSede ? "Disponibile" : "Esaurito"}
+                    {etichettaSede(item)}
                   </button>
                 )}
                 {isSuperAdmin && (
@@ -233,7 +239,7 @@ export default function MenuPage() {
                         background: item.disponibileInSede ? "var(--accent-bg-2)" : "var(--danger-bg)",
                         color: item.disponibileInSede ? "var(--accent-ink)" : "var(--danger)",
                         fontFamily: "var(--font-ui)", whiteSpace: "nowrap",
-                      }}>{item.disponibileInSede ? "Disponibile" : "Esaurito"}</button>
+                      }}>{etichettaSede(item)}</button>
                     </td>
                   )}
                   {isSuperAdmin && (

@@ -94,7 +94,8 @@ export async function PATCH(
     for (const { menuItemId } of collegati) {
       await prisma.sedeMenuOverride.upsert({
         where: { sedeId_menuItemId: { sedeId, menuItemId } },
-        update: { disponibile: false },
+        // esauritoIl vuoto: il blocco dura finché l'ingrediente non viene riattivato (nessun reset automatico notturno).
+        update: { disponibile: false, esauritoIl: null },
         create: { sedeId, menuItemId, disponibile: false },
       });
     }
@@ -108,7 +109,7 @@ export async function PATCH(
     for (const { menuItemId } of collegati) {
       await prisma.sedeMenuOverride.upsert({
         where: { sedeId_menuItemId: { sedeId, menuItemId } },
-        update: { disponibile: true },
+        update: { disponibile: true, esauritoIl: null },
         create: { sedeId, menuItemId, disponibile: true },
       });
     }
