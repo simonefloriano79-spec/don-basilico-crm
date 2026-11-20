@@ -50,6 +50,8 @@ function iniziali(c: { nome: string; cognome: string | null }) {
 }
 
 export default function ClientiPage() {
+  const { data: sessione } = useSession();
+  const isSuperAdmin = (sessione?.user as any)?.ruolo === "super_admin";
   const [clienti, setClienti] = useState<Cliente[]>([]);
   const [ricerca, setRicerca] = useState("");
   const [selected, setSelected] = useState<Cliente | null>(null);
@@ -152,6 +154,11 @@ export default function ClientiPage() {
           padding: "9px 18px", borderRadius: 9, fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)",
         }}>Nuovo cliente</button>
       </div>
+      {sessione && !isSuperAdmin && (
+        <div style={{ background: "var(--accent-bg)", border: "1px solid var(--accent-border)", borderRadius: 9, padding: "9px 14px", marginBottom: 16, fontSize: 12.5, color: "var(--accent-ink)" }}>
+          Qui vedi i clienti che hanno già ordinato nella tua sede. Per ritrovare un cliente di un&apos;altra sede scrivi il suo <strong>numero di telefono completo</strong>.
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: selected ? "1fr 360px" : "1fr", gap: 16, alignItems: "flex-start" }}>
         {/* LISTA */}

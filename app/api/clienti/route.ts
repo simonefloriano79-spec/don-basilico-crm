@@ -2,31 +2,42 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { filtroClientiVisibili } from "@/lib/clienti-visibilita";
 
 // GET /api/clienti?q=mario&sedeId=xxx&limit=50
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Non autorizzato" }, { status: 401 });
 
+  const user = session.user as any;
+  const isSuperAdmin = user.ruolo === "super_admin";
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q");
-  const sedeId = searchParams.get("sedeId");
-  const limit = parseInt(searchParams.get("limit") ?? "50");
+  // Gli account delle sedi vedono solo i clienti che hanno ordinato nella propria sede (vedi lib/clienti-visibilita.ts):
+  // ordini e totali si contano sempre e solo sulla propria sede.
+  const sedeId = isSuperAdmin ? searchParams.get("sedeId") : (user.sedeId as string | null);
+  if (!isSuperAdmin && !sedeId) return NextResponse.json([]);
+  const limit = Math.min(Math.max(parseInt(searchParams.get("limit") ?? "50") || 50, 1), 200);
 
   const clienti = await prisma.cliente.findMany({
     where: {
-      ...(q && {
-        OR: [
-          { nome:             { contains: q, mode: "insensitive" } },
-          { cognome:          { contains: q, mode: "insensitive" } },
-          { telefono:         { contains: q } },
-          { email:            { contains: q, mode: "insensitive" } },
-          { indirizzoDefault: { contains: q, mode: "insensitive" } },
-        ],
-      }),
+      AND: [
+        filtroClientiVisibili(user, q),
+        q
+          ? {
+              OR: [
+                { nome:             { contains: q, mode: "insensitive" } },
+                { cognome:          { contains: q, mode: "insensitive" } },
+                { telefono:         { contains: q } },
+                { email:            { contains: q, mode: "insensitive" } },
+                { indirizzoDefault: { contains: q, mode: "insensitive" } },
+              ],
+            }
+          : {},
+      ],
     },
     include: {
-      _count: { select: { ordini: true } },
+      _count: { select: { ordini: isSuperAdmin ? true : { where: { sedeId: sedeId as string } } } },
       ordini: {
         where: { ...(sedeId && { sedeId }) },
         select: { totale: true, createdAt: true, stato: true, sedeId: true },
