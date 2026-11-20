@@ -1,3 +1,6 @@
+import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { TIPI_EVENTO, ETICHETTE_EVENTO } from "@/lib/eventi-app";
 
@@ -30,6 +33,10 @@ function dataIt(iso: string) {
 }
 
 export default async function StatisticheAppPage() {
+  // Pagina riservata alla direzione: gli account delle sedi vengono rimandati alla Panoramica.
+  const session = await getServerSession(authOptions);
+  if ((session?.user as any)?.ruolo !== "super_admin") redirect("/dashboard");
+
   const oggiRoma = "(now() at time zone 'Europe/Rome')::date";
 
   const [perTipo, perPiattaforma, perSorgente, perGiorno, primo, registratiOggi, registrati7, registratiTot, pushWeb, pushNativi] = await Promise.all([
