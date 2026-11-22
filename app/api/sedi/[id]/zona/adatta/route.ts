@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { areeDaGeoJson, PuntoZona } from "@/lib/zone-geo";
+import { puoModificareZona } from "@/lib/zone-permessi";
 
 const TOLLERANZA_M = 100; // fessure più strette di ~2×100 m tra due zone vengono chiuse
 const MAX_AREE = 10;
@@ -17,7 +18,7 @@ const MAX_PUNTI_PER_AREA = 500;
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Non autorizzato" }, { status: 401 });
-  if ((session.user as any).ruolo !== "super_admin") {
+  if (!puoModificareZona(session.user as any, params.id)) {
     return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
   }
 
