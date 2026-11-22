@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Session } from "next-auth";
 import { signOut } from "next-auth/react";
 import { PulsanteInstallaCrm, useInstallaCrm } from "./InstallaCrm";
+import { puoModificareZona } from "@/lib/zone-permessi";
 
 interface Props {
   session: Session;
@@ -15,6 +16,7 @@ export function MobileNav({ session }: Props) {
   const pathname = usePathname();
   const user = session.user as any;
   const isSuperAdmin = user?.ruolo === "super_admin";
+  const zonaPropria = !isSuperAdmin && !!user?.sedeId && puoModificareZona(user, user.sedeId);
   const [altroAperto, setAltroAperto] = useState(false);
   const installaCrm = useInstallaCrm();
 
@@ -54,6 +56,7 @@ export function MobileNav({ session }: Props) {
     { href: "/statistiche",     glyph: "▤", label: "Report" },
     { href: "/statistiche-app", glyph: "◐", label: "App ordini" },
     { href: "/ingredienti",     glyph: "◈", label: "Ingredienti" },
+    ...(zonaPropria ? [{ href: `/sedi/${user.sedeId}/zona`, glyph: "⊙", label: "Zona di consegna" }] : []),
     ...(isSuperAdmin ? [
       { href: "/sedi",          glyph: "⊙", label: "Sedi" },
       { href: "/codici-sconto", glyph: "%", label: "Codici sconto" },

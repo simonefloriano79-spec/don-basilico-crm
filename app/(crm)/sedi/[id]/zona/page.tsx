@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import { caricaGoogleMaps } from "@/lib/google-maps-loader";
 
@@ -15,6 +16,9 @@ const btnChiaro: React.CSSProperties = { background: "#fff", border: "1px solid 
 export default function ZonaConsegnaPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { data: sessione } = useSession();
+  // Chi non è super admin (gestore Chieti) non ha la pagina «Sedi»: dopo il salvataggio torna alla Panoramica.
+  const tornaA = (sessione?.user as any)?.ruolo === "super_admin" ? "/sedi" : "/dashboard";
   const mapRef = useRef<HTMLDivElement>(null);
   const mapObj = useRef<google.maps.Map | null>(null);
   // Una sede può avere più aree (es. due quartieri non contigui): si possono aggiungere
@@ -260,7 +264,7 @@ export default function ZonaConsegnaPage() {
     });
     setSalvando(false);
 
-    if (res.ok) { toast.success("Zona di consegna salvata"); router.push("/sedi"); return; }
+    if (res.ok) { toast.success("Zona di consegna salvata"); router.push(tornaA); return; }
     const d = await res.json().catch(() => ({}));
     if (res.status === 409 && Array.isArray(d.sovrapposizioni) && d.forzabile === false) {
       const elenco = d.sovrapposizioni.map((s: any) => `${s.nome} (circa ${s.mq.toLocaleString("it-IT")} m²)`).join(", ");
@@ -285,7 +289,7 @@ export default function ZonaConsegnaPage() {
           {sede && <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 4 }}>{sede.nome}</p>}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button onClick={() => router.push("/sedi")} style={btnChiaro}>Esci senza salvare</button>
+          <button onClick={() => router.push(tornaA)} style={btnChiaro}>Esci senza salvare</button>
           {disegnando && nPunti > 0 && <button onClick={annullaUltimoPunto} style={btnChiaro}>Togli ultimo punto</button>}
           {disegnando && nPunti >= 3 && (
             <button onClick={() => mapObj.current && chiudiZona(mapObj.current)} style={{ background: "var(--accent-ink)", color: "#fff", border: "none", padding: "9px 16px", borderRadius: 9, fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)" }}>Chiudi area</button>
