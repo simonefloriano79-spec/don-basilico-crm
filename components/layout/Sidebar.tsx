@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Session } from "next-auth";
 import styles from "./Sidebar.module.css";
 import { ORDINA_BETA } from "@/lib/beta";
+import { puoModificareZona } from "@/lib/zone-permessi";
 import { AutoStampa } from "./AutoStampa";
 import { suonaNuovoOrdine } from "@/lib/suono-ordine";
 import { PulsanteInstallaCrm, useInstallaCrm } from "./InstallaCrm";
@@ -17,6 +18,8 @@ export function Sidebar({ session, pannello = false }: Props) {
   const pathname = usePathname();
   const user = session.user as any;
   const isSuperAdmin = user.ruolo === "super_admin";
+  // Il gestore di una sede con zona autonoma (Chieti Scalo) non vede «Sedi»: gli diamo la scorciatoia alla zona della sua sede.
+  const zonaPropria = !isSuperAdmin && !!user.sedeId && puoModificareZona(user, user.sedeId);
 
   // Ordini online in attesa di accettazione: contatore sulla voce "Online" + suono se ne arriva uno nuovo.
   const [daAccettare, setDaAccettare] = useState(0);
@@ -75,6 +78,7 @@ export function Sidebar({ session, pannello = false }: Props) {
       items: [
         { href: "/menu",        glyph: "◆", label: "Menù"        },
         { href: "/ingredienti", glyph: "◈", label: "Ingredienti" },
+        ...(zonaPropria ? [{ href: `/sedi/${user.sedeId}/zona`, glyph: "⊙", label: "Zona di consegna" }] : []),
         ...(isSuperAdmin ? [
           { href: "/sedi",   glyph: "⊙", label: "Sedi"   },
           { href: "/codici-sconto", glyph: "%", label: "Codici sconto" },
