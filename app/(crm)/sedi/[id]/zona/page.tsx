@@ -35,9 +35,11 @@ export default function ZonaConsegnaPage() {
   const [nPunti, setNPunti] = useState(0);
   const [disegnando, setDisegnando] = useState(false);
   const [errore, setErrore] = useState("");
+  const [registro, setRegistro] = useState<{ ok: boolean; righe: any[] } | null>(null);
 
   useEffect(() => {
     fetch("/api/sedi").then((r) => r.json()).then((d) => setSede((d ?? []).find((s: any) => s.id === id)));
+    fetch(`/api/sedi/${id}/zona/registro`).then((r) => (r.ok ? r.json() : null)).then(setRegistro).catch(() => {});
   }, [id]);
 
   useEffect(() => {
@@ -260,6 +262,11 @@ export default function ZonaConsegnaPage() {
 
     if (res.ok) { toast.success("Zona di consegna salvata"); router.push("/sedi"); return; }
     const d = await res.json().catch(() => ({}));
+    if (res.status === 409 && Array.isArray(d.sovrapposizioni) && d.forzabile === false) {
+      const elenco = d.sovrapposizioni.map((s: any) => `${s.nome} (circa ${s.mq.toLocaleString("it-IT")} m²)`).join(", ");
+      toast.error(`La zona si sovrappone a: ${elenco}. Restringila per non entrare nelle zone delle altre sedi.`, { duration: 8000 });
+      return;
+    }
     if (res.status === 409 && Array.isArray(d.sovrapposizioni)) {
       const elenco = d.sovrapposizioni.map((s: any) => `• ${s.nome} (circa ${s.mq.toLocaleString("it-IT")} m²)`).join("\n");
       if (confirm(`Questa zona si sovrappone a:\n${elenco}\n\nNelle parti in comune vincerà la sede più vicina all'indirizzo.\nSalvare comunque?`)) salva(true);
@@ -322,6 +329,25 @@ export default function ZonaConsegnaPage() {
       </p>
 
       <div ref={mapRef} style={{ width: "100%", height: "70vh", borderRadius: 14, border: "1px solid var(--border)", background: "var(--surface-muted)" }} />
+
+      {registro?.ok && (
+        <div style={{ fontSize: 12.5, color: "var(--text-2)" }}>
+          <div style={{ fontWeight: 600, marginBottom: 6, color: "var(--text)" }}>Ultime modifiche alla zona</div>
+          {registro.righe.length === 0 ? (
+            <div style={{ color: "var(--text-muted)" }}>Nessuna modifica registrata.</div>
+          ) : (
+            registro.righe.map((r) => (
+              <div key={r.id} style={{ padding: "3px 0" }}>
+                {new Date(r.createdAt).toLocaleString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                {" — "}{r.utenteNome ?? "sconosciuto"}
+                <span style={{ color: "var(--text-muted)" }}>
+                  {" · "}{r.nAree === 1 ? "1 area" : `${r.nAree} aree`}{r.areaMq != null ? `, circa ${(r.areaMq / 1_000_000).toLocaleString("it-IT", { maximumFractionDigits: 2 })} km²` : ""}{r.forzata ? " (con sovrapposizione confermata)" : ""}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }

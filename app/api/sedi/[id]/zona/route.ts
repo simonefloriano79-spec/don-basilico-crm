@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { areeDaGeoJson } from "@/lib/zone-geo";
+import { puoModificareZona } from "@/lib/zone-permessi";
 
 interface Punto { lat: number; lng: number; }
 
@@ -36,9 +37,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Non autorizzato" }, { status: 401 });
   const user = session.user as any;
-  if (user.ruolo !== "super_admin") {
+  if (!puoModificareZona(user, params.id)) {
     return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
   }
+  // Solo il super admin può salvare una zona che si sovrappone a quelle di altre sedi.
+  const puoForzare = user.ruolo === "super_admin";
 
   const body = await req.json().catch(() => ({}));
   const aree: Punto[][] = Array.isArray(body.aree) ? body.aree : Array.isArray(body.punti) ? [body.punti] : [];
@@ -76,7 +79,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   try {
     // Sovrapposizione con le zone delle altre sedi: avviso (non blocco) se supera ~1.000 m²,
     // salvo conferma esplicita dall'editor (`forza`).
-    if (body.forza !== true) {
+    if (!(puoForzare && body.forza === true)) {
       const sovrapposte = await prisma.$queryRaw<{ nome: string; area: number }[]>`
         WITH nuova AS (
           SELECT ST_Multi(ST_CollectionExtract(ST_UnaryUnion(ST_MakeValid(ST_GeomFromText(${wkt}, 4326))), 3))::geography AS g
@@ -93,6 +96,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
           {
             error: "La zona si sovrappone a quella di altre sedi",
             sovrapposizioni: significative.map((r) => ({ nome: r.nome, mq: Math.round(Number(r.area)) })),
+            forzabile: puoForzare,
           },
           { status: 409 }
         );
@@ -109,6 +113,21 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       ON CONFLICT (sede_id) DO UPDATE
       SET lat = EXCLUDED.lat, lng = EXCLUDED.lng, zona = EXCLUDED.zona, updated_at = now()
     `;
+
+    // Chi ha modificato la zona, e quando. Best effort: se la tabella non c'è ancora, il salvataggio vale lo stesso.
+    try {
+      const mq = await prisma.$queryRaw<{ mq: number | null }[]>`SELECT ST_Area(zona)::float AS mq FROM sedi_copertura WHERE sede_id = ${params.id}::uuid`;
+      await prisma.registroZoneConsegna.create({
+        data: {
+          sedeId: sede.id, sedeNome: sede.nome, nAree: aree.length,
+          areaMq: mq[0]?.mq != null ? Math.round(Number(mq[0].mq)) : null,
+          forzata: puoForzare && body.forza === true,
+          utenteId: user.id ?? null, utenteNome: user.name ?? null,
+        },
+      });
+    } catch (e: any) {
+      console.error("Registro zone di consegna non salvato:", e?.message ?? e);
+    }
   } catch (e: any) {
     console.error("Errore salvataggio zona", e);
     const msg = String(e?.message ?? "");
