@@ -38,12 +38,37 @@ export async function GET(req: NextRequest) {
   });
 
   // Raggruppa per giorno
-  const perGiorno: Record<string, { data: string; ordini: number; incasso: number; online: number; telefono: number; walk_in: number }> = {};
+  // `incasso` = incasso totale del giorno (CRM + Just Eat); `incassoCrm` e `incassoJe` ne sono le due parti.
+  const perGiorno: Record<string, { data: string; ordini: number; incasso: number; incassoCrm: number; incassoJe: number; online: number; telefono: number; walk_in: number }> = {};
 
   for (let i = giorni - 1; i >= 0; i--) {
     const d = format(subDays(new Date(), i), "yyyy-MM-dd");
     const label = format(subDays(new Date(), i), "EEE d/M", { locale: it });
-    perGiorno[d] = { data: label, ordini: 0, incasso: 0, online: 0, telefono: 0, walk_in: 0 };
+    perGiorno[d] = { data: label, ordini: 0, incasso: 0, incassoCrm: 0, incassoJe: 0, online: 0, telefono: 0, walk_in: 0 };
+  }
+
+  // Incasso Just Eat inserito a mano nei Conti (già pagato + contanti), per serata e per sede. Se manca la tabella: zero.
+  const jePerSede: Record<string, number> = {};
+  let jeTotale = 0;
+  try {
+    const righeJe = await prisma.contiJe.findMany({
+      where: { giorno: { gte: new Date(format(dataInizio, "yyyy-MM-dd") + "T00:00:00Z") }, ...(sedeFilter && { sedeId: sedeFilter }) },
+      select: { sedeId: true, giorno: true, giaPagato: true, contanti: true },
+    });
+    const sedi = await prisma.sede.findMany({ select: { id: true, nome: true } });
+    const nomeSede = new Map(sedi.map((s) => [s.id, s.nome.replace("Don Basilico ", "")]));
+    for (const r of righeJe) {
+      const importo = parseFloat(r.giaPagato.toString()) + parseFloat(r.contanti.toString());
+      const d = r.giorno.toISOString().slice(0, 10);
+      if (!perGiorno[d] || !importo) continue;
+      perGiorno[d].incassoJe += importo;
+      perGiorno[d].incasso += importo;
+      jeTotale += importo;
+      const nome = nomeSede.get(r.sedeId) ?? "—";
+      jePerSede[nome] = (jePerSede[nome] ?? 0) + importo;
+    }
+  } catch (e: any) {
+    console.error("Statistiche: Just Eat non leggibile:", e?.message ?? e);
   }
 
   ordini.forEach((o) => {
@@ -51,6 +76,7 @@ export async function GET(req: NextRequest) {
     if (!perGiorno[d]) return;
     perGiorno[d].ordini++;
     perGiorno[d].incasso += parseFloat(o.totale.toString());
+    perGiorno[d].incassoCrm += parseFloat(o.totale.toString());
     if (o.canale === "online")   perGiorno[d].online++;
     if (o.canale === "telefono") perGiorno[d].telefono++;
     if (o.canale === "walk_in")  perGiorno[d].walk_in++;
@@ -83,7 +109,8 @@ export async function GET(req: NextRequest) {
     .slice(0, 10);
 
   // Incasso totale periodo
-  const totPeriodo = ordini.reduce((acc, o) => acc + parseFloat(o.totale.toString()), 0);
+  const totCrm = ordini.reduce((acc, o) => acc + parseFloat(o.totale.toString()), 0);
+  const totPeriodo = totCrm + jeTotale;
   const mediaGiornaliera = totPeriodo / giorni;
 
   // Canali totali
@@ -101,6 +128,7 @@ export async function GET(req: NextRequest) {
     const nome = o.sede?.nome?.replace("Don Basilico ", "") ?? "—";
     incassoPerSedeMap[nome] = (incassoPerSedeMap[nome] ?? 0) + parseFloat(o.totale.toString());
   });
+  Object.entries(jePerSede).forEach(([nome, importo]) => { incassoPerSedeMap[nome] = (incassoPerSedeMap[nome] ?? 0) + importo; });
   const incassoPerSede = Object.entries(incassoPerSedeMap)
     .map(([nome, incasso]) => ({ nome, incasso }))
     .sort((a, b) => b.incasso - a.incasso);
@@ -118,6 +146,8 @@ export async function GET(req: NextRequest) {
     riepilogo: {
       totaleOrdini: ordini.length,
       incassoTotale: totPeriodo,
+      incassoCrm: totCrm,
+      incassoJustEat: jeTotale,
       mediaGiornaliera,
       canali: canaliTot,
     },
