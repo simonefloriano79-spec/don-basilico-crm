@@ -60,7 +60,9 @@ export async function GET(req: NextRequest) {
     const c = consegne.get(o.id);
     return {
       id: o.id, numero: o.numeroOrdine, ora: o.createdAt, sedeId: o.sedeId, sede: o.sede?.nome ?? "", tipo: o.tipo, canale: o.canale,
-      stato: o.stato, totale: num(o.totale), costoConsegna: num(o.costoConsegna), metodo: o.metodoPagamento,
+      stato: o.stato, totale: num(o.totale), costoConsegna: num(o.costoConsegna),
+      // L'app clienti salva «carta», la cassa «pos»: per i conti sono la stessa cosa (carta al rider con il POS).
+      metodo: o.metodoPagamento === "carta" ? "pos" : o.metodoPagamento,
       cliente: o.clienteNome, indirizzo: o.clienteIndirizzo,
       riderId: c?.fattorinoId ?? null, riderNome: c?.fattorinoNome ?? null, consegnaStato: c?.stato ?? null, consegnataAt: c?.consegnataAt ?? null,
     };
