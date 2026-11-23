@@ -56,6 +56,16 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // Rider attivi (tabella `fattorini` dell'app dei rider): servono al menu «Assegna a…».
+  let riderDisponibili: { id: string; nome: string; sedeId: string | null }[] = [];
+  try {
+    riderDisponibili = await prisma.$queryRaw<{ id: string; nome: string; sedeId: string | null }[]>`
+      SELECT id::text AS "id", nome, sede_id::text AS "sedeId" FROM fattorini WHERE attivo = true ORDER BY nome
+    `;
+  } catch (e: any) {
+    console.error("Conti: tabella fattorini non leggibile:", e?.message ?? e);
+  }
+
   const dto = ordini.map((o) => {
     const c = consegne.get(o.id);
     return {
@@ -156,7 +166,7 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({
-    data, sedeId: sedeFiltro ?? null, consegneOk,
+    data, sedeId: sedeFiltro ?? null, consegneOk, riderDisponibili,
     domicilio: {
       totali: {
         ...totDom, totale: totDomicilio, costoConsegna: r2(totDom.costoConsegna), contanti: r2(totDom.contanti), pos: r2(totDom.pos),
