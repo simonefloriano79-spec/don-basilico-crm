@@ -102,11 +102,11 @@ export default function StatistichePage() {
             )}
           </div>
         </div>
-        <div style={{ padding: "0 22px 22px", display: "flex", alignItems: "flex-end", gap: 8, height: 190 }}>
+        <div style={{ padding: "0 22px 22px", display: "flex", alignItems: "flex-end", gap: 8, height: 205 }}>
           {barre.length === 0 ? (
             <div style={{ flex: 1, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>Nessun dato</div>
           ) : barre.map((b, i) => {
-            const h = Math.max(3, Math.round((b.incasso / maxIncasso) * 150));
+            const h = Math.max(3, Math.round((b.incasso / maxIncasso) * 135));
             return (
               <div key={b.data} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                 <span className="num" style={{ fontSize: 10.5, color: "var(--text-muted)" }}>{b.incasso > 0 ? Math.round(b.incasso) : ""}</span>
