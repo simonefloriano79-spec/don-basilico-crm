@@ -8,6 +8,7 @@ interface StatsData {
   periodo: { giorni: number; dataInizio: string; dataFine: string };
   graficoDati: Array<{ data: string; ordini: number; incasso: number; online: number; telefono: number; walk_in: number }>;
   topProdotti: Array<{ nome: string; quantita: number }>;
+  topProdottiValore: Array<{ nome: string; quantita: number; importo: number }>;
   incassoPerSede: Array<{ nome: string; incasso: number }>;
   riepilogo: {
     totaleOrdini: number;
@@ -45,6 +46,8 @@ export default function StatistichePage() {
 
   const topProdotti = data?.topProdotti ?? [];
   const maxQty = topProdotti[0]?.quantita ?? 1;
+  const topValore = data?.topProdottiValore ?? [];
+  const maxValore = Math.max(1, topValore[0]?.importo ?? 1);
 
   const mostraIncassoSede = isSuperAdmin && !sedeId && (data?.incassoPerSede?.length ?? 0) > 1;
   const maxIncassoSede = Math.max(1, ...(data?.incassoPerSede ?? []).map((s) => s.incasso));
@@ -109,7 +112,7 @@ export default function StatistichePage() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: mostraIncassoSede ? "1fr 1fr" : "1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(310px, 1fr))", gap: 16 }}>
         {/* TOP PRODOTTI */}
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: "18px 22px 22px" }}>
           <h3 style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 500, color: "var(--text)", marginBottom: 16 }}>Più venduti</h3>
@@ -123,6 +126,24 @@ export default function StatistichePage() {
                 <div style={{ height: "100%", width: `${Math.round((p.quantita / maxQty) * 100)}%`, background: i === 0 ? "var(--accent)" : "var(--text)", borderRadius: 3 }} />
               </div>
               <span className="num" style={{ fontSize: 12.5, color: "var(--text-2)", marginLeft: "auto", flexShrink: 0 }}>{p.quantita}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* TOP PRODOTTI PER VALORE */}
+        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: "18px 22px 22px" }}>
+          <h3 style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 500, color: "var(--text)", marginBottom: 4 }}>Più venduti a valore</h3>
+          <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginBottom: 14 }}>Incassato da ogni prodotto (prezzo × pezzi, senza consegna e sconti)</div>
+          {topValore.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 32, color: "var(--text-muted)", fontSize: 13 }}>Nessun dato</div>
+          ) : topValore.map((p, i) => (
+            <div key={p.nome} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              <span className="num" style={{ fontSize: 11.5, color: "var(--text-muted)", width: 16, flexShrink: 0 }}>{i + 1}</span>
+              <span style={{ fontSize: 13, color: "var(--text)", width: 150, flexShrink: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.nome}</span>
+              <div style={{ flex: 1, height: 6, background: "var(--border-soft)", borderRadius: 3, overflow: "hidden", maxWidth: 110 }}>
+                <div style={{ height: "100%", width: `${Math.round((p.importo / maxValore) * 100)}%`, background: i === 0 ? "var(--accent)" : "var(--text)", borderRadius: 3 }} />
+              </div>
+              <span className="num" style={{ fontSize: 12.5, color: "var(--text-2)", marginLeft: "auto", flexShrink: 0 }}>{euro(p.importo)}</span>
             </div>
           ))}
         </div>
