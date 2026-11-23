@@ -515,7 +515,7 @@ function CercaClienteModal({ onSeleziona, onChiudi }: {
 }
 
 // ── Contenuto carrello (condiviso desktop/mobile) ──────────────
-const MESSAGGI_DOMICILIO = ["Resto a 50 euro", "Citofono rotto, chiamare", "Chiamare all'arrivo"];
+const MESSAGGI_DOMICILIO = ["Resto a 50 euro", "Citofono rotto, chiamare", "Chiamare all'arrivo", "TAGLIATE"];
 
 function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo, setTavolo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna, oraConsegna, modConsegna, onApriOrario, onCercaCliente, noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma, loading, justSent }: any) {
   const subtotale = cart.reduce((a: number, c: CartItem) => a + c.prezzoTotaleItem * c.qty, 0);
