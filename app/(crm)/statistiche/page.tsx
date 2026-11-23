@@ -6,13 +6,15 @@ import toast from "react-hot-toast";
 
 interface StatsData {
   periodo: { giorni: number; dataInizio: string; dataFine: string };
-  graficoDati: Array<{ data: string; ordini: number; incasso: number; online: number; telefono: number; walk_in: number }>;
+  graficoDati: Array<{ data: string; ordini: number; incasso: number; incassoCrm: number; incassoJe: number; online: number; telefono: number; walk_in: number }>;
   topProdotti: Array<{ nome: string; quantita: number }>;
   topProdottiValore: Array<{ nome: string; quantita: number; importo: number }>;
   incassoPerSede: Array<{ nome: string; incasso: number }>;
   riepilogo: {
     totaleOrdini: number;
     incassoTotale: number;
+    incassoCrm: number;
+    incassoJustEat: number;
     mediaGiornaliera: number;
     canali: Record<string, number>;
   };
@@ -85,13 +87,20 @@ export default function StatistichePage() {
         >Esporta PDF</button>
       </div>
 
-      {/* ISTOGRAMMA INCASSI */}
+      {/* ISTOGRAMMA INCASSI: totale = CRM + Just Eat (inserito a mano nei Conti); la fascia chiara in alto è la parte Just Eat */}
       <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14 }}>
         <div style={{ padding: "18px 22px 14px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
           <h2 style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 500, color: "var(--text)" }}>Incasso giornaliero</h2>
-          <span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 26, color: "var(--text)" }}>
-            {data ? euro(data.riepilogo.incassoTotale) : "—"}
-          </span>
+          <div style={{ textAlign: "right" }}>
+            <span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 26, color: "var(--text)" }}>
+              {data ? euro(data.riepilogo.incassoTotale) : "—"}
+            </span>
+            {data && (
+              <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 2 }}>
+                CRM {euro(data.riepilogo.incassoCrm)} + Just Eat {euro(data.riepilogo.incassoJustEat)}
+              </div>
+            )}
+          </div>
         </div>
         <div style={{ padding: "0 22px 22px", display: "flex", alignItems: "flex-end", gap: 8, height: 190 }}>
           {barre.length === 0 ? (
@@ -101,10 +110,14 @@ export default function StatistichePage() {
             return (
               <div key={b.data} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                 <span className="num" style={{ fontSize: 10.5, color: "var(--text-muted)" }}>{b.incasso > 0 ? Math.round(b.incasso) : ""}</span>
-                <div style={{
-                  width: "100%", maxWidth: 34, height: h, borderRadius: "5px 5px 2px 2px",
+                <div title={`CRM ${euro(b.incassoCrm)} + Just Eat ${euro(b.incassoJe)}`} style={{
+                  width: "100%", maxWidth: 34, height: h, borderRadius: "5px 5px 2px 2px", overflow: "hidden",
+                  display: "flex", flexDirection: "column",
                   background: i === idxMax && b.incasso > 0 ? "var(--accent)" : "var(--text)",
-                }} />
+                }}>
+                  {/* la parte Just Eat in alto, più chiara */}
+                  {b.incassoJe > 0 && <div style={{ height: `${Math.round((b.incassoJe / b.incasso) * 100)}%`, background: "rgba(255,255,255,0.45)" }} />}
+                </div>
                 <span style={{ fontSize: 10.5, color: "var(--text-muted)" }}>{b.data}</span>
               </div>
             );
