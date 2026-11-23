@@ -57,8 +57,8 @@ export async function GET(req: NextRequest) {
   });
 
   // Top prodotti nel periodo
-  const topProdotti = await prisma.ordineItem.groupBy({
-    by: ["nomeSnapshot"],
+  // Per prodotto: pezzi venduti e importo (prezzo della riga × quantità, senza consegna né sconti sull'ordine).
+  const righe = await prisma.ordineItem.findMany({
     where: {
       ordine: {
         createdAt: { gte: dataInizio },
@@ -66,10 +66,21 @@ export async function GET(req: NextRequest) {
         ...(sedeFilter && { sedeId: sedeFilter }),
       },
     },
-    _sum: { quantita: true },
-    orderBy: { _sum: { quantita: "desc" } },
-    take: 10,
+    select: { nomeSnapshot: true, quantita: true, prezzoSnapshot: true },
   });
+  const perProdotto = new Map<string, { nome: string; quantita: number; importo: number }>();
+  for (const r of righe) {
+    const p = perProdotto.get(r.nomeSnapshot) ?? { nome: r.nomeSnapshot, quantita: 0, importo: 0 };
+    p.quantita += r.quantita;
+    p.importo += parseFloat(r.prezzoSnapshot.toString()) * r.quantita;
+    perProdotto.set(r.nomeSnapshot, p);
+  }
+  const prodotti = Array.from(perProdotto.values());
+  const topProdotti = [...prodotti].sort((a, b) => b.quantita - a.quantita).slice(0, 10);
+  const topProdottiValore = [...prodotti]
+    .map((p) => ({ ...p, importo: Math.round(p.importo * 100) / 100 }))
+    .sort((a, b) => b.importo - a.importo)
+    .slice(0, 10);
 
   // Incasso totale periodo
   const totPeriodo = ordini.reduce((acc, o) => acc + parseFloat(o.totale.toString()), 0);
@@ -101,10 +112,8 @@ export async function GET(req: NextRequest) {
       dataFine: format(new Date(), "dd/MM/yyyy"),
     },
     graficoDati: Object.values(perGiorno),
-    topProdotti: topProdotti.map((p) => ({
-      nome: p.nomeSnapshot,
-      quantita: p._sum.quantita ?? 0,
-    })),
+    topProdotti: topProdotti.map((p) => ({ nome: p.nome, quantita: p.quantita })),
+    topProdottiValore: topProdottiValore.map((p) => ({ nome: p.nome, quantita: p.quantita, importo: p.importo })),
     incassoPerSede,
     riepilogo: {
       totaleOrdini: ordini.length,
