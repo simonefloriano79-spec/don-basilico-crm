@@ -15,6 +15,7 @@ type Rider = {
 };
 type Conti = {
   data: string; sedeId: string | null; consegneOk: boolean;
+  riderDisponibili: { id: string; nome: string; sedeId: string | null }[];
   domicilio: { totali: any; rider: Rider[] };
   asporto: { ordini: Ord[]; totale: number; perCanale: { canale: string; ordini: number; totale: number }[] } & { ordini_n?: number };
   tavolo: { ordini: Ord[]; totale: number };
@@ -99,11 +100,27 @@ export default function ContiPage() {
     return () => clearInterval(t);
   }, [carica]);
 
+  // Caso eccezionale: il cliente deve pagare con il metodo scelto (lo scontrino è già emesso). Cambiarlo obbliga a rifare lo scontrino.
   async function correggiMetodo(o: Ord, metodo: "contanti" | "pos") {
     if (o.metodo === metodo) return;
+    const scelto = o.metodo === "pos" ? "POS" : o.metodo === "contanti" ? "contanti" : "nessun metodo";
+    const nuovo = metodo === "pos" ? "POS" : "contanti";
+    if (!confirm(`Il cliente aveva scelto: ${scelto}.
+
+Cambiare in ${nuovo} è un caso eccezionale: lo scontrino già emesso va annullato e rifatto per l'importo giusto.
+
+Confermi la correzione dell'ordine #${o.numero}?`)) return;
     const res = await fetch("/api/conti/metodo", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ordineId: o.id, metodo }) });
     if (res.ok) { toast.success(`Ordine #${o.numero}: pagato ${metodo === "pos" ? "con POS" : "in contanti"}`); carica(); }
     else toast.error((await res.json().catch(() => ({}))).error ?? "Non riesco a correggere");
+  }
+
+  async function assegnaRider(o: Ord, fattorinoId: string) {
+    if (!fattorinoId) return;
+    const res = await fetch("/api/conti/assegna", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ordineId: o.id, fattorinoId }) });
+    const d = await res.json().catch(() => ({}));
+    if (res.ok) { toast.success(`Ordine #${o.numero} assegnato a ${d.rider}${d.chiusa ? "" : ": lo vede nella sua app"}`); carica(); }
+    else toast.error(d.error ?? "Non riesco ad assegnare il rider");
   }
 
   async function salvaJe() {
@@ -140,10 +157,20 @@ export default function ContiPage() {
         <span title="Il rider ha scansionato ma non ha chiuso la consegna" style={{ fontSize: 10.5, color: "var(--danger)", border: "1px solid var(--danger-border)", borderRadius: 10, padding: "1px 7px" }}>non chiusa</span>
       )}
       <span className="num" style={{ fontWeight: 600, minWidth: 70, textAlign: "right" }}>{euro(o.totale)}</span>
+      {o.tipo === "domicilio" && (!o.riderId || (o.consegnaStato && o.consegnaStato !== "consegnata")) && (() => {
+        const scelte = (dati?.riderDisponibili ?? []).filter((r) => !r.sedeId || r.sedeId === o.sedeId);
+        return (
+          <select value="" onChange={(e) => assegnaRider(o, e.target.value)} aria-label="Assegna a un rider"
+            style={{ padding: "3px 6px", borderRadius: 10, fontSize: 11, border: "1px solid var(--border)", background: "#fff", fontFamily: "var(--font-ui)", maxWidth: 130 }}>
+            <option value="">{o.riderId ? "Cambia rider…" : "Assegna a…"}</option>
+            {scelte.map((r) => <option key={r.id} value={r.id}>{r.nome}</option>)}
+          </select>
+        );
+      })()}
       {conMetodo && (
         <span style={{ display: "inline-flex", gap: 4 }}>
           {(["contanti", "pos"] as const).map((m) => (
-            <button key={m} onClick={() => correggiMetodo(o, m)} title="Se il cliente ha pagato in modo diverso da quello scelto, correggilo qui"
+            <button key={m} onClick={() => correggiMetodo(o, m)} title="Solo caso eccezionale: lo scontrino già emesso va rifatto"
               style={{
                 padding: "3px 9px", borderRadius: 10, fontSize: 11, cursor: "pointer", fontFamily: "var(--font-ui)",
                 border: `1px solid ${o.metodo === m ? "var(--text)" : "var(--border)"}`, background: o.metodo === m ? "var(--text)" : "#fff", color: o.metodo === m ? "#fff" : "var(--text-3)",
@@ -205,7 +232,7 @@ export default function ContiPage() {
             <div style={{ ...card, color: "var(--danger)", fontSize: 12.5 }}>Non riesco a leggere le consegne dei rider: i totali sono giusti, ma non so quale rider ha consegnato.</div>
           )}
           {tot.senzaMetodo > 0 && (
-            <div style={{ ...card, fontSize: 12.5, color: "var(--danger)" }}>{euro(tot.senzaMetodo)} di consegne senza metodo di pagamento: scegli Contanti o POS sull'ordine qui sotto.</div>
+            <div style={{ ...card, fontSize: 12.5, color: "var(--danger)" }}>{euro(tot.senzaMetodo)} di consegne senza metodo di pagamento: controlla gli ordini qui sotto.</div>
           )}
 
           <div style={{ ...card, padding: "6px 16px 10px" }}>
@@ -213,10 +240,10 @@ export default function ContiPage() {
             {dati.domicilio.rider.length === 0 && <div style={{ fontSize: 13, color: "var(--text-muted)", padding: "8px 0" }}>Nessuna consegna in questa serata.</div>}
             {dati.domicilio.rider.map((g) => {
               const chiave = g.riderId ?? "nessuno";
-              const aperto = !!aperti[chiave];
+              const aperto = aperti[chiave] ?? chiave === "nessuno";
               return (
                 <div key={chiave} style={{ borderTop: "1px solid var(--border-soft)" }}>
-                  <button onClick={() => setAperti((p) => ({ ...p, [chiave]: !p[chiave] }))}
+                  <button onClick={() => setAperti((p) => ({ ...p, [chiave]: !(p[chiave] ?? chiave === "nessuno") }))}
                     style={{ width: "100%", background: "none", border: "none", textAlign: "left", cursor: "pointer", padding: "12px 0", fontFamily: "var(--font-ui)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline" }}>
                       <span style={{ fontSize: 14.5, fontWeight: 600, color: g.riderId ? "var(--text)" : "var(--danger)" }}>{aperto ? "▾" : "▸"} {g.nome}</span>
@@ -252,7 +279,7 @@ export default function ContiPage() {
             </div>
           </div>
           <div style={{ fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.5 }}>
-            «Da versare» conta i contanti delle consegne che il rider ha chiuso nella sua app. Se un cliente ha pagato in modo diverso da quello scelto nell'app, corregti qui sopra con <strong>Contanti / POS</strong> sull'ordine.
+            «Da versare» conta i contanti delle consegne che il rider ha chiuso nella sua app. Se nessun rider ha scansionato il QR, scegli <strong>Assegna a…</strong> sull'ordine. Il cliente deve pagare con il metodo scelto (lo scontrino è già emesso): i tasti <strong>Contanti / POS</strong> servono solo nei casi eccezionali.
           </div>
         </>
       )}
