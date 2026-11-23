@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { finestraServizio, giornoServizioOggi } from "@/lib/conti";
+import { pizzeJePerSede, pizzePerSede } from "@/lib/pizze-fatte";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -40,11 +42,21 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
+  // Pizze della serata (dalle 5:00 alle 5:00, come i Conti): nostre + Just Eat inserite a mano. Mai bloccanti per il resto.
+  const giornoServizio = giornoServizioOggi();
+  const { inizio: inizioServizio, fine: fineServizio } = finestraServizio(giornoServizio);
+  const pizzeNostre = await pizzePerSede(inizioServizio, fineServizio, sedeFilter).catch(() => new Map<string, { pizze: number; maxi: number }>());
+  const pizzeJe = (await pizzeJePerSede(giornoServizio, sedeFilter)).per;
+  let pizzeTotNostre = 0, pizzeTotJe = 0;
+
   const incassoOggi = ordiniOggi.reduce((acc, o) => acc + parseFloat(o.totale.toString()), 0);
 
   const sediStats = sedi.map((s) => {
     const ord = s.ordini;
+    const pn = pizzeNostre.get(s.id)?.pizze ?? 0, pj = pizzeJe.get(s.id) ?? 0;
+    pizzeTotNostre += pn; pizzeTotJe += pj;
     return {
+      pizzeNostre: pn, pizzeJustEat: pj, pizzeTotali: pn + pj,
       id: s.id,
       nome: s.nome.replace("Don Basilico ", ""),
       nomeCompleto: s.nome,
@@ -68,6 +80,7 @@ export async function GET(req: NextRequest) {
     online,
     sediStats,
     totali: {
+      pizzeNostre: pizzeTotNostre, pizzeJustEat: pizzeTotJe, pizzeTotali: pizzeTotNostre + pizzeTotJe,
       ordiniOggi: ordiniOggi.length,
       incasso: incassoOggi,
       online: ordiniOggi.filter((o) => o.canale === "online").length,

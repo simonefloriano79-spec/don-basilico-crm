@@ -20,8 +20,9 @@ type Conti = {
   asporto: { ordini: Ord[]; totale: number; perCanale: { canale: string; ordini: number; totale: number }[] } & { ordini_n?: number };
   tavolo: { ordini: Ord[]; totale: number };
   je: { ok: boolean; giaPagato: number; contanti: number; modificatoDa: string | null; modificatoAt: string | null };
+  pizze: { ok: boolean; nostre: number; maxi: number; justEat: number; totale: number };
   totale: { domicilio: number; asporto: number; tavolo: number; justEat: number; totalone: number; contantiNoti: number; carteNote: number; ordiniInCorso: number };
-  perSede: { sedeId: string; nome: string; domicilio: number; asporto: number; tavolo: number; justEatGiaPagato: number; justEatContanti: number; totale: number }[] | null;
+  perSede: { sedeId: string; nome: string; domicilio: number; asporto: number; tavolo: number; justEatGiaPagato: number; justEatContanti: number; totale: number; pizzeNostre: number; pizzeJustEat: number; pizzeTotali: number }[] | null;
 };
 
 const euro = (n: number) => `€ ${(n ?? 0).toFixed(2).replace(".", ",")}`;
@@ -71,6 +72,7 @@ export default function ContiPage() {
   const [aperti, setAperti] = useState<Record<string, boolean>>({});
   const [jeGia, setJeGia] = useState("");
   const [jeCont, setJeCont] = useState("");
+  const [jePizze, setJePizze] = useState("");
   const [jeSalvando, setJeSalvando] = useState(false);
 
   useEffect(() => {
@@ -90,6 +92,7 @@ export default function ContiPage() {
     if (!giorno) setGiorno(d.data);
     setJeGia(d.je.giaPagato ? String(d.je.giaPagato).replace(".", ",") : "");
     setJeCont(d.je.contanti ? String(d.je.contanti).replace(".", ",") : "");
+    setJePizze(d.pizze?.justEat ? String(d.pizze.justEat) : "");
   }, [user, giorno, sedeId, isSuperAdmin]);
 
   useEffect(() => { carica(); }, [carica]);
@@ -128,7 +131,7 @@ Confermi la correzione dell'ordine #${o.numero}?`)) return;
     setJeSalvando(true);
     const res = await fetch("/api/conti/je", {
       method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sedeId: dati.sedeId, data: dati.data, giaPagato: jeGia || "0", contanti: jeCont || "0" }),
+      body: JSON.stringify({ sedeId: dati.sedeId, data: dati.data, giaPagato: jeGia || "0", contanti: jeCont || "0", pizze: jePizze || "0" }),
     });
     setJeSalvando(false);
     if (res.ok) { toast.success("Incasso Just Eat salvato"); carica(); }
@@ -347,6 +350,11 @@ Confermi la correzione dell'ordine #${o.numero}?`)) return;
                     <input inputMode="decimal" placeholder="0,00" value={jeCont} onChange={(e) => setJeCont(e.target.value)}
                       style={{ width: 130, padding: "8px 10px", borderRadius: 9, border: "1px solid var(--border)", fontSize: 14, fontFamily: "var(--font-ui)" }} />
                   </label>
+                  <label style={{ fontSize: 11.5, color: "var(--text-muted)", display: "flex", flexDirection: "column", gap: 3 }}>
+                    N. pizze Just Eat
+                    <input inputMode="numeric" placeholder="0" value={jePizze} onChange={(e) => setJePizze(e.target.value.replace(/\D/g, ""))}
+                      style={{ width: 110, padding: "8px 10px", borderRadius: 9, border: "1px solid var(--border)", fontSize: 14, fontFamily: "var(--font-ui)" }} />
+                  </label>
                   <button onClick={salvaJe} disabled={jeSalvando} style={{ ...btn(true), padding: "9px 18px" }}>{jeSalvando ? "Salvo…" : "Salva Just Eat"}</button>
                 </div>
               )}
@@ -360,6 +368,15 @@ Confermi la correzione dell'ordine #${o.numero}?`)) return;
               <Riga a="Di cui contanti noti" nota="domicilio in contanti + Just Eat contanti" b={euro(dati.totale.contantiNoti)} />
               <Riga a="Di cui carte note" nota="POS del domicilio + Just Eat già pagato" b={euro(dati.totale.carteNote)} />
             </div>
+            <div style={{ borderTop: "1px solid var(--border-soft)", marginTop: 10, paddingTop: 8 }}>
+              <div style={{ ...etichetta, padding: "2px 0" }}>Pizze della serata</div>
+              <Riga a="Pizze nostre" nota={dati.pizze.maxi ? `di cui ${dati.pizze.maxi} maxi (contate come 1)` : "Tutti i canali, maxi e combo compresi"} b={String(dati.pizze.nostre)} />
+              <Riga a="Pizze Just Eat" nota={dati.pizze.ok ? "Inserite a mano qui sopra" : "Non ancora attivo: manca la colonna nel database"} b={String(dati.pizze.justEat)} />
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", paddingTop: 6 }}>
+                <span style={{ fontSize: 14, fontWeight: 700 }}>PIZZE TOTALI</span>
+                <span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 24 }}>{dati.pizze.totale}</span>
+              </div>
+            </div>
             <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 6 }}>Asporto e tavolo non sono divisi per metodo di pagamento: per questo contanti e carte «noti» non arrivano al totale.</div>
           </div>
 
@@ -371,7 +388,7 @@ Confermi la correzione dell'ordine #${o.numero}?`)) return;
                   <tr style={{ textAlign: "right", color: "var(--text-muted)", fontSize: 11 }}>
                     <th style={{ textAlign: "left", padding: "4px 0", fontWeight: 600 }}>Sede</th>
                     <th style={{ fontWeight: 600 }}>Domicilio</th><th style={{ fontWeight: 600 }}>Asporto</th><th style={{ fontWeight: 600 }}>Tavolo</th>
-                    <th style={{ fontWeight: 600 }}>Just Eat</th><th style={{ fontWeight: 600 }}>Totale</th>
+                    <th style={{ fontWeight: 600 }}>Just Eat</th><th style={{ fontWeight: 600 }}>Totale</th><th style={{ fontWeight: 600 }}>Pizze</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -383,13 +400,13 @@ Confermi la correzione dell'ordine #${o.numero}?`)) return;
                         </button>
                       </td>
                       <td className="num">{euro(s.domicilio)}</td><td className="num">{euro(s.asporto)}</td><td className="num">{euro(s.tavolo)}</td>
-                      <td className="num">{euro(s.justEatGiaPagato + s.justEatContanti)}</td><td className="num" style={{ fontWeight: 600 }}>{euro(s.totale)}</td>
+                      <td className="num">{euro(s.justEatGiaPagato + s.justEatContanti)}</td><td className="num" style={{ fontWeight: 600 }}>{euro(s.totale)}</td><td className="num">{s.pizzeTotali}</td>
                     </tr>
                   ))}
                   <tr style={{ textAlign: "right", borderTop: "2px solid var(--text)", fontWeight: 700 }}>
                     <td style={{ textAlign: "left", padding: "8px 0" }}>TOTALE</td>
                     <td className="num">{euro(dati.totale.domicilio)}</td><td className="num">{euro(dati.totale.asporto)}</td><td className="num">{euro(dati.totale.tavolo)}</td>
-                    <td className="num">{euro(dati.totale.justEat)}</td><td className="num">{euro(dati.totale.totalone)}</td>
+                    <td className="num">{euro(dati.totale.justEat)}</td><td className="num">{euro(dati.totale.totalone)}</td><td className="num">{dati.pizze.totale}</td>
                   </tr>
                 </tbody>
               </table>

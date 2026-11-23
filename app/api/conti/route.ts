@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { dataValida, finestraServizio, giornoServizioOggi } from "@/lib/conti";
+import { pizzeJePerSede, pizzePerSede } from "@/lib/pizze-fatte";
 
 export const dynamic = "force-dynamic";
 
@@ -137,6 +138,14 @@ export async function GET(req: NextRequest) {
     console.error("Conti: tabella conti_je non leggibile:", e?.message ?? e);
   }
 
+  // ── PIZZE: nostre (dagli ordini) + Just Eat (a mano) ─────────────────────────────────
+  const nostrePerSede = await pizzePerSede(inizio, fine, sedeFiltro).catch(() => new Map<string, { pizze: number; maxi: number }>());
+  const jePizze = await pizzeJePerSede(data, sedeFiltro);
+  const pizzeNostre = Array.from(nostrePerSede.values()).reduce((a, s) => a + s.pizze, 0);
+  const pizzeMaxi = Array.from(nostrePerSede.values()).reduce((a, s) => a + s.maxi, 0);
+  const pizzeJe = Array.from(jePizze.per.values()).reduce((a, n) => a + n, 0);
+  const pizze = { ok: jePizze.ok, nostre: pizzeNostre, maxi: pizzeMaxi, justEat: pizzeJe, totale: pizzeNostre + pizzeJe };
+
   const totDomicilio = r2(totDom.totale), totAsporto = somma(asp).totale, totTavolo = somma(tav).totale;
   const totale = {
     domicilio: totDomicilio, asporto: totAsporto, tavolo: totTavolo, justEat: r2(je.giaPagato + je.contanti),
@@ -161,7 +170,8 @@ export async function GET(req: NextRequest) {
       const a = r2(mie.filter((o) => o.tipo === "asporto").reduce((x, o) => x + o.totale, 0));
       const t = r2(mie.filter((o) => o.tipo === "tavolo").reduce((x, o) => x + o.totale, 0));
       const j = jePerSede.get(s.id) ?? { g: 0, c: 0 };
-      return { sedeId: s.id, nome: s.nome, domicilio: d, asporto: a, tavolo: t, justEatGiaPagato: r2(j.g), justEatContanti: r2(j.c), totale: r2(d + a + t + j.g + j.c) };
+      const pn = nostrePerSede.get(s.id)?.pizze ?? 0, pj = jePizze.per.get(s.id) ?? 0;
+      return { sedeId: s.id, nome: s.nome, domicilio: d, asporto: a, tavolo: t, justEatGiaPagato: r2(j.g), justEatContanti: r2(j.c), totale: r2(d + a + t + j.g + j.c), pizzeNostre: pn, pizzeJustEat: pj, pizzeTotali: pn + pj };
     });
   }
 
@@ -176,6 +186,6 @@ export async function GET(req: NextRequest) {
     },
     asporto: { ...somma(asp), perCanale, ordini: asp },
     tavolo: { ...somma(tav), ordini: tav },
-    je, totale, perSede,
+    je, pizze, totale, perSede,
   });
 }
