@@ -91,7 +91,8 @@ export function Topbar({ session }: { session: Session }) {
           <span className="topbar-live-text" style={{ fontSize: 11.5, color: "var(--text-3)", whiteSpace: "nowrap" }}>Live · aggiornato ora</span>
         </div>
 
-        {isSuperAdmin && (
+        {/* Il filtro sede in alto vale solo per Panoramica e Ordini: le altre pagine (Statistiche, Conti, Menù…) hanno il loro. */}
+        {isSuperAdmin && (pathname === "/dashboard" || pathname === "/ordini") && (
           <select
             className="topbar-sede"
             value={sedeAttiva}
