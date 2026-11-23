@@ -61,7 +61,9 @@ export default function DashboardPage() {
 
   const ordiniOggi = vistaSede ? vistaSede.totaleOrdiniOggi : stats?.totali?.ordiniOggi ?? 0;
   const ordiniAttivi = vistaSede ? vistaSede.ordiniAttivi : stats?.ordiniAttivi ?? 0;
-  const pronti = vistaSede ? vistaSede.pronti : stats?.pronti ?? 0;
+  const pizzeTot = vistaSede ? vistaSede.pizzeTotali : stats?.totali?.pizzeTotali ?? 0;
+  const pizzeNostre = vistaSede ? vistaSede.pizzeNostre : stats?.totali?.pizzeNostre ?? 0;
+  const pizzeJe = vistaSede ? vistaSede.pizzeJustEat : stats?.totali?.pizzeJustEat ?? 0;
   const incasso = vistaSede ? vistaSede.incassoOggi : stats?.incassoOggi ?? 0;
   const ticketMedio = ordiniOggi > 0 ? incasso / ordiniOggi : 0;
   const canaliVista = vistaSede ? vistaSede.canali : stats?.totali
@@ -75,7 +77,7 @@ export default function DashboardPage() {
       <div className="dashboard-stats" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
         <KpiCard label="Ordini attivi" value={stats ? String(ordiniAttivi) : "—"} sub="In corso ora" />
         <KpiCard label="Incasso oggi" value={stats ? euro(incasso) : "—"} sub="Tutti i canali" />
-        <KpiCard label="Pronti al banco" value={stats ? String(pronti) : "—"} sub="Da ritirare/consegnare" />
+        <KpiCard label="Pizze fatte" value={stats ? String(pizzeTot) : "—"} sub={pizzeJe > 0 ? `${pizzeNostre} nostre + ${pizzeJe} Just Eat` : "Serata in corso, tutti i canali"} />
         <KpiCard label="Ticket medio" value={stats ? euro(ticketMedio) : "—"} sub="Su ordini di oggi" />
       </div>
 

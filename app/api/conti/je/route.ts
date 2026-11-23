@@ -33,5 +33,15 @@ export async function PUT(req: NextRequest) {
     console.error("Conti Just Eat non salvato:", e?.message ?? e);
     return NextResponse.json({ error: "Non riesco a salvare: controlla che il database sia aggiornato (manca la tabella conti_je)" }, { status: 500 });
   }
+
+  // Pizze Just Eat: colonna aggiunta dopo (prisma/sql/conti_je_pizze.sql). Salvata a parte, così gli importi si salvano comunque.
+  const pizze = Math.round(Number(String(body.pizze ?? 0).replace(",", ".")));
+  if (!Number.isFinite(pizze) || pizze < 0 || pizze > 5000) return NextResponse.json({ error: "Numero di pizze non valido" }, { status: 400 });
+  try {
+    await prisma.$executeRaw`UPDATE conti_je SET pizze = ${pizze} WHERE sede_id = ${sedeId}::uuid AND giorno = ${body.data}::date`;
+  } catch (e: any) {
+    console.error("Pizze Just Eat non salvate:", e?.message ?? e);
+    return NextResponse.json({ error: "Importi salvati, ma le pizze no: manca la colonna nel database (SQL conti_je_pizze da eseguire)" }, { status: 500 });
+  }
   return NextResponse.json({ ok: true });
 }
