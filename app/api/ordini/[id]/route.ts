@@ -108,3 +108,31 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   return NextResponse.json(ordineAggiornato);
 }
+
+// DELETE /api/ordini/[id] — cancellazione DEFINITIVA, solo per il super admin e solo per ordini già ANNULLATI
+// (prove, errori di battitura). Non si torna indietro: sparisce anche da Conti e Statistiche (gli annullati non contavano comunque).
+export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Non autorizzato" }, { status: 401 });
+  const user = session.user as any;
+  if (user.ruolo !== "super_admin") return NextResponse.json({ error: "Solo il super admin può eliminare gli ordini" }, { status: 403 });
+
+  const ordine = await prisma.ordine.findUnique({ where: { id: params.id }, select: { id: true, numeroOrdine: true, stato: true } });
+  if (!ordine) return NextResponse.json({ error: "Ordine non trovato" }, { status: 404 });
+  if (ordine.stato !== "annullato") return NextResponse.json({ error: "Si possono eliminare solo gli ordini annullati: annulla prima l'ordine" }, { status: 400 });
+
+  try {
+    await prisma.$transaction([
+      // L'ordine vocale resta, ma senza il collegamento all'ordine che sparisce.
+      prisma.ordineVocale.updateMany({ where: { ordineId: ordine.id }, data: { ordineId: null } }),
+      // La consegna dell'app rider (stesso database), se c'è.
+      prisma.$executeRaw`DELETE FROM consegne WHERE ordine_id = ${ordine.id}::uuid`,
+      // Righe e storico stati si cancellano a cascata.
+      prisma.ordine.delete({ where: { id: ordine.id } }),
+    ]);
+  } catch (e: any) {
+    console.error("Eliminazione ordine fallita:", e?.message ?? e);
+    return NextResponse.json({ error: "Non riesco a eliminare l'ordine (è collegato ad altri dati)" }, { status: 500 });
+  }
+  return NextResponse.json({ ok: true, numero: ordine.numeroOrdine });
+}

@@ -244,6 +244,19 @@ export default function OrdiniPage() {
     }
   };
 
+  // Solo super admin, solo ordini già annullati: cancellazione definitiva (prove ed errori).
+  const eliminaOrdine = async (ordine: any) => {
+    if (!confirm(`ELIMINARE DEFINITIVAMENTE l'ordine #${ordine.numeroOrdine} (${euro(parseFloat(ordine.totale))})?\n\nNon si può annullare questa operazione: l'ordine sparisce per sempre.`)) return;
+    const res = await fetch(`/api/ordini/${ordine.id}`, { method: "DELETE" });
+    if (res.ok) {
+      toast.success(`Ordine #${ordine.numeroOrdine} eliminato`);
+      setSelezionato(null);
+      caricaOrdini();
+    } else {
+      toast.error((await res.json().catch(() => ({}))).error ?? "Non riesco a eliminare l'ordine");
+    }
+  };
+
   const gestisciStampa = async (ordine: any) => {
     await stampaBrowser({
       numero: ordine.numeroOrdine,
@@ -666,6 +679,12 @@ export default function OrdiniPage() {
                 background: "transparent", border: "none", color: "var(--danger)",
                 fontSize: 11.5, cursor: "pointer", fontFamily: "var(--font-ui)", padding: "4px 0",
               }}>Annulla ordine</button>
+            )}
+            {isSuperAdmin && selezionato.stato === "annullato" && (
+              <button onClick={() => eliminaOrdine(selezionato)} style={{
+                background: "transparent", border: "none", color: "var(--danger)",
+                fontSize: 11.5, cursor: "pointer", fontFamily: "var(--font-ui)", padding: "4px 0", textDecoration: "underline",
+              }}>Elimina definitivamente</button>
             )}
           </div>
         </div>
