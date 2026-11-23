@@ -54,6 +54,7 @@ export function MobileNav({ session }: Props) {
     { href: "/schermo-cassa",   glyph: "☏", label: "Ordini vocali" },
     { href: "/clienti",         glyph: "◍", label: "Clienti" },
     { href: "/statistiche",     glyph: "▤", label: "Report" },
+    { href: "/conti",           glyph: "€", label: "Conti" },
     { href: "/statistiche-app", glyph: "◐", label: "App ordini" },
     { href: "/ingredienti",     glyph: "◈", label: "Ingredienti" },
     ...(zonaPropria ? [{ href: `/sedi/${user.sedeId}/zona`, glyph: "⊙", label: "Zona di consegna" }] : []),

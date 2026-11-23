@@ -13,6 +13,7 @@ const PAGES: Record<string, { title: string; subtitle: string }> = {
   "/schermo-cassa": { title: "Ordini vocali", subtitle: "cassa telefonica assistita" },
   "/clienti":       { title: "Clienti",       subtitle: "anagrafiche · fidelity attiva" },
   "/statistiche":   { title: "Report",        subtitle: "andamento rete" },
+  "/conti":         { title: "Conti",         subtitle: "incassi della serata" },
   "/menu":          { title: "Menù",          subtitle: "listino e disponibilità" },
   "/ingredienti":   { title: "Ingredienti",   subtitle: "magazzino e scorte" },
   "/sedi":          { title: "Sedi",          subtitle: "punti vendita" },

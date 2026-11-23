@@ -604,6 +604,22 @@ model RegistroZoneConsegna {
   @@map("registro_zone_consegna")
 }
 
+// Incasso Just Eat inserito a mano dalla sede per ogni serata (pagina Conti): quanto «già pagato» online e quanto in contanti.
+// Non è collegato alle altre tabelle: se manca la tabella, la pagina Conti funziona lo stesso (senza la riga Just Eat).
+model ContiJe {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sedeId     String   @map("sede_id") @db.Uuid
+  giorno     DateTime @db.Date
+  giaPagato  Decimal  @default(0) @map("gia_pagato") @db.Decimal(10, 2)
+  contanti   Decimal  @default(0) @db.Decimal(10, 2)
+  utenteId   String?  @map("utente_id")
+  utenteNome String?  @map("utente_nome")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([sedeId, giorno])
+  @@map("conti_je")
+}
+
 // Notifiche push dell'app nativa (Android/iOS, via Firebase Cloud Messaging): il «token» identifica l'app su un telefono.
 model PushTokenNativo {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
