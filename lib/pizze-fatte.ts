@@ -8,6 +8,28 @@ import { leggiComboConfig } from "@/lib/combo";
 
 export interface PizzeSede { pizze: number; maxi: number }
 
+// Pizze di una riga d'ordine (e quante sono maxi). Una maxi vale 1; i combo valgono le pizze che contengono.
+export function pizzeRiga(categoria: string | null | undefined, nomeSnapshot: string, quantita: number, pizzeCombo?: number | null): { pizze: number; maxi: number } {
+  const peso = pesoRiga(categoria, nomeSnapshot, quantita, pizzeCombo);
+  if (!peso) return { pizze: 0, maxi: 0 };
+  const maxi = categoria !== "combo" && /\(maxi\)/i.test(nomeSnapshot);
+  return { pizze: maxi ? peso / 2 : peso, maxi: maxi ? quantita : 0 };
+}
+
+// Pizze Just Eat inserite a mano, per serata (stringa yyyy-MM-dd) dal giorno `dal` in poi. Mappa vuota se manca la colonna.
+export async function pizzeJePerGiorno(dal: string, sedeId?: string): Promise<Map<string, number>> {
+  const per = new Map<string, number>();
+  try {
+    const righe = sedeId
+      ? await prisma.$queryRaw<{ giorno: string; pizze: number }[]>`SELECT giorno::text AS "giorno", SUM(pizze)::int AS "pizze" FROM conti_je WHERE giorno >= ${dal}::date AND sede_id = ${sedeId}::uuid GROUP BY giorno`
+      : await prisma.$queryRaw<{ giorno: string; pizze: number }[]>`SELECT giorno::text AS "giorno", SUM(pizze)::int AS "pizze" FROM conti_je WHERE giorno >= ${dal}::date GROUP BY giorno`;
+    righe.forEach((r) => per.set(r.giorno, Number(r.pizze) || 0));
+  } catch (e: any) {
+    console.error("Pizze Just Eat per giorno non leggibili:", e?.message ?? e);
+  }
+  return per;
+}
+
 // Pizze degli ordini non annullati creati in [inizio, fine), per sede.
 export async function pizzePerSede(inizio: Date, fine: Date, sedeId?: string): Promise<Map<string, PizzeSede>> {
   const ordini = await prisma.ordine.findMany({

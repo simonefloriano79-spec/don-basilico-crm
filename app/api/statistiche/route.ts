@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { subDays, startOfDay, format } from "date-fns";
 import { it } from "date-fns/locale";
+import { pizzeJePerGiorno, pizzeRiga } from "@/lib/pizze-fatte";
+import { leggiComboConfig } from "@/lib/combo";
 
 // GET /api/statistiche?giorni=7&sedeId=xxx
 export async function GET(req: NextRequest) {
@@ -39,13 +41,34 @@ export async function GET(req: NextRequest) {
 
   // Raggruppa per giorno
   // `incasso` = incasso totale del giorno (CRM + Just Eat); `incassoCrm` e `incassoJe` ne sono le due parti.
-  const perGiorno: Record<string, { data: string; ordini: number; incasso: number; incassoCrm: number; incassoJe: number; online: number; telefono: number; walk_in: number }> = {};
+  const perGiorno: Record<string, { data: string; ordini: number; incasso: number; incassoCrm: number; incassoJe: number; pizze: number; pizzeCrm: number; pizzeJe: number; online: number; telefono: number; walk_in: number }> = {};
 
   for (let i = giorni - 1; i >= 0; i--) {
     const d = format(subDays(new Date(), i), "yyyy-MM-dd");
     const label = format(subDays(new Date(), i), "EEE d/M", { locale: it });
-    perGiorno[d] = { data: label, ordini: 0, incasso: 0, incassoCrm: 0, incassoJe: 0, online: 0, telefono: 0, walk_in: 0 };
+    perGiorno[d] = { data: label, ordini: 0, incasso: 0, incassoCrm: 0, incassoJe: 0, pizze: 0, pizzeCrm: 0, pizzeJe: 0, online: 0, telefono: 0, walk_in: 0 };
   }
+
+  // Pizze per giorno: quelle degli ordini del CRM (maxi = 1, combo = pizze contenute) + quelle Just Eat inserite nei Conti.
+  const ordiniPizze = await prisma.ordine.findMany({
+    where: { ...(sedeFilter && { sedeId: sedeFilter }), createdAt: { gte: dataInizio }, stato: { not: "annullato" } },
+    select: {
+      createdAt: true,
+      items: { select: { quantita: true, nomeSnapshot: true, menuItem: { select: { categoria: true, comboConfig: true } }, sedeExtra: { select: { categoria: true } } } },
+    },
+  });
+  for (const o of ordiniPizze) {
+    const g = perGiorno[format(new Date(o.createdAt), "yyyy-MM-dd")];
+    if (!g) continue;
+    for (const i of o.items) {
+      const n = pizzeRiga(i.menuItem?.categoria ?? i.sedeExtra?.categoria, i.nomeSnapshot, i.quantita, leggiComboConfig(i.menuItem?.comboConfig)?.pizze).pizze;
+      g.pizzeCrm += n; g.pizze += n;
+    }
+  }
+  (await pizzeJePerGiorno(format(dataInizio, "yyyy-MM-dd"), sedeFilter)).forEach((n, giorno) => {
+    const g = perGiorno[giorno];
+    if (g) { g.pizzeJe += n; g.pizze += n; }
+  });
 
   // Incasso Just Eat inserito a mano nei Conti (già pagato + contanti), per serata e per sede. Se manca la tabella: zero.
   const jePerSede: Record<string, number> = {};
