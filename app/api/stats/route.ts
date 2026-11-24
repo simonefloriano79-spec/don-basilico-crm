@@ -13,8 +13,11 @@ export async function GET(req: NextRequest) {
   const isSuperAdmin = user.ruolo === "super_admin";
   const sedeFilter = isSuperAdmin ? undefined : user.sedeId;
 
-  const oggi = new Date();
-  oggi.setHours(0, 0, 0, 0);
+  // «Oggi» = la serata in corso, dalle 5:00 alle 5:00 (come Conti ed esauriti): gli ordini presi dopo mezzanotte
+  // contano ancora per la serata di ieri e tutti i numeri della Panoramica si azzerano insieme alle 5:00.
+  const giornoServizio = giornoServizioOggi();
+  const { inizio: inizioServizio, fine: fineServizio } = finestraServizio(giornoServizio);
+  const oggi = inizioServizio;
 
   const [ordiniOggi, ordiniAttivi, pronti, online, sedi] = await Promise.all([
     prisma.ordine.findMany({
@@ -43,8 +46,6 @@ export async function GET(req: NextRequest) {
   ]);
 
   // Pizze della serata (dalle 5:00 alle 5:00, come i Conti): nostre + Just Eat inserite a mano. Mai bloccanti per il resto.
-  const giornoServizio = giornoServizioOggi();
-  const { inizio: inizioServizio, fine: fineServizio } = finestraServizio(giornoServizio);
   const pizzeNostre = await pizzePerSede(inizioServizio, fineServizio, sedeFilter).catch(() => new Map<string, { pizze: number; maxi: number }>());
   const pizzeJe = (await pizzeJePerSede(giornoServizio, sedeFilter)).per;
   let pizzeTotNostre = 0, pizzeTotJe = 0;
