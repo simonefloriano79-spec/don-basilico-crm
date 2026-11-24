@@ -6,7 +6,7 @@ import toast from "react-hot-toast";
 
 interface StatsData {
   periodo: { giorni: number; dataInizio: string; dataFine: string };
-  graficoDati: Array<{ data: string; ordini: number; incasso: number; incassoCrm: number; incassoJe: number; online: number; telefono: number; walk_in: number }>;
+  graficoDati: Array<{ data: string; ordini: number; incasso: number; incassoCrm: number; incassoJe: number; pizze: number; pizzeCrm: number; pizzeJe: number; online: number; telefono: number; walk_in: number }>;
   topProdotti: Array<{ nome: string; quantita: number }>;
   topProdottiValore: Array<{ nome: string; quantita: number; importo: number }>;
   incassoPerSede: Array<{ nome: string; incasso: number }>;
@@ -100,9 +100,14 @@ export default function StatistichePage() {
                 CRM {euro(data.riepilogo.incassoCrm)} + Just Eat {euro(data.riepilogo.incassoJustEat)}
               </div>
             )}
+            {data && (
+              <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 2 }}>
+                Sotto ogni giorno: pizze fatte (pz) = CRM + Just Eat · totale periodo {barre.reduce((a, b) => a + b.pizze, 0)}
+              </div>
+            )}
           </div>
         </div>
-        <div style={{ padding: "0 22px 22px", display: "flex", alignItems: "flex-end", gap: 8, height: 205 }}>
+        <div style={{ padding: "0 22px 22px", display: "flex", alignItems: "flex-end", gap: 8, height: 222 }}>
           {barre.length === 0 ? (
             <div style={{ flex: 1, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>Nessun dato</div>
           ) : barre.map((b, i) => {
@@ -119,6 +124,7 @@ export default function StatistichePage() {
                   {b.incassoJe > 0 && <div style={{ height: `${Math.round((b.incassoJe / b.incasso) * 100)}%`, background: "rgba(255,255,255,0.45)" }} />}
                 </div>
                 <span style={{ fontSize: 10.5, color: "var(--text-muted)" }}>{b.data}</span>
+                <span className="num" title={`Pizze: CRM ${b.pizzeCrm} + Just Eat ${b.pizzeJe}`} style={{ fontSize: 10.5, color: "var(--text-2)", fontWeight: 500, marginTop: -3 }}>{b.pizze} pz</span>
               </div>
             );
           })}
