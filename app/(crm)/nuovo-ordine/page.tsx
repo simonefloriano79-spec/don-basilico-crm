@@ -669,6 +669,17 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
         {cart.length > 0 && (
           <textarea {...tast("t")} style={{ ...fieldSt, resize: "none", marginTop: 4 } as any} rows={2} placeholder="Note ordine…" value={note} onChange={inMaius(setNote)} />
         )}
+        {/* All'asporto la scorciatoia «TAGLIATE» finisce nelle note dell'ordine (al domicilio è tra le note di consegna). */}
+        {cart.length > 0 && tipo === "asporto" && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {["TAGLIATE"].map((msg) => (
+              <button key={msg} onClick={() => setNote((p: string) => p.includes(msg) ? p : (p ? `${p}, ${msg}` : msg))} style={{
+                padding: "5px 11px", borderRadius: 20, fontSize: 11.5, cursor: "pointer", fontFamily: "var(--font-ui)",
+                border: "1px solid var(--border)", background: "var(--surface-muted)", color: "var(--text-3)",
+              }}>{msg}</button>
+            ))}
+          </div>
+        )}
       </div>
       </div>
 
