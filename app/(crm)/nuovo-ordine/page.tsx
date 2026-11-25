@@ -1012,6 +1012,8 @@ export default function NuovoOrdinePage() {
         <CercaClienteModal
           onSeleziona={(c) => {
             setClienteNome(c.nome); setClienteTel(c.telefono); setAddr(c.indirizzo);
+            // Il nome del cliente è anche il nome sul citofono (così si lavora al telefono): si compila da solo, resta modificabile.
+            setNomeCitofono(c.nome);
             if (c.note) setNoteDomicilio((p) => p.includes(c.note) ? p : (p ? `${p}, ${c.note}` : c.note));
             setShowCercaCliente(false);
           }}
