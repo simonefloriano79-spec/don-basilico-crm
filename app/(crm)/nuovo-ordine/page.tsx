@@ -29,7 +29,12 @@ interface Ingrediente {
 }
 interface ImpastoCassa { id: string; nome: string; descrizione: string | null; supplemento: number; }
 const CAT_IMPASTO = ["menu_speciale", "pizze_rosse", "pizze_bianche", "focacce"];
-const CAT_MAXI = ["pizze_rosse", "pizze_bianche", "menu_speciale", "focacce"]; // tutte le pizze tranne i calzoni
+const bottoneFormato: React.CSSProperties = {
+  flex: 1, padding: "9px 6px", borderRadius: 9, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+  border: "1.5px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontFamily: "var(--font-ui)",
+};
+const CAT_PIZZA =["menu_speciale", "pizze_rosse", "pizze_bianche", "calzoni", "focacce"]; // si aprono nella finestra pizza; sul riquadro niente descrizione
+const CAT_MAXI =["pizze_rosse", "pizze_bianche", "menu_speciale", "focacce"]; // tutte le pizze tranne i calzoni
 
 interface CartItem {
   impasto?: { id: string; nome: string; supplemento: number };
@@ -45,8 +50,8 @@ interface CartItem {
 }
 
 // ── Modale configurazione pizza ───────────────────────────────
-function PizzaModal({ item, tuttiIngredienti, sedeId, maxi, onConferma, onChiudi }: {
-  item: any; tuttiIngredienti: Ingrediente[]; sedeId: string; maxi: number | null;
+function PizzaModal({ item, formato, tuttiIngredienti, sedeId, maxi, onConferma, onChiudi }: {
+  item: any; formato: "normale" | "maxi" | "baby"; tuttiIngredienti: Ingrediente[]; sedeId: string; maxi: number | null;
   onConferma: (c: CartItem) => void; onChiudi: () => void;
 }) {
   const baseIngs: Ingrediente[] = (item.ingredienti ?? []).map((ii: any) => ii.ingrediente ?? ii);
@@ -66,18 +71,14 @@ function PizzaModal({ item, tuttiIngredienti, sedeId, maxi, onConferma, onChiudi
 
   const extra = tuttiIngredienti.filter((i) => !rimossi.has(i.id) && !i.disabilitatoInSede
     && i.nome.toLowerCase().includes(search.toLowerCase()));
-  // «La vuoi Maxi?»: tutte le pizze tranne i calzoni, solo nelle sedi che la fanno. Prezzo della pizza ed extra si moltiplicano
+  // Il formato si sceglie fuori, dal riquadro della pizza: riquadro = normale, bottone Baby o Maxi = quel formato.
+  // Maxi: tutte le pizze tranne i calzoni, solo nelle sedi che la fanno; prezzo della pizza ed extra si moltiplicano
   // (di norma ×2); il supplemento dell'impasto resta quello normale.
-  const maxiPossibile = !!maxi && CAT_MAXI.includes(item.categoria);
-  // «Baby»: solo in cassa, 1,50 € in meno della pizza normale; extra e impasto restano ai prezzi normali.
-  const babyPossibile = CATEGORIE_BABY.has(item.categoria);
-  const [taglia, setTaglia] = useState<"normale" | "maxi" | "baby">("normale");
+  // Baby: solo in cassa, 1,50 € in meno della pizza normale; extra e impasto restano ai prezzi normali.
+  const taglia = formato;
   const prezzoNormale = parseFloat(item.prezzoEffettivo ?? item.prezzoBase);
   const moltTaglia = taglia === "maxi" && maxi ? maxi : 1;
   const prezzoBase = taglia === "baby" ? prezzoBaby(prezzoNormale) : prezzoNormale * moltTaglia;
-  const formati = (["normale", ...(babyPossibile ? ["baby"] : []), ...(maxiPossibile ? ["maxi"] : [])]) as ("normale" | "baby" | "maxi")[];
-  const nomeFormato = { normale: "Normale", baby: "Baby", maxi: "Maxi" } as const;
-  const prezzoFormato = (t: "normale" | "baby" | "maxi") => t === "normale" ? prezzoNormale : t === "baby" ? prezzoBaby(prezzoNormale) : prezzoNormale * (maxi ?? 1);
   const prezzoAggiuntiLordo = Array.from(aggiunti.values()).reduce((a, i) => a + parseFloat(i.prezzoAggiunta?.toString() ?? "0"), 0);
   // Compensazione: rimuovere un ingrediente non genera mai uno sconto da solo, ma
   // "copre" fino al suo valore un ingrediente aggiunto al suo posto — es. tolgo
@@ -111,7 +112,9 @@ function PizzaModal({ item, tuttiIngredienti, sedeId, maxi, onConferma, onChiudi
         <div style={{ padding: "12px 20px 14px", borderBottom: "1px solid var(--border-soft)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <div style={{ fontFamily: "var(--font-display)", fontSize: 20, color: "var(--text)" }}>{item.nome}</div>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 20, color: "var(--text)" }}>
+                {item.nome}{taglia !== "normale" && <span style={{ marginLeft: 8, fontSize: 11, background: "var(--text)", color: "#fff", padding: "2px 9px", borderRadius: 10, verticalAlign: "middle", fontFamily: "var(--font-ui)", letterSpacing: 0.8, textTransform: "uppercase" }}>{taglia}</span>}
+              </div>
               <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{item.descrizione}</div>
             </div>
             <button onClick={onChiudi} style={{ background: "#fff", border: "1px solid var(--border)", color: "var(--text-3)", width: 32, height: 32, borderRadius: "50%", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>✕</button>
@@ -119,22 +122,6 @@ function PizzaModal({ item, tuttiIngredienti, sedeId, maxi, onConferma, onChiudi
         </div>
 
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
-          {formati.length > 1 && (
-            <div style={{ marginBottom: 18 }}>
-              <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.7, marginBottom: 8, fontWeight: 500 }}>{babyPossibile ? "Formato" : "La vuoi Maxi?"}</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                {formati.map((t) => (
-                  <button key={t} onClick={() => setTaglia(t)} style={{
-                    flex: 1, padding: "11px 8px", borderRadius: 10, fontSize: 13, cursor: "pointer", border: "1.5px solid", fontFamily: "var(--font-ui)",
-                    background: taglia === t ? "var(--text)" : "#fff", color: taglia === t ? "#fff" : "var(--text)", borderColor: taglia === t ? "var(--text)" : "var(--border)",
-                  }}>
-                    <span style={{ fontWeight: 600 }}>{nomeFormato[t]}</span>
-                    <span className="num" style={{ marginLeft: 8, opacity: 0.85 }}>{euro(prezzoFormato(t))}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
           {impasti.length > 0 && (
             <div style={{ marginBottom: 18 }}>
               <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.7, marginBottom: 8, fontWeight: 500 }}>Impasto</div>
@@ -712,6 +699,8 @@ export default function NuovoOrdinePage() {
   const [loading, setLoading] = useState(false);
   const [justSent, setJustSent] = useState(false);
   const [pizzaModal, setPizzaModal] = useState<any>(null);
+  // Formato scelto dal riquadro: tocco sul riquadro = normale, bottone Baby/Maxi = quel formato.
+  const [pizzaFormato, setPizzaFormato] = useState<"normale" | "maxi" | "baby">("normale");
   const [showCart, setShowCart] = useState(false);
   const [cercaPizza, setCercaPizza] = useState("");
   const [comboModal, setComboModal] = useState<any>(null);
@@ -764,11 +753,11 @@ export default function NuovoOrdinePage() {
   // Prodotti attivi e non esauriti in questa sede: da qui si sceglie per i combo e si decide se un combo si può vendere.
   const disponibili = menuItems.filter((m) => m.disponibileInSede !== false);
 
-  const handleClick = (item: any) => {
+  const handleClick = (item: any, formato: "normale" | "maxi" | "baby" = "normale") => {
     if (item.disponibileInSede === false) return;
     if (item.categoria === "combo") { if (comboDisponibileIn(item, disponibili)) setComboModal(item); return; }
-    const isPizza = ["menu_speciale", "pizze_rosse", "pizze_bianche", "calzoni", "focacce"].includes(item.categoria);
-    if (isPizza) { setPizzaModal(item); return; }
+    const isPizza = CAT_PIZZA.includes(item.categoria);
+    if (isPizza) { setPizzaFormato(formato); setPizzaModal(item); return; }
     const prezzo = parseFloat(item.prezzoEffettivo ?? item.prezzoBase);
     setCart((prev) => {
       const ex = prev.find((c) => c.menuItemId === item.id && !c.ingredientiAggiunti.length && !c.ingredientiRimossi.length);
@@ -936,8 +925,24 @@ export default function NuovoOrdinePage() {
                   <span style={{ fontFamily: "var(--font-display)", fontSize: 16, color: "var(--text)" }}>{item.nome}</span>
                   <span className="num" style={{ fontSize: 14, fontWeight: 500, color: "var(--text)", flexShrink: 0 }}>{euro(prezzo)}</span>
                 </div>
-                {item.descrizione && <div style={{ fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.45, marginTop: 6 }}>{item.descrizione}</div>}
-                {esaurito && <div style={{ fontSize: 10.5, color: "var(--danger)", marginTop: 6 }}>{item.categoria === "combo" && item.disponibileInSede !== false ? "Non disponibile: manca un prodotto in sede" : "Esaurito in sede"}</div>}
+                {/* Sulle pizze niente descrizione (in cassa le conoscono a memoria): resta nella finestra della pizza. */}
+                {item.descrizione && !CAT_PIZZA.includes(item.categoria) && <div style={{ fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.45, marginTop: 6 }}>{item.descrizione}</div>}
+                {/* Baby e Maxi: due bottoni staccati dal resto, per non toccarli per sbaglio. Tocco sul riquadro = pizza normale. */}
+                {!esaurito && (CATEGORIE_BABY.has(item.categoria) || (!!maxi && CAT_MAXI.includes(item.categoria))) && (
+                  <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+                    {CATEGORIE_BABY.has(item.categoria) && (
+                      <button onClick={(e) => { e.stopPropagation(); handleClick(item, "baby"); }} style={bottoneFormato}>
+                        Baby <span className="num" style={{ opacity: 0.8 }}>{euro(prezzoBaby(prezzo))}</span>
+                      </button>
+                    )}
+                    {!!maxi && CAT_MAXI.includes(item.categoria) && (
+                      <button onClick={(e) => { e.stopPropagation(); handleClick(item, "maxi"); }} style={bottoneFormato}>
+                        Maxi <span className="num" style={{ opacity: 0.8 }}>{euro(prezzo * maxi)}</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+                {esaurito &&<div style={{ fontSize: 10.5, color: "var(--danger)", marginTop: 6 }}>{item.categoria === "combo" && item.disponibileInSede !== false ? "Non disponibile: manca un prodotto in sede" : "Esaurito in sede"}</div>}
               </div>
             );
           })}
@@ -968,7 +973,7 @@ export default function NuovoOrdinePage() {
       </div>
 
       {pizzaModal && (
-        <PizzaModal item={pizzaModal} tuttiIngredienti={ingredienti} sedeId={sedeSelezionata} maxi={maxi}
+        <PizzaModal item={pizzaModal} formato={pizzaFormato} tuttiIngredienti={ingredienti} sedeId={sedeSelezionata} maxi={maxi}
           onConferma={(c) => { setCart((p) => [...p, c]); setPizzaModal(null); toast.success(`${c.nome} aggiunto`, { duration: 1000 }); }}
           onChiudi={() => setPizzaModal(null)} />
       )}
