@@ -30,7 +30,7 @@ interface Ingrediente {
 interface ImpastoCassa { id: string; nome: string; descrizione: string | null; supplemento: number; }
 const CAT_IMPASTO = ["menu_speciale", "pizze_rosse", "pizze_bianche", "focacce"];
 const bottoneFormato: React.CSSProperties = {
-  flex: 1, padding: "9px 6px", borderRadius: 9, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+  flex: "0 1 72px", padding: "4px 6px", borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: "pointer",
   border: "1.5px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontFamily: "var(--font-ui)",
 };
 const CAT_PIZZA =["menu_speciale", "pizze_rosse", "pizze_bianche", "calzoni", "focacce"]; // si aprono nella finestra pizza; sul riquadro niente descrizione
@@ -929,7 +929,7 @@ export default function NuovoOrdinePage() {
                 {item.descrizione && !CAT_PIZZA.includes(item.categoria) && <div style={{ fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.45, marginTop: 6 }}>{item.descrizione}</div>}
                 {/* Baby e Maxi: due bottoni staccati dal resto, per non toccarli per sbaglio. Tocco sul riquadro = pizza normale. */}
                 {!esaurito && (CATEGORIE_BABY.has(item.categoria) || (!!maxi && CAT_MAXI.includes(item.categoria))) && (
-                  <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+                  <div style={{ display: "flex", gap: 14, marginTop: 34, marginBottom: 6, justifyContent: "flex-end" }}>
                     {CATEGORIE_BABY.has(item.categoria) && (
                       <button onClick={(e) => { e.stopPropagation(); handleClick(item, "baby"); }} style={bottoneFormato}>
                         Baby <span className="num" style={{ opacity: 0.8 }}>{euro(prezzoBaby(prezzo))}</span>
