@@ -71,6 +71,7 @@ export async function generaTicketHTML(ordine: PrintOrdine): Promise<string> {
           width: 76mm;
           margin: 4px;
           color: #000;
+          text-transform: uppercase; /* la comanda esce sempre tutta in maiuscolo */
         }
         .header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; }
         .logo { font-size: 22px; font-weight: bold; }
