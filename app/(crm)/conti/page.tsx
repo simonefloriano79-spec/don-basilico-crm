@@ -20,7 +20,7 @@ type Conti = {
   asporto: { ordini: Ord[]; totale: number; perCanale: { canale: string; ordini: number; totale: number }[] } & { ordini_n?: number };
   tavolo: { ordini: Ord[]; totale: number };
   je: { ok: boolean; giaPagato: number; contanti: number; modificatoDa: string | null; modificatoAt: string | null };
-  pizze: { ok: boolean; nostre: number; maxi: number; justEat: number; totale: number };
+  pizze: { ok: boolean; nostre: number; maxi: number; justEat: number; totale: number; asporto: number; domicilio: number; tavolo: number };
   totale: { domicilio: number; asporto: number; tavolo: number; justEat: number; totalone: number; contantiNoti: number; carteNote: number; ordiniInCorso: number };
   perSede: { sedeId: string; nome: string; domicilio: number; asporto: number; tavolo: number; justEatGiaPagato: number; justEatContanti: number; totale: number; pizzeNostre: number; pizzeJustEat: number; pizzeTotali: number }[] | null;
 };
@@ -371,6 +371,9 @@ Confermi la correzione dell'ordine #${o.numero}?`)) return;
             <div style={{ borderTop: "1px solid var(--border-soft)", marginTop: 10, paddingTop: 8 }}>
               <div style={{ ...etichetta, padding: "2px 0" }}>Pizze della serata</div>
               <Riga a="Pizze nostre" nota={dati.pizze.maxi ? `di cui ${dati.pizze.maxi} maxi (contate come 1)` : "Tutti i canali, maxi e combo compresi"} b={String(dati.pizze.nostre)} />
+              <Riga a="di cui asporto" nota="ritiro in pizzeria (walk-in, telefono, app)" b={String(dati.pizze.asporto ?? 0)} />
+              <Riga a="di cui domicilio" nota="consegnate dai rider" b={String(dati.pizze.domicilio ?? 0)} />
+              <Riga a="di cui tavolo" nota="mangiate in sala" b={String(dati.pizze.tavolo ?? 0)} />
               <Riga a="Pizze Just Eat" nota={dati.pizze.ok ? "Inserite a mano qui sopra" : "Non ancora attivo: manca la colonna nel database"} b={String(dati.pizze.justEat)} />
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", paddingTop: 6 }}>
                 <span style={{ fontSize: 14, fontWeight: 700 }}>PIZZE TOTALI</span>

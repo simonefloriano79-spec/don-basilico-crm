@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { dataValida, finestraServizio, giornoServizioOggi } from "@/lib/conti";
-import { pizzeJePerSede, pizzePerSede } from "@/lib/pizze-fatte";
+import { pizzeJePerSede, pizzePerSede, type PizzeSede } from "@/lib/pizze-fatte";
 
 export const dynamic = "force-dynamic";
 
@@ -139,12 +139,17 @@ export async function GET(req: NextRequest) {
   }
 
   // ── PIZZE: nostre (dagli ordini) + Just Eat (a mano) ─────────────────────────────────
-  const nostrePerSede = await pizzePerSede(inizio, fine, sedeFiltro).catch(() => new Map<string, { pizze: number; maxi: number }>());
+  const nostrePerSede = await pizzePerSede(inizio, fine, sedeFiltro).catch(() => new Map<string, PizzeSede>());
   const jePizze = await pizzeJePerSede(data, sedeFiltro);
   const pizzeNostre = Array.from(nostrePerSede.values()).reduce((a, s) => a + s.pizze, 0);
   const pizzeMaxi = Array.from(nostrePerSede.values()).reduce((a, s) => a + s.maxi, 0);
   const pizzeJe = Array.from(jePizze.per.values()).reduce((a, n) => a + n, 0);
-  const pizze = { ok: jePizze.ok, nostre: pizzeNostre, maxi: pizzeMaxi, justEat: pizzeJe, totale: pizzeNostre + pizzeJe };
+  const perTipo = (t: "asporto" | "domicilio" | "tavolo") => Array.from(nostrePerSede.values()).reduce((a, s) => a + (s[t] ?? 0), 0);
+  const pizze = {
+    ok: jePizze.ok, nostre: pizzeNostre, maxi: pizzeMaxi, justEat: pizzeJe, totale: pizzeNostre + pizzeJe,
+    // Le nostre pizze divise per tipo di ordine (la somma dei tre dà «nostre»).
+    asporto: perTipo("asporto"), domicilio: perTipo("domicilio"), tavolo: perTipo("tavolo"),
+  };
 
   const totDomicilio = r2(totDom.totale), totAsporto = somma(asp).totale, totTavolo = somma(tav).totale;
   const totale = {
