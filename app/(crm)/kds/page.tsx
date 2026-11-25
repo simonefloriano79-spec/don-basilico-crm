@@ -134,6 +134,9 @@ export default function KDSPage() {
                       background: inRitardo ? "var(--danger-bg)" : "var(--surface-muted)",
                       color: inRitardo ? "var(--danger)" : "var(--text-muted)",
                     }}>{aOrario(ordine) ? (futuro ? `ore ${etichettaOrario(ordine.oraConsegnaComunicata)}` : `${min} min dopo l'orario`) : `${min} min`}</span>
+                    {ordine.modificatoAt && (
+                      <div style={{ marginTop: 6, fontSize: 12, fontWeight: 700, color: "var(--danger)", letterSpacing: 0.3 }}>⚠ ORDINE MODIFICATO</div>
+                    )}
                     {aOrario(ordine) && (
                       <div style={{ marginTop: 6, fontSize: 12, fontWeight: 700, color: "var(--accent-ink)", letterSpacing: 0.3 }}>
                         {ordine.tipo === "domicilio" ? "CONSEGNA" : "RITIRO"} {etichettaOrario(ordine.oraConsegnaComunicata).toUpperCase()}

@@ -4,7 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
+import { useRouter } from "next/navigation";
 import { stampaBrowser } from "@/lib/print";
+import { ordineApiPerStampa } from "@/lib/ordine-utils";
 import { CATEGORIE_BABY, prezzoBaby } from "@/lib/pizza-baby";
 import Tastiera, { type CampoTesto, type ModoTastiera } from "./Tastiera";
 import { bevandaAmmessaInCombo, comboDisponibileIn, leggiComboConfig, testoDettaglioCombo } from "@/lib/combo";
@@ -51,6 +53,9 @@ interface CartItem {
   taglia?: "normale" | "maxi" | "baby";
   // Solo «Menù Combo»: le scelte fatte (id di bibite e pizze) e il testo di cosa contiene, per carrello e comanda.
   combo?: { scelte: { bibite: string[]; pizze: string[] }; dettaglio: string };
+  // Solo modificando un ordine già confermato: riga che non si riesce a riaprire (combo, vecchia pizza con extra non riconosciuti…).
+  // Resta identica a com'era; si può cambiare solo la quantità o toglierla.
+  conservaRigaId?: string;
 }
 
 // ── Modale configurazione pizza ───────────────────────────────
@@ -542,7 +547,7 @@ function CercaClienteModal({ onSeleziona, onChiudi }: {
 // ── Contenuto carrello (condiviso desktop/mobile) ──────────────
 const MESSAGGI_DOMICILIO = ["Resto a 50 euro", "Citofono rotto, chiamare", "Chiamare all'arrivo", "TAGLIATE"];
 
-function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo, setTavolo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna, oraConsegna, modConsegna, onApriOrario, onModifica, onCercaCliente, noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma, loading, justSent, tastiera }: any) {
+function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo, setTavolo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna, oraConsegna, modConsegna, onApriOrario, onModifica, onCercaCliente, noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma, loading, justSent, tastiera, inModifica, onEsciModifica }: any) {
   // Tastierino nostro al posto di quello di Windows (vedi Tastiera.tsx): il campo non apre la tastiera di sistema.
   const tast = (m: ModoTastiera) => tastiera ? { inputMode: "none" as const, "data-tast": m } : { inputMode: (m === "n" ? "numeric" : "text") as any };
   const subtotale = cart.reduce((a: number, c: CartItem) => a + c.prezzoTotaleItem * c.qty, 0);
@@ -556,7 +561,16 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
           conferma in fondo resta fisso. */}
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10, borderBottom: "1px solid var(--border-soft)" }}>
-        <div style={{ display: "flex", gap: 8 }}>
+        {inModifica && (
+          <div style={{ background: "var(--accent-bg-2)", border: "1px solid var(--accent-border)", borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ flex: 1, fontSize: 12.5, color: "var(--text)", lineHeight: 1.35 }}>
+              <strong>✎ Modifichi l'ordine #{inModifica}</strong><br />
+              <span style={{ color: "var(--text-3)", fontSize: 11.5 }}>Aggiungi, togli o cambia le pizze, poi «Salva modifiche»: la comanda esce di nuovo.</span>
+            </div>
+            <button onClick={onEsciModifica} style={{ border: "1px solid var(--border)", background: "#fff", color: "var(--text-3)", borderRadius: 8, padding: "6px 10px", fontSize: 11.5, cursor: "pointer", fontFamily: "var(--font-ui)" }}>Esci</button>
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 8, ...(inModifica ? { pointerEvents: "none", opacity: 0.55 } : {}) }}>
           {(["walk_in", "telefono"] as const).map((c) => (
             <button key={c} onClick={() => setCanale(c)} style={{
               flex: 1, padding: "9px", borderRadius: 9, border: "1px solid",
@@ -567,7 +581,7 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
             }}>{c === "walk_in" ? "Walk-in" : "Telefono"}</button>
           ))}
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
+        <div style={{ display: "flex", gap: 6, ...(inModifica ? { pointerEvents: "none", opacity: 0.55 } : {}) }}>
           {(["asporto", "domicilio", "tavolo"] as const).map((t) => (
             <button key={t} onClick={() => setTipo(t)} style={{
               flex: 1, padding: "7px", borderRadius: 8, border: "1px solid",
@@ -676,7 +690,7 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
             </div>
             {/* Modifica la pizza (ingredienti, formato, impasto, note) oppure toglila del tutto, qualunque sia la quantità. */}
             <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-              {CAT_PIZZA.includes(item.categoria) && !item.combo && onModifica && (
+              {CAT_PIZZA.includes(item.categoria) && !item.combo && !item.conservaRigaId && onModifica && (
                 <button onClick={() => onModifica(item)} style={{
                   padding: "6px 14px", borderRadius: 8, border: "1px solid var(--border)", background: "#fff", color: "var(--text)",
                   fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-ui)",
@@ -734,7 +748,7 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
           background: justSent ? "var(--accent)" : cart.length === 0 ? "var(--border)" : "var(--text)",
           color: cart.length === 0 ? "var(--text-faint)" : "#fff",
         }}>
-          {loading ? "Invio…" : justSent ? "✓ Ordine confermato" : "Conferma ordine"}
+          {loading ? "Invio…" : justSent ? (inModifica ? "✓ Modifiche salvate" : "✓ Ordine confermato") : (inModifica ? "Salva modifiche" : "Conferma ordine")}
         </button>
       </div>
     </>
@@ -744,6 +758,7 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
 // ── Pagina principale ────────────────────────────────────────
 export default function NuovoOrdinePage() {
   const { data: session } = useSession();
+  const router = useRouter();
   const user = session?.user as any;
   const isSuperAdmin = user?.ruolo === "super_admin";
 
@@ -786,6 +801,42 @@ export default function NuovoOrdinePage() {
     fetch("/api/sedi").then((r) => r.json()).then((d) => setSedi(Array.isArray(d) ? d : []));
   }, []);
 
+  // ── Modifica di un ordine già confermato (/nuovo-ordine?modifica=ID, dal tasto «Modifica ordine» in Ordini) ──
+  // Il cliente richiama dopo qualche minuto: aggiunge, toglie o cambia una pizza. L'ordine si ricarica nel carrello con
+  // le stesse scelte e, al salvataggio, sostituisce le righe (stesso numero ordine) e la comanda esce di nuovo.
+  const [ordineMod, setOrdineMod] = useState<any>(null);
+  const [modCaricata, setModCaricata] = useState(false);
+  const [menuDellaSede, setMenuDellaSede] = useState("");
+  useEffect(() => {
+    const id = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("modifica") : null;
+    if (!id) return;
+    fetch(`/api/ordini/${id}`).then(async (r) => {
+      const d = await r.json().catch(() => null);
+      if (!r.ok || !d?.id) { toast.error(d?.error ?? "Non riesco ad aprire l'ordine da modificare"); return; }
+      if (["consegnato", "annullato"].includes(d.stato)) { toast.error("Questo ordine è già chiuso: non si può più modificare"); return; }
+      if (d.canale === "online" || d.daAssistente) { toast.error("Gli ordini dell'app o dell'assistente vocale non si modificano da qui"); return; }
+      if (d.stripePaymentId || parseFloat(d.scontoFedelta ?? 0) > 0 || parseFloat(d.scontoCodice ?? 0) > 0) { toast.error("Ordine con pagamento online o sconto applicato: non si può modificare da qui"); return; }
+      setSede(d.sedeId);
+      setCanale(d.canale === "telefono" ? "telefono" : "walk_in");
+      setTipo(d.tipo);
+      setTavolo(d.tavolo ?? "");
+      setClienteNome(d.clienteNome && d.clienteNome !== "Cliente anonimo" && !/^Tavolo /i.test(d.clienteNome) ? d.clienteNome : "");
+      setClienteTel(d.clienteTelefono ?? "");
+      setAddr(d.clienteIndirizzo ?? "");
+      setNomeCitofono(d.nomeCitofono ?? "");
+      setNote(d.note ?? "");
+      setNoteDomicilio(d.noteDomicilio ?? "");
+      setCostoConsegna(String(parseFloat(d.costoConsegna ?? 0) || 0));
+      setMetodoPagamento(d.metodoPagamento === "pos" || d.metodoPagamento === "contanti" ? d.metodoPagamento : "");
+      if (d.oraConsegnaComunicata) {
+        const t = new Date(d.oraConsegnaComunicata);
+        setOraConsegna(`${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`);
+        setModConsegna(d.modalitaConsegna ?? "");
+      }
+      setOrdineMod(d);
+    }).catch(() => toast.error("Non riesco ad aprire l'ordine da modificare"));
+  }, []);
+
   // La sede si decide DOPO che la sessione è pronta: chi lavora in una sede usa sempre la propria (altrimenti, con la pagina
   // ricaricata, la cassa poteva partire dalla prima sede della lista e il server rifiutava l'ordine con «Permesso negato»);
   // solo il super admin parte dalla prima sede e può cambiarla dal menu.
@@ -802,6 +853,7 @@ export default function NuovoOrdinePage() {
     fetch(`/api/menu?sedeId=${sedeSelezionata}`).then((r) => r.json()).then((d) => {
       setMaxi(d.maxi?.moltiplicatore ?? null);
       setMenuItems((d.items ?? []).filter((i: any) => i.isAttivo));
+      setMenuDellaSede(sedeSelezionata);
     }).catch(() => {});
     fetch(`/api/ingredienti?sedeId=${sedeSelezionata}`).then((r) => r.json()).then((d) =>
       setIngredienti(Array.isArray(d) ? d : [])).catch(() => {});
@@ -814,6 +866,82 @@ export default function NuovoOrdinePage() {
     document.addEventListener("visibilitychange", alRitorno);
     return () => { clearInterval(iv); document.removeEventListener("visibilitychange", alRitorno); };
   }, [caricaMenuSede]);
+
+  // Se mentre si modifica un ordine si va su «Nuovo ordine» dal menù laterale, la pagina resta la stessa: si esce dalla
+  // modifica e si riparte da zero, altrimenti il nuovo ordine sovrascriverebbe quello vecchio.
+  useEffect(() => {
+    if (!ordineMod) return;
+    const iv = setInterval(() => {
+      if (new URLSearchParams(window.location.search).get("modifica")) return;
+      setOrdineMod(null); setModCaricata(false); setCart([]); setTavolo(""); setClienteNome(""); setClienteTel(""); setAddr("");
+      setNomeCitofono(""); setCostoConsegna("1.50"); setNote(""); setNoteDomicilio(""); setOraConsegna(""); setModConsegna(""); setMetodoPagamento("");
+      setCanale("walk_in"); setTipo("asporto"); setShowCart(false);
+    }, 400);
+    return () => clearInterval(iv);
+  }, [ordineMod]);
+
+  // Quando il menù della sede è pronto, le righe dell'ordine da modificare diventano righe del carrello (una sola volta).
+  useEffect(() => {
+    if (!ordineMod || modCaricata) return;
+    if (menuDellaSede !== ordineMod.sedeId || !menuItems.length || !ingredienti.length) return;
+    setModCaricata(true);
+    (async () => {
+      const impasti: ImpastoCassa[] = await fetch(`/api/impasti?sedeId=${ordineMod.sedeId}`).then((r) => r.json()).then((d) => d.impasti ?? []).catch(() => []);
+      const righe: CartItem[] = (ordineMod.items ?? []).map((it: any): CartItem => {
+        const prezzoRiga = parseFloat(it.prezzoSnapshot) || 0;
+        const m = it.menuItemId ? menuItems.find((x) => x.id === it.menuItemId) : null;
+        const noteRiga: string = it.noteItem ?? "";
+        const parti = noteRiga.split("|").map((s) => s.trim()).filter(Boolean);
+        const libera = parti.filter((p) => !/^IMPASTO /i.test(p) && !/^(senza|con):/i.test(p)).join(" | ");
+        // Riga da tenere com'è: combo, prodotto non più nel menù, extra di sede, oppure extra/impasto che non si riconoscono.
+        const bloccata = (): CartItem => ({
+          cartId: crypto.randomUUID(), menuItemId: it.menuItemId ?? "", nome: it.nomeSnapshot, categoria: m?.categoria ?? "extra",
+          prezzoBase: prezzoRiga, qty: it.quantita, ingredientiRimossi: [], ingredientiAggiunti: [], noteItem: noteRiga, prezzoTotaleItem: prezzoRiga,
+          conservaRigaId: it.id,
+        });
+        if (!m || it.sedeExtraId || m.categoria === "combo" || it.comboScelte) return bloccata();
+
+        // Extra: ids salvati (ordini nuovi) oppure, per quelli vecchi, i nomi scritti nella nota «Con: …».
+        let aggiunti: { id: string; nome: string; prezzo: number }[] = [];
+        if ((it.ingredientiAggiunti ?? []).length) {
+          for (const id of it.ingredientiAggiunti as string[]) {
+            const ing = ingredienti.find((x) => x.id === id);
+            if (!ing) return bloccata();
+            aggiunti.push({ id, nome: ing.nome, prezzo: ing.prezzoAggiunta });
+          }
+        } else {
+          const con = parti.find((p) => /^con:/i.test(p));
+          if (con) {
+            for (const nome of con.replace(/^con:\s*/i, "").split(",").map((s) => s.trim()).filter(Boolean)) {
+              const ing = ingredienti.find((x) => x.nome.trim().toLowerCase() === nome.toLowerCase());
+              if (!ing) return bloccata();
+              aggiunti.push({ id: ing.id, nome: ing.nome, prezzo: ing.prezzoAggiunta });
+            }
+          }
+        }
+        const baseIngs: Ingrediente[] = (m.ingredienti ?? []).map((ii: any) => ii.ingrediente ?? ii);
+        const rimossi: { id: string; nome: string }[] = [];
+        for (const id of (it.ingredientiRimossi ?? []) as string[]) {
+          const ing = baseIngs.find((x) => x.id === id) ?? ingredienti.find((x) => x.id === id);
+          if (!ing) return bloccata();
+          rimossi.push({ id, nome: ing.nome });
+        }
+        let impasto: CartItem["impasto"];
+        if (it.impastoId || it.impasto) {
+          const imp = impasti.find((x) => x.id === it.impastoId) ?? impasti.find((x) => x.nome === it.impasto);
+          if (!imp) return bloccata();
+          impasto = { id: imp.id, nome: imp.nome, supplemento: imp.supplemento };
+        }
+        const taglia: "normale" | "maxi" | "baby" = /\(baby\)/i.test(it.nomeSnapshot) ? "baby" : /\(maxi\)/i.test(it.nomeSnapshot) ? "maxi" : "normale";
+        return {
+          cartId: crypto.randomUUID(), menuItemId: m.id, nome: taglia === "maxi" ? `${m.nome} (Maxi)` : taglia === "baby" ? `${m.nome} (Baby)` : m.nome,
+          categoria: m.categoria, taglia, prezzoBase: prezzoRiga, qty: it.quantita,
+          ingredientiRimossi: rimossi, ingredientiAggiunti: aggiunti, noteItem: libera, prezzoTotaleItem: prezzoRiga, impasto,
+        };
+      });
+      setCart(righe);
+    })();
+  }, [ordineMod, modCaricata, menuDellaSede, menuItems, ingredienti]);
 
   // In cassa "Speciali" viene dopo i calzoni; sul sito clienti (OrdinaFlow) è invece la prima sezione.
   const cats = ["pizze_rosse", "pizze_bianche", "calzoni", "focacce", "menu_speciale", "combo", "fritti", "dolci", "bevande", "extra"];
@@ -852,7 +980,7 @@ export default function NuovoOrdinePage() {
   const confermaOrdine = () => {
     if (!cart.length) return toast.error("Aggiungi almeno un prodotto");
     if (tipo === "tavolo" && !tavolo.trim()) return toast.error("Indica il tavolo (numero o nome)");
-    const cat = prossimaDomanda(domandeFatte);
+    const cat = ordineMod ? null : prossimaDomanda(domandeFatte); // modificando un ordine non si ripetono le domande fritto/bevanda
     if (cat) { setDomandaAperta(cat); return; }
     inviaOrdine();
   };
@@ -883,8 +1011,8 @@ export default function NuovoOrdinePage() {
       d.setHours(h, m, 0, 0);
       oraConsegnaISO = d.toISOString();
     }
-    const res = await fetch("/api/ordini", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+    const res = await fetch(ordineMod ? `/api/ordini/${ordineMod.id}` : "/api/ordini", {
+      method: ordineMod ? "PUT" : "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         sedeId: sedeSelezionata, canale, tipo,
         clienteNome: clienteNome || (tipo === "tavolo" ? `Tavolo ${tavolo.trim()}` : "Cliente anonimo"),
@@ -899,7 +1027,7 @@ export default function NuovoOrdinePage() {
         modalitaConsegna: modalitaInvio,
         metodoPagamento: metodoPagamento || null,
         costoConsegna: deliveryFee,
-        items: cart.map((c) => ({
+        items: cart.map((c) => c.conservaRigaId ? { conservaRigaId: c.conservaRigaId, quantita: c.qty } : ({
           menuItemId: c.menuItemId,
           nomeSnapshot: c.nome + (c.ingredientiAggiunti.length ? ` +${c.ingredientiAggiunti.map((i) => i.nome).join("+")}` : "") + (c.ingredientiRimossi.length ? ` -${c.ingredientiRimossi.map((i) => i.nome).join("-")}` : ""),
           quantita: c.qty,
@@ -915,6 +1043,15 @@ export default function NuovoOrdinePage() {
     setLoading(false);
     if (res.ok) {
       const ordine = await res.json();
+      if (ordineMod) {
+        // Modifica di un ordine già confermato: la comanda esce di nuovo (con «ORDINE MODIFICATO») dal PC; da telefono/tablet
+        // la ristampa la fa la stampa automatica del PC della cassa. Poi si torna alla lista ordini.
+        toast.success(`Ordine #${ordine.numeroOrdine} modificato`);
+        if (stampaQui) await stampaBrowser(ordineApiPerStampa(ordine));
+        setJustSent(true);
+        setTimeout(() => router.push("/ordini"), 900);
+        return;
+      }
       toast.success(`Ordine #${ordine.numeroOrdine} creato`);
       if (stampaQui) await stampaBrowser({
         numero: ordine.numeroOrdine, ordineId: ordine.id, sede: nomeSede, canale, tipo, tavolo: tipo === "tavolo" ? tavolo.trim() : undefined, cliente: clienteNome || (tipo === "tavolo" ? `Tavolo ${tavolo.trim()}` : "Cliente anonimo"), telefono: clienteTel, indirizzo: clienteIndirizzo,
@@ -994,6 +1131,8 @@ export default function NuovoOrdinePage() {
     onCercaCliente: () => setShowCercaCliente(true),
     noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma: confermaOrdine, loading, justSent,
     tastiera: tastieraAttiva,
+    inModifica: ordineMod?.numeroOrdine ?? null,
+    onEsciModifica: () => { if (confirm("Esci senza salvare le modifiche?")) router.push("/ordini"); },
   };
 
   return (

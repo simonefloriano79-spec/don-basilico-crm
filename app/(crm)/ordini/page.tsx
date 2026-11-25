@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { useSearchParams, usePathname } from "next/navigation";
+import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { stampaBrowser } from "@/lib/print";
 import { nomeOrdine } from "@/lib/ordine-utils";
@@ -82,6 +82,7 @@ export default function OrdiniPage() {
   const { data: session } = useSession();
   const searchParams = useSearchParams();
   const percorso = usePathname();
+  const router = useRouter();
   const soloOnline = percorso === "/online" || percorso === "/pannello";
   const sedeParam = searchParams.get("sede") ?? "";
   const user = session?.user as any;
@@ -275,7 +276,7 @@ export default function OrdiniPage() {
       scontoFedelta: parseFloat(ordine.scontoFedelta ?? 0) || undefined,
       scontoCodice: parseFloat(ordine.scontoCodice ?? 0) || undefined,
       codiceSconto: ordine.codiceSconto ?? undefined,
-      modificato: richiedeAccettazione(ordine) && !!ordine.modificatoAt ? true : undefined,
+      modificato: !!ordine.modificatoAt ? true : undefined,
       note: ordine.note,
       noteDomicilio: ordine.noteDomicilio,
       oraConsegnaComunicata: ordine.oraConsegnaComunicata ? quando(ordine.oraConsegnaComunicata) : undefined,
@@ -660,6 +661,16 @@ export default function OrdiniPage() {
                 background: "var(--text)", color: "#fff", border: "none", padding: "10px 18px",
                 borderRadius: 9, fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)",
               }}>{prossimaAzione(selezionato)!.label}</button>
+            )}
+            {/* Il cliente richiama: aggiunge, toglie o cambia una pizza. Si riapre l'ordine in cassa e, salvando, la comanda esce di nuovo. */}
+            {!richiedeAccettazione(selezionato) && !["consegnato", "annullato"].includes(selezionato.stato) && (
+              <button onClick={() => router.push(`/nuovo-ordine?modifica=${selezionato.id}`)} style={{
+                background: "var(--accent-bg-2)", border: "1px solid var(--accent-border)", color: "var(--accent-ink)",
+                padding: "10px 14px", borderRadius: 9, fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-ui)",
+              }}>✎ Modifica ordine</button>
+            )}
+            {!richiedeAccettazione(selezionato) && selezionato.modificatoAt && (
+              <div style={{ fontSize: 11.5, color: "var(--text-muted)", textAlign: "center" }}>Modificato alle {ora(selezionato.modificatoAt)}</div>
             )}
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => gestisciStampa(selezionato)} style={{
