@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import { stampaBrowser } from "@/lib/print";
 import { CATEGORIE_BABY, prezzoBaby } from "@/lib/pizza-baby";
+import Tastiera, { type CampoTesto, type ModoTastiera } from "./Tastiera";
 import { bevandaAmmessaInCombo, comboDisponibileIn, leggiComboConfig, testoDettaglioCombo } from "@/lib/combo";
 
 const CAT_LABEL: Record<string, string> = {
@@ -532,7 +533,9 @@ function CercaClienteModal({ onSeleziona, onChiudi }: {
 // ── Contenuto carrello (condiviso desktop/mobile) ──────────────
 const MESSAGGI_DOMICILIO = ["Resto a 50 euro", "Citofono rotto, chiamare", "Chiamare all'arrivo", "TAGLIATE"];
 
-function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo, setTavolo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna, oraConsegna, modConsegna, onApriOrario, onCercaCliente, noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma, loading, justSent }: any) {
+function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo, setTavolo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna, oraConsegna, modConsegna, onApriOrario, onCercaCliente, noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma, loading, justSent, tastiera }: any) {
+  // Tastierino nostro al posto di quello di Windows (vedi Tastiera.tsx): il campo non apre la tastiera di sistema.
+  const tast = (m: ModoTastiera) => tastiera ? { inputMode: "none" as const, "data-tast": m } : { inputMode: (m === "n" ? "numeric" : "text") as any };
   const subtotale = cart.reduce((a: number, c: CartItem) => a + c.prezzoTotaleItem * c.qty, 0);
   const consegna = tipo === "domicilio" ? (parseFloat(costoConsegna) || 0) : 0;
   const totale = subtotale + consegna;
@@ -567,7 +570,7 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
           ))}
         </div>
         {tipo === "tavolo" && (
-          <input style={{ ...fieldSt, borderColor: "var(--accent-border)", fontWeight: 600 }} placeholder="Tavolo * (numero o nome)" value={tavolo} onChange={inMaius(setTavolo)} />
+          <input {...tast("t")} style={{ ...fieldSt, borderColor: "var(--accent-border)", fontWeight: 600 }} placeholder="Tavolo * (numero o nome)" value={tavolo} onChange={inMaius(setTavolo)} />
         )}
         {tipo === "domicilio" && (
           <button onClick={onCercaCliente} style={{
@@ -578,9 +581,9 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
         )}
         {/* Al domicilio il nome è uno solo: quello sul citofono (campo più sotto). */}
         {tipo !== "domicilio" && (
-          <input style={fieldSt} placeholder="Nome cliente" value={clienteNome} onChange={inMaius(setClienteNome)} />
+          <input {...tast("t")} style={fieldSt} placeholder="Nome cliente" value={clienteNome} onChange={inMaius(setClienteNome)} />
         )}
-        <input style={fieldSt} placeholder="Telefono" value={clienteTel} onChange={(e: any) => setClienteTel(e.target.value)} />
+        <input {...tast("n")} style={fieldSt} placeholder="Telefono" value={clienteTel} onChange={(e: any) => setClienteTel(e.target.value)} />
         {/* Asporto: a che ora passa il cliente a ritirare (vuoto = subito, come sempre). */}
         {tipo === "asporto" && (
           <button onClick={onApriOrario} style={{
@@ -596,17 +599,17 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
         )}
         {tipo === "domicilio" && (
           <>
-            <input style={fieldSt} placeholder="Indirizzo *" value={clienteIndirizzo} onChange={inMaius(setClienteIndirizzo)} />
-            <input style={fieldSt} placeholder="Nome sul citofono" value={nomeCitofono || clienteNome} onChange={inMaius((v: string) => { setNomeCitofono(v); setClienteNome(v); })} />
+            <input {...tast("t")} style={fieldSt} placeholder="Indirizzo *" value={clienteIndirizzo} onChange={inMaius(setClienteIndirizzo)} />
+            <input {...tast("t")} style={fieldSt} placeholder="Nome sul citofono" value={nomeCitofono || clienteNome} onChange={inMaius((v: string) => { setNomeCitofono(v); setClienteNome(v); })} />
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 12.5, color: "var(--text-2)", flex: 1 }}>Costo consegna</span>
               <div style={{ position: "relative", width: 90 }}>
                 <span style={{ position: "absolute", left: 10, top: 9, color: "var(--text-muted)", fontSize: 12.5 }}>€</span>
                 <input
-                  type="number" step="0.10" min="0"
+                  type="text" {...tast("n")}
                   style={{ ...fieldSt, paddingLeft: 22, textAlign: "right" }}
                   value={costoConsegna}
-                  onChange={(e: any) => setCostoConsegna(e.target.value)}
+                  onChange={(e: any) => setCostoConsegna(e.target.value.replace(",", "."))}
                 />
               </div>
             </div>
@@ -622,7 +625,7 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
               </span>
             </button>
 
-            <textarea style={{ ...fieldSt, resize: "none" } as any} rows={2} placeholder="Note per la consegna (es. citofono, piano...)"
+            <textarea {...tast("t")} style={{ ...fieldSt, resize: "none" } as any} rows={2} placeholder="Note per la consegna (es. citofono, piano...)"
               value={noteDomicilio} onChange={inMaius(setNoteDomicilio)} />
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {MESSAGGI_DOMICILIO.map((msg) => (
@@ -664,7 +667,7 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
           </div>
         ))}
         {cart.length > 0 && (
-          <textarea style={{ ...fieldSt, resize: "none", marginTop: 4 } as any} rows={2} placeholder="Note ordine…" value={note} onChange={inMaius(setNote)} />
+          <textarea {...tast("t")} style={{ ...fieldSt, resize: "none", marginTop: 4 } as any} rows={2} placeholder="Note ordine…" value={note} onChange={inMaius(setNote)} />
         )}
       </div>
       </div>
@@ -904,19 +907,61 @@ export default function NuovoOrdinePage() {
     }
   };
 
+  // Tastierino della cassa: acceso di default su schermi touch larghi; si può spegnere col tasto in alto.
+  const [tastieraAttiva, setTastieraAttiva] = useState(false);
+  const [schermoLargo, setSchermoLargo] = useState(false);
+  const [campoTast, setCampoTast] = useState<{ el: CampoTesto; modo: ModoTastiera } | null>(null);
+  const [boxTast, setBoxTast] = useState({ sinistra: 0, larghezza: 600 });
+  const colonnaMenu = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (typeof window === "undefined" || window.innerWidth <= 900) return;
+    setSchermoLargo(true);
+    let salvato: string | null = null;
+    try { salvato = localStorage.getItem("cassa_tastierino"); } catch { /* storage non disponibile */ }
+    setTastieraAttiva(salvato ? salvato === "1" : navigator.maxTouchPoints > 0);
+  }, []);
+  const cambiaTastiera = () => {
+    const nuovo = !tastieraAttiva;
+    setTastieraAttiva(nuovo);
+    if (!nuovo) setCampoTast(null);
+    try { localStorage.setItem("cassa_tastierino", nuovo ? "1" : "0"); } catch { /* storage non disponibile */ }
+  };
+  const apriTastiera = (e: React.FocusEvent) => {
+    const el = e.target as HTMLElement;
+    const modo = el.getAttribute?.("data-tast") as ModoTastiera | null;
+    if (!tastieraAttiva || !modo) return;
+    const r = colonnaMenu.current?.getBoundingClientRect();
+    if (r) setBoxTast({ sinistra: r.left, larghezza: r.width });
+    setCampoTast({ el: el as CampoTesto, modo });
+  };
+  // Se il fuoco passa a un altro campo del carrello il tastierino resta, altrimenti si chiude.
+  const chiudiTastiera = () => setTimeout(() => {
+    const a = document.activeElement as HTMLElement | null;
+    if (!a || !a.getAttribute?.("data-tast")) setCampoTast(null);
+  }, 80);
+
   const cartProps = {
     cart, setCart, canale, setCanale, tipo, setTipo, tavolo, setTavolo, clienteNome, setClienteNome, clienteTel, setClienteTel,
     clienteIndirizzo, setClienteIndirizzo: setAddr, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna,
     oraConsegna, modConsegna, onApriOrario: () => setShowOrarioModal(true),
     onCercaCliente: () => setShowCercaCliente(true),
     noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma: confermaOrdine, loading, justSent,
+    tastiera: tastieraAttiva,
   };
 
   return (
-    <div className="animate-in cassa-maiuscolo" style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+    <div className="animate-in cassa-maiuscolo" onFocus={apriTastiera} onBlur={chiudiTastiera} style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
       {/* In cassa si scrive e si legge tutto in maiuscolo (solo qui: l'app ordini resta com'è). */}
       <style>{".cassa-maiuscolo, .cassa-maiuscolo * { text-transform: uppercase; }"}</style>
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div ref={colonnaMenu} style={{ flex: 1, minWidth: 0, paddingBottom: campoTast ? 330 : 0 }}>
+        {schermoLargo && (
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+            <button onClick={cambiaTastiera} style={{
+              padding: "5px 12px", borderRadius: 16, fontSize: 11.5, cursor: "pointer", fontFamily: "var(--font-ui)", border: "1px solid var(--border)",
+              background: tastieraAttiva ? "var(--text)" : "#fff", color: tastieraAttiva ? "#fff" : "var(--text-3)",
+            }}>⌨ Tastierino {tastieraAttiva ? "acceso" : "spento"}</button>
+          </div>
+        )}
         {isSuperAdmin && (
           <select value={sedeSelezionata} onChange={(e) => setSede(e.target.value)} style={{ ...fieldSt, background: "#fff", marginBottom: 12, width: 260 }}>
             {sedi.map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
@@ -1057,6 +1102,9 @@ export default function NuovoOrdinePage() {
           }}
           onChiudi={() => setShowCercaCliente(false)}
         />
+      )}
+      {tastieraAttiva && campoTast && (
+        <Tastiera campo={campoTast.el} modo={campoTast.modo} sinistra={boxTast.sinistra} larghezza={boxTast.larghezza} onChiudi={() => setCampoTast(null)} />
       )}
     </div>
   );
