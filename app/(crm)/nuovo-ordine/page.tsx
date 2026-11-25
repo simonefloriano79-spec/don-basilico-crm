@@ -561,12 +561,15 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
             padding: "9px 12px", borderRadius: 9, fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-ui)",
           }}>⌕ Cerca cliente</button>
         )}
-        <input style={fieldSt} placeholder="Nome cliente" value={clienteNome} onChange={(e: any) => setClienteNome(e.target.value)} />
+        {/* Al domicilio il nome è uno solo: quello sul citofono (campo più sotto). */}
+        {tipo !== "domicilio" && (
+          <input style={fieldSt} placeholder="Nome cliente" value={clienteNome} onChange={(e: any) => setClienteNome(e.target.value)} />
+        )}
         <input style={fieldSt} placeholder="Telefono" value={clienteTel} onChange={(e: any) => setClienteTel(e.target.value)} />
         {tipo === "domicilio" && (
           <>
             <input style={fieldSt} placeholder="Indirizzo *" value={clienteIndirizzo} onChange={(e: any) => setClienteIndirizzo(e.target.value)} />
-            <input style={fieldSt} placeholder="Nome sul citofono" value={nomeCitofono} onChange={(e: any) => setNomeCitofono(e.target.value)} />
+            <input style={fieldSt} placeholder="Nome sul citofono" value={nomeCitofono || clienteNome} onChange={(e: any) => { setNomeCitofono(e.target.value); setClienteNome(e.target.value); }} />
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 12.5, color: "var(--text-2)", flex: 1 }}>Costo consegna</span>
               <div style={{ position: "relative", width: 90 }}>
@@ -812,7 +815,7 @@ export default function NuovoOrdinePage() {
         stampato: stampaQui,
         clienteTelefono: clienteTel || null,
         clienteIndirizzo: tipo === "domicilio" ? clienteIndirizzo : null,
-        nomeCitofono: tipo === "domicilio" ? (nomeCitofono || null) : null,
+        nomeCitofono: tipo === "domicilio" ? (nomeCitofono || clienteNome || null) : null,
         note: note || null,
         noteDomicilio: tipo === "domicilio" ? (noteDomicilio || null) : null,
         oraConsegnaComunicata: oraConsegnaISO,
@@ -838,7 +841,7 @@ export default function NuovoOrdinePage() {
       toast.success(`Ordine #${ordine.numeroOrdine} creato`);
       if (stampaQui) await stampaBrowser({
         numero: ordine.numeroOrdine, ordineId: ordine.id, sede: nomeSede, canale, tipo, tavolo: tipo === "tavolo" ? tavolo.trim() : undefined, cliente: clienteNome || (tipo === "tavolo" ? `Tavolo ${tavolo.trim()}` : "Cliente anonimo"), telefono: clienteTel, indirizzo: clienteIndirizzo,
-        nomeCitofono: tipo === "domicilio" ? (nomeCitofono || undefined) : undefined,
+        nomeCitofono: tipo === "domicilio" ? (nomeCitofono || clienteNome || undefined) : undefined,
         items: cart.map((c) => ({
           nome: c.nome, qty: c.qty, prezzo: c.prezzoTotaleItem,
           note: [
