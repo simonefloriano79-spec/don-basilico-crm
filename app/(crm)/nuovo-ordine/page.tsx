@@ -28,7 +28,14 @@ interface Ingrediente {
   isAllergene: boolean; disabilitatoInSede?: boolean; escludiCompensazione?: boolean;
 }
 interface ImpastoCassa { id: string; nome: string; descrizione: string | null; supplemento: number; }
-const CAT_IMPASTO = ["menu_speciale", "pizze_rosse", "pizze_bianche", "focacce"];
+// In cassa il testo scritto a mano va in maiuscolo mentre si digita (la posizione del cursore resta dov'è).
+const inMaius = (setter: (v: string) => void) => (e: any) => {
+  const el = e.target as HTMLInputElement | HTMLTextAreaElement;
+  const pos = el.selectionStart;
+  setter(el.value.toUpperCase());
+  requestAnimationFrame(() => { try { if (pos !== null) el.setSelectionRange(pos, pos); } catch { /* campo senza selezione */ } });
+};
+const CAT_IMPASTO =["menu_speciale", "pizze_rosse", "pizze_bianche", "focacce"];
 const CAT_PIZZA =["menu_speciale", "pizze_rosse", "pizze_bianche", "calzoni", "focacce"]; // si aprono nella finestra pizza; sul riquadro niente descrizione
 const CAT_MAXI =["pizze_rosse", "pizze_bianche", "menu_speciale", "focacce"]; // tutte le pizze tranne i calzoni
 
@@ -99,7 +106,7 @@ function PizzaModal({ item, tuttiIngredienti, sedeId, maxi, onConferma, onChiudi
   };
 
   return createPortal(
-    <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}
+    <div className="cassa-maiuscolo" style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}
       onClick={onChiudi}>
       <div style={{ background: "var(--surface)", borderRadius: "20px 20px 0 0", maxHeight: "92vh", display: "flex", flexDirection: "column", overflow: "hidden", margin: "0 auto", width: "100%", maxWidth: 720 }}
         onClick={(e) => e.stopPropagation()}>
@@ -204,7 +211,7 @@ function PizzaModal({ item, tuttiIngredienti, sedeId, maxi, onConferma, onChiudi
           </div>
 
           <input style={fieldSt}
-            placeholder="Note (es. ben cotta, senza sale…)" value={nota} onChange={(e) => setNota(e.target.value)} />
+            placeholder="Note (es. ben cotta, senza sale…)" value={nota} onChange={inMaius(setNota)} />
         </div>
 
         <div style={{ padding: "14px 20px", borderTop: "1px solid var(--border-soft)", background: "var(--surface-muted)", paddingBottom: "max(14px, env(safe-area-inset-bottom))" }}>
@@ -295,7 +302,7 @@ function ComboModal({ item, menu, onConferma, onChiudi }: {
   };
 
   return createPortal(
-    <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end" }} onClick={onChiudi}>
+    <div className="cassa-maiuscolo" style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end" }} onClick={onChiudi}>
       <div style={{ background: "var(--surface)", borderRadius: "20px 20px 0 0", maxHeight: "92vh", display: "flex", flexDirection: "column", overflow: "hidden", margin: "0 auto", width: "100%", maxWidth: 720 }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0" }}><div style={{ width: 40, height: 4, borderRadius: 2, background: "var(--border)" }} /></div>
         <div style={{ padding: "12px 20px 14px", borderBottom: "1px solid var(--border-soft)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
@@ -323,7 +330,7 @@ function ComboModal({ item, menu, onConferma, onChiudi }: {
             {titolo(cfg.bibite === 1 ? "Bibita" : "Bibite", nBibite, cfg.bibite)}
             <div style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>{bibiteOpz.map((it) => riga(it, bibite, setBibite, cfg.bibite))}</div>
           </>)}
-          <input style={{ ...fieldSt, marginTop: 14 }} placeholder="Note (es. senza ghiaccio…)" value={nota} onChange={(e) => setNota(e.target.value)} />
+          <input style={{ ...fieldSt, marginTop: 14 }} placeholder="Note (es. senza ghiaccio…)" value={nota} onChange={inMaius(setNota)} />
         </div>
 
         <div style={{ padding: "14px 20px", borderTop: "1px solid var(--border-soft)", background: "var(--surface-muted)", paddingBottom: "max(14px, env(safe-area-inset-bottom))" }}>
@@ -363,7 +370,7 @@ function OrarioConsegnaModal({ tipo, oraConsegna, modConsegna, onSalva, onRimuov
   const asporto = tipo === "asporto";
 
   return createPortal(
-    <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 210, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+    <div className="cassa-maiuscolo" style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 210, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
       onClick={onChiudi}>
       <div style={{ background: "var(--surface)", borderRadius: 20, display: "flex", flexDirection: "column", width: "100%", maxWidth: 420 }}
         onClick={(e) => e.stopPropagation()}>
@@ -462,7 +469,7 @@ function CercaClienteModal({ onSeleziona, onChiudi }: {
   }
 
   return createPortal(
-    <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 210, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+    <div className="cassa-maiuscolo" style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 210, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
       onClick={onChiudi}>
       <div style={{ background: "var(--surface)", borderRadius: 20, maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "hidden", width: "100%", maxWidth: 480 }}
         onClick={(e) => e.stopPropagation()}>
@@ -505,9 +512,9 @@ function CercaClienteModal({ onSeleziona, onChiudi }: {
             }}>+ Nuovo cliente</button>
           ) : (
             <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 12, marginBottom: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-              <input style={fieldSt} placeholder="Nome" value={nuovoNome} onChange={(e) => setNuovoNome(e.target.value)} />
+              <input style={fieldSt} placeholder="Nome" value={nuovoNome} onChange={inMaius(setNuovoNome)} />
               <input style={fieldSt} placeholder="Telefono" value={nuovoTelefono} onChange={(e) => setNuovoTelefono(e.target.value)} />
-              <input style={fieldSt} placeholder="Via e civico" value={nuovoIndirizzo} onChange={(e) => setNuovoIndirizzo(e.target.value)} />
+              <input style={fieldSt} placeholder="Via e civico" value={nuovoIndirizzo} onChange={inMaius(setNuovoIndirizzo)} />
               <button onClick={salvaNuovo} disabled={!nuovoNome.trim() || salvando} style={{
                 background: nuovoNome.trim() ? "var(--text)" : "var(--border)", color: nuovoNome.trim() ? "#fff" : "var(--text-faint)",
                 border: "none", padding: "10px 12px", borderRadius: 9, fontSize: 12.5, fontWeight: 500,
@@ -560,7 +567,7 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
           ))}
         </div>
         {tipo === "tavolo" && (
-          <input style={{ ...fieldSt, borderColor: "var(--accent-border)", fontWeight: 600 }} placeholder="Tavolo * (numero o nome)" value={tavolo} onChange={(e: any) => setTavolo(e.target.value)} />
+          <input style={{ ...fieldSt, borderColor: "var(--accent-border)", fontWeight: 600 }} placeholder="Tavolo * (numero o nome)" value={tavolo} onChange={inMaius(setTavolo)} />
         )}
         {tipo === "domicilio" && (
           <button onClick={onCercaCliente} style={{
@@ -571,7 +578,7 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
         )}
         {/* Al domicilio il nome è uno solo: quello sul citofono (campo più sotto). */}
         {tipo !== "domicilio" && (
-          <input style={fieldSt} placeholder="Nome cliente" value={clienteNome} onChange={(e: any) => setClienteNome(e.target.value)} />
+          <input style={fieldSt} placeholder="Nome cliente" value={clienteNome} onChange={inMaius(setClienteNome)} />
         )}
         <input style={fieldSt} placeholder="Telefono" value={clienteTel} onChange={(e: any) => setClienteTel(e.target.value)} />
         {/* Asporto: a che ora passa il cliente a ritirare (vuoto = subito, come sempre). */}
@@ -589,8 +596,8 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
         )}
         {tipo === "domicilio" && (
           <>
-            <input style={fieldSt} placeholder="Indirizzo *" value={clienteIndirizzo} onChange={(e: any) => setClienteIndirizzo(e.target.value)} />
-            <input style={fieldSt} placeholder="Nome sul citofono" value={nomeCitofono || clienteNome} onChange={(e: any) => { setNomeCitofono(e.target.value); setClienteNome(e.target.value); }} />
+            <input style={fieldSt} placeholder="Indirizzo *" value={clienteIndirizzo} onChange={inMaius(setClienteIndirizzo)} />
+            <input style={fieldSt} placeholder="Nome sul citofono" value={nomeCitofono || clienteNome} onChange={inMaius((v: string) => { setNomeCitofono(v); setClienteNome(v); })} />
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 12.5, color: "var(--text-2)", flex: 1 }}>Costo consegna</span>
               <div style={{ position: "relative", width: 90 }}>
@@ -616,7 +623,7 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
             </button>
 
             <textarea style={{ ...fieldSt, resize: "none" } as any} rows={2} placeholder="Note per la consegna (es. citofono, piano...)"
-              value={noteDomicilio} onChange={(e: any) => setNoteDomicilio(e.target.value)} />
+              value={noteDomicilio} onChange={inMaius(setNoteDomicilio)} />
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {MESSAGGI_DOMICILIO.map((msg) => (
                 <button key={msg} onClick={() => setNoteDomicilio((p: string) => p.includes(msg) ? p : (p ? `${p}, ${msg}` : msg))} style={{
@@ -657,7 +664,7 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
           </div>
         ))}
         {cart.length > 0 && (
-          <textarea style={{ ...fieldSt, resize: "none", marginTop: 4 } as any} rows={2} placeholder="Note ordine…" value={note} onChange={(e: any) => setNote(e.target.value)} />
+          <textarea style={{ ...fieldSt, resize: "none", marginTop: 4 } as any} rows={2} placeholder="Note ordine…" value={note} onChange={inMaius(setNote)} />
         )}
       </div>
       </div>
@@ -906,7 +913,9 @@ export default function NuovoOrdinePage() {
   };
 
   return (
-    <div className="animate-in" style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+    <div className="animate-in cassa-maiuscolo" style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+      {/* In cassa si scrive e si legge tutto in maiuscolo (solo qui: l'app ordini resta com'è). */}
+      <style>{".cassa-maiuscolo, .cassa-maiuscolo * { text-transform: uppercase; }"}</style>
       <div style={{ flex: 1, minWidth: 0 }}>
         {isSuperAdmin && (
           <select value={sedeSelezionata} onChange={(e) => setSede(e.target.value)} style={{ ...fieldSt, background: "#fff", marginBottom: 12, width: 260 }}>
@@ -999,7 +1008,7 @@ export default function NuovoOrdinePage() {
       )}
       {domandaAperta && DOMANDE[domandaAperta] && createPortal(
         // Nessun «tocca fuori per chiudere»: una risposta accidentale potrebbe confermare l'ordine.
-        <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+        <div className="cassa-maiuscolo" style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div style={{ background: "var(--surface)", borderRadius: 20, width: "100%", maxWidth: 400, padding: "22px 20px 20px", textAlign: "center" }}>
             <div style={{ fontSize: 10, color: "var(--accent-ink)", textTransform: "uppercase", letterSpacing: 1.8, fontWeight: 600, marginBottom: 10 }}>Chiedi al cliente</div>
             <div style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--text)", lineHeight: 1.25 }}>{DOMANDE[domandaAperta].testo}</div>
@@ -1013,7 +1022,7 @@ export default function NuovoOrdinePage() {
         document.body
       )}
       {showCart && createPortal(
-        <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}
+        <div className="cassa-maiuscolo" style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}
           onClick={() => setShowCart(false)}>
           <div style={{ background: "var(--surface)", borderRadius: "20px 20px 0 0", maxHeight: "92vh", display: "flex", flexDirection: "column" }}
             onClick={(e) => e.stopPropagation()}>
