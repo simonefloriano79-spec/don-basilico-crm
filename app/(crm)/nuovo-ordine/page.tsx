@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import { stampaBrowser } from "@/lib/print";
+import { CATEGORIE_BABY, prezzoBaby } from "@/lib/pizza-baby";
 import { bevandaAmmessaInCombo, comboDisponibileIn, leggiComboConfig, testoDettaglioCombo } from "@/lib/combo";
 
 const CAT_LABEL: Record<string, string> = {
@@ -37,8 +38,8 @@ interface CartItem {
   ingredientiAggiunti: { id: string; nome: string; prezzo: number }[];
   noteItem: string; prezzoTotaleItem: number;
   categoria: string;
-  // Pizza maxi (solo sedi che la fanno): prezzoBase e nome sono già quelli maxi.
-  taglia?: "normale" | "maxi";
+  // Pizza maxi (solo sedi che la fanno) o baby (-1,50 €, solo in cassa): prezzoBase e nome sono già quelli del formato.
+  taglia?: "normale" | "maxi" | "baby";
   // Solo «Menù Combo»: le scelte fatte (id di bibite e pizze) e il testo di cosa contiene, per carrello e comanda.
   combo?: { scelte: { bibite: string[]; pizze: string[] }; dettaglio: string };
 }
@@ -68,10 +69,15 @@ function PizzaModal({ item, tuttiIngredienti, sedeId, maxi, onConferma, onChiudi
   // «La vuoi Maxi?»: tutte le pizze tranne i calzoni, solo nelle sedi che la fanno. Prezzo della pizza ed extra si moltiplicano
   // (di norma ×2); il supplemento dell'impasto resta quello normale.
   const maxiPossibile = !!maxi && CAT_MAXI.includes(item.categoria);
-  const [taglia, setTaglia] = useState<"normale" | "maxi">("normale");
+  // «Baby»: solo in cassa, 1,50 € in meno della pizza normale; extra e impasto restano ai prezzi normali.
+  const babyPossibile = CATEGORIE_BABY.has(item.categoria);
+  const [taglia, setTaglia] = useState<"normale" | "maxi" | "baby">("normale");
   const prezzoNormale = parseFloat(item.prezzoEffettivo ?? item.prezzoBase);
   const moltTaglia = taglia === "maxi" && maxi ? maxi : 1;
-  const prezzoBase = prezzoNormale * moltTaglia;
+  const prezzoBase = taglia === "baby" ? prezzoBaby(prezzoNormale) : prezzoNormale * moltTaglia;
+  const formati = (["normale", ...(babyPossibile ? ["baby"] : []), ...(maxiPossibile ? ["maxi"] : [])]) as ("normale" | "baby" | "maxi")[];
+  const nomeFormato = { normale: "Normale", baby: "Baby", maxi: "Maxi" } as const;
+  const prezzoFormato = (t: "normale" | "baby" | "maxi") => t === "normale" ? prezzoNormale : t === "baby" ? prezzoBaby(prezzoNormale) : prezzoNormale * (maxi ?? 1);
   const prezzoAggiuntiLordo = Array.from(aggiunti.values()).reduce((a, i) => a + parseFloat(i.prezzoAggiunta?.toString() ?? "0"), 0);
   // Compensazione: rimuovere un ingrediente non genera mai uno sconto da solo, ma
   // "copre" fino al suo valore un ingrediente aggiunto al suo posto — es. tolgo
@@ -83,7 +89,7 @@ function PizzaModal({ item, tuttiIngredienti, sedeId, maxi, onConferma, onChiudi
 
   const conferma = () => {
     onConferma({
-      cartId: crypto.randomUUID(), menuItemId: item.id, nome: taglia === "maxi" ? `${item.nome} (Maxi)` : item.nome, categoria: item.categoria, taglia,
+      cartId: crypto.randomUUID(), menuItemId: item.id, nome: taglia === "maxi" ? `${item.nome} (Maxi)` : taglia === "baby" ? `${item.nome} (Baby)` : item.nome, categoria: item.categoria, taglia,
       prezzoBase, qty,
       ingredientiRimossi: baseIngs.filter((i) => rimossi.has(i.id)).map((i) => ({ id: i.id, nome: i.nome })),
       ingredientiAggiunti: Array.from(aggiunti.values()).map((i) => ({ id: i.id, nome: i.nome, prezzo: parseFloat(i.prezzoAggiunta?.toString() ?? "0") })),
@@ -113,17 +119,17 @@ function PizzaModal({ item, tuttiIngredienti, sedeId, maxi, onConferma, onChiudi
         </div>
 
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
-          {maxiPossibile && (
+          {formati.length > 1 && (
             <div style={{ marginBottom: 18 }}>
-              <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.7, marginBottom: 8, fontWeight: 500 }}>La vuoi Maxi?</div>
+              <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.7, marginBottom: 8, fontWeight: 500 }}>{babyPossibile ? "Formato" : "La vuoi Maxi?"}</div>
               <div style={{ display: "flex", gap: 8 }}>
-                {(["normale", "maxi"] as const).map((t) => (
+                {formati.map((t) => (
                   <button key={t} onClick={() => setTaglia(t)} style={{
                     flex: 1, padding: "11px 8px", borderRadius: 10, fontSize: 13, cursor: "pointer", border: "1.5px solid", fontFamily: "var(--font-ui)",
                     background: taglia === t ? "var(--text)" : "#fff", color: taglia === t ? "#fff" : "var(--text)", borderColor: taglia === t ? "var(--text)" : "var(--border)",
                   }}>
-                    <span style={{ fontWeight: 600 }}>{t === "normale" ? "Normale" : "Maxi"}</span>
-                    <span className="num" style={{ marginLeft: 8, opacity: 0.85 }}>{euro(t === "normale" ? prezzoNormale : prezzoNormale * (maxi ?? 1))}</span>
+                    <span style={{ fontWeight: 600 }}>{nomeFormato[t]}</span>
+                    <span className="num" style={{ marginLeft: 8, opacity: 0.85 }}>{euro(prezzoFormato(t))}</span>
                   </button>
                 ))}
               </div>
@@ -831,7 +837,7 @@ export default function NuovoOrdinePage() {
           ingredientiAggiuntiIds: c.ingredientiAggiunti.map((i) => i.id),
           impastoId: c.impasto?.id,
           ...(c.combo ? { comboScelte: c.combo.scelte } : {}),
-          ...(c.taglia === "maxi" ? { taglia: "maxi" } : {}),
+          ...(c.taglia === "maxi" ? { taglia: "maxi" } : c.taglia === "baby" ? { taglia: "baby" } : {}),
         })),
       }),
     });

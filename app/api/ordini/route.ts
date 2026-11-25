@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { CATEGORIE_IMPASTO, impastiDellaSede } from "@/lib/impasti";
 import { prossimoNumeroOrdine } from "@/lib/numero-ordine";
 import { calcolaOrdine, CATEGORIE_MAXI, type ArticoloPrezzato } from "@/lib/ordini-vocali/pricing";
+import { CATEGORIE_BABY, prezzoBaby } from "@/lib/pizza-baby";
 import { esauritoAttivo, filtroIngredientiFiniti, ingredienteMancante, overrideDisponibile } from "@/lib/esauriti";
 // GET /api/ordini
 export async function GET(req: NextRequest) {
@@ -148,6 +149,7 @@ export async function POST(req: NextRequest) {
 
       let prezzoUnitario: number;
       let maxiRiga = false;
+      let babyRiga = false;
 
       if (i.menuItemId) {
         const menuItem = menuItemMap.get(i.menuItemId);
@@ -191,8 +193,13 @@ export async function POST(req: NextRequest) {
           if (!maxiConfig?.attiva) throw new Error("La pizza maxi non è disponibile in questa pizzeria");
           maxiRiga = true;
         }
+        // Pizza baby (solo cassa): 1,50 € in meno della pizza normale, extra e impasto ai prezzi normali.
+        if (i.taglia === "baby") {
+          if (!CATEGORIE_BABY.has(menuItem.categoria)) throw new Error(`${menuItem.nome}: la versione baby non è disponibile`);
+          babyRiga = true;
+        }
         const moltiplicatoreMaxi = maxiRiga ? parseFloat(maxiConfig!.moltiplicatore.toString()) : 1;
-        prezzoUnitario = base * moltiplicatoreMaxi + extra * moltiplicatoreMaxi + (impasto?.supplemento ?? 0);
+        prezzoUnitario = (babyRiga ? prezzoBaby(base) : base * moltiplicatoreMaxi) + extra * moltiplicatoreMaxi + (impasto?.supplemento ?? 0);
       } else if (i.sedeExtraId) {
         const sedeExtra = sedeExtraMap.get(i.sedeExtraId);
         if (!sedeExtra) throw new Error(`Prodotto non trovato: ${i.sedeExtraId}`);
@@ -208,7 +215,8 @@ export async function POST(req: NextRequest) {
       return {
         menuItemId: i.menuItemId || null,
         sedeExtraId: i.sedeExtraId || null,
-        nomeSnapshot: maxiRiga && !/\(maxi\)/i.test(i.nomeSnapshot ?? "") ? `${i.nomeSnapshot} (Maxi)` : i.nomeSnapshot,
+        nomeSnapshot: maxiRiga && !/\(maxi\)/i.test(i.nomeSnapshot ?? "") ? `${i.nomeSnapshot} (Maxi)`
+          : babyRiga && !/\(baby\)/i.test(i.nomeSnapshot ?? "") ? `${i.nomeSnapshot} (Baby)` : i.nomeSnapshot,
         prezzoSnapshot: prezzoUnitario,
         quantita,
         noteItem: i.noteItem || null,
