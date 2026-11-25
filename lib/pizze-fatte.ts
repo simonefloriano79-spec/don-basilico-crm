@@ -6,7 +6,7 @@ import { leggiComboConfig } from "@/lib/combo";
 // a parte), più le pizze contenute nei «Menù Combo». Fritti, bevande, dolci ed extra non contano.
 // Stesse regole della capienza cucina (lib/peso-pizze.ts), ma la maxi vale 1 invece di 2.
 
-export interface PizzeSede { pizze: number; maxi: number }
+export interface PizzeSede { pizze: number; maxi: number; asporto?: number; domicilio?: number; tavolo?: number } // asporto/domicilio/tavolo: pizze per tipo di ordine
 
 // Pizze di una riga d'ordine (e quante sono maxi). Una maxi vale 1; i combo valgono le pizze che contengono.
 export function pizzeRiga(categoria: string | null | undefined, nomeSnapshot: string, quantita: number, pizzeCombo?: number | null): { pizze: number; maxi: number } {
@@ -35,7 +35,7 @@ export async function pizzePerSede(inizio: Date, fine: Date, sedeId?: string): P
   const ordini = await prisma.ordine.findMany({
     where: { ...(sedeId && { sedeId }), createdAt: { gte: inizio, lt: fine }, stato: { not: "annullato" } },
     select: {
-      sedeId: true,
+      sedeId: true, tipo: true,
       items: {
         select: {
           quantita: true, nomeSnapshot: true,
@@ -48,13 +48,15 @@ export async function pizzePerSede(inizio: Date, fine: Date, sedeId?: string): P
 
   const per = new Map<string, PizzeSede>();
   for (const o of ordini) {
-    const s = per.get(o.sedeId) ?? { pizze: 0, maxi: 0 };
+    const s = per.get(o.sedeId) ?? { pizze: 0, maxi: 0, asporto: 0, domicilio: 0, tavolo: 0 };
     for (const i of o.items) {
       const cat = i.menuItem?.categoria ?? i.sedeExtra?.categoria;
       const peso = pesoRiga(cat, i.nomeSnapshot, i.quantita, leggiComboConfig(i.menuItem?.comboConfig)?.pizze);
       if (!peso) continue;
       const maxi = cat !== "combo" && /\(maxi\)/i.test(i.nomeSnapshot);
-      s.pizze += maxi ? peso / 2 : peso;
+      const n = maxi ? peso / 2 : peso;
+      s.pizze += n;
+      if (o.tipo === "asporto" || o.tipo === "domicilio" || o.tipo === "tavolo") s[o.tipo] = (s[o.tipo] ?? 0) + n;
       if (maxi) s.maxi += i.quantita;
     }
     per.set(o.sedeId, s);
