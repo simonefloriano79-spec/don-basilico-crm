@@ -54,19 +54,28 @@ interface CartItem {
 }
 
 // ── Modale configurazione pizza ───────────────────────────────
-function PizzaModal({ item, tuttiIngredienti, sedeId, maxi, onConferma, onChiudi }: {
+function PizzaModal({ item, tuttiIngredienti, sedeId, maxi, iniziale, onConferma, onChiudi }: {
   item: any; tuttiIngredienti: Ingrediente[]; sedeId: string; maxi: number | null;
+  // Se c'è, si sta MODIFICANDO una pizza già nel carrello: parte dalle sue scelte e ne tiene lo stesso posto (cartId).
+  iniziale?: CartItem | null;
   onConferma: (c: CartItem) => void; onChiudi: () => void;
 }) {
   const baseIngs: Ingrediente[] = (item.ingredienti ?? []).map((ii: any) => ii.ingrediente ?? ii);
   const baseIds = new Set(baseIngs.map((i) => i.id));
-  const [rimossi, setRimossi] = useState<Set<string>>(new Set());
-  const [aggiunti, setAggiunti] = useState<Map<string, Ingrediente>>(new Map());
-  const [nota, setNota] = useState("");
-  const [qty, setQty] = useState(1);
+  const [rimossi, setRimossi] = useState<Set<string>>(new Set((iniziale?.ingredientiRimossi ?? []).map((i) => i.id)));
+  const [aggiunti, setAggiunti] = useState<Map<string, Ingrediente>>(() => {
+    const m = new Map<string, Ingrediente>();
+    for (const a of iniziale?.ingredientiAggiunti ?? []) {
+      const ing = tuttiIngredienti.find((t) => t.id === a.id);
+      if (ing) m.set(a.id, ing);
+    }
+    return m;
+  });
+  const [nota, setNota] = useState(iniziale?.noteItem ?? "");
+  const [qty, setQty] = useState(iniziale?.qty ?? 1);
   const [search, setSearch] = useState("");
   const [impasti, setImpasti] = useState<ImpastoCassa[]>([]);
-  const [impastoId, setImpastoId] = useState<string | null>(null);
+  const [impastoId, setImpastoId] = useState<string | null>(iniziale?.impasto?.id ?? null);
   useEffect(() => {
     if (!sedeId || !CAT_IMPASTO.includes(item.categoria)) return;
     fetch(`/api/impasti?sedeId=${sedeId}`).then((r) => r.json()).then((d) => setImpasti(d.impasti ?? [])).catch(() => {});
@@ -80,7 +89,7 @@ function PizzaModal({ item, tuttiIngredienti, sedeId, maxi, onConferma, onChiudi
   // Maxi: tutte le pizze tranne i calzoni, solo nelle sedi che la fanno; prezzo della pizza ed extra si moltiplicano
   // (di norma ×2); il supplemento dell'impasto resta quello normale.
   // Baby: solo in cassa, 1,50 € in meno della pizza normale; extra e impasto restano ai prezzi normali.
-  const [taglia, setTaglia] = useState<"normale" | "maxi" | "baby">("normale");
+  const [taglia, setTaglia] = useState<"normale" | "maxi" | "baby">(iniziale?.taglia ?? "normale");
   const babyPossibile = CATEGORIE_BABY.has(item.categoria);
   const maxiPossibile = !!maxi && CAT_MAXI.includes(item.categoria);
   const prezzoNormale = parseFloat(item.prezzoEffettivo ?? item.prezzoBase);
@@ -97,7 +106,7 @@ function PizzaModal({ item, tuttiIngredienti, sedeId, maxi, onConferma, onChiudi
 
   const conferma = () => {
     onConferma({
-      cartId: crypto.randomUUID(), menuItemId: item.id, nome: taglia === "maxi" ? `${item.nome} (Maxi)` : taglia === "baby" ? `${item.nome} (Baby)` : item.nome, categoria: item.categoria, taglia,
+      cartId: iniziale?.cartId ?? crypto.randomUUID(), menuItemId: item.id, nome: taglia === "maxi" ? `${item.nome} (Maxi)` : taglia === "baby" ? `${item.nome} (Baby)` : item.nome, categoria: item.categoria, taglia,
       prezzoBase, qty,
       ingredientiRimossi: baseIngs.filter((i) => rimossi.has(i.id)).map((i) => ({ id: i.id, nome: i.nome })),
       ingredientiAggiunti: Array.from(aggiunti.values()).map((i) => ({ id: i.id, nome: i.nome, prezzo: parseFloat(i.prezzoAggiunta?.toString() ?? "0") })),
@@ -228,7 +237,7 @@ function PizzaModal({ item, tuttiIngredienti, sedeId, maxi, onConferma, onChiudi
             </div>
           </div>
           <button onClick={conferma} style={{ width: "100%", background: "var(--text)", color: "#fff", border: "none", padding: 14, borderRadius: 9, fontSize: 14, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)" }}>
-            Aggiungi al carrello
+            {iniziale ? "Salva modifiche" : "Aggiungi al carrello"}
           </button>
         </div>
       </div>
@@ -533,7 +542,7 @@ function CercaClienteModal({ onSeleziona, onChiudi }: {
 // ── Contenuto carrello (condiviso desktop/mobile) ──────────────
 const MESSAGGI_DOMICILIO = ["Resto a 50 euro", "Citofono rotto, chiamare", "Chiamare all'arrivo", "TAGLIATE"];
 
-function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo, setTavolo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna, oraConsegna, modConsegna, onApriOrario, onCercaCliente, noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma, loading, justSent, tastiera }: any) {
+function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo, setTavolo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna, oraConsegna, modConsegna, onApriOrario, onModifica, onCercaCliente, noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma, loading, justSent, tastiera }: any) {
   // Tastierino nostro al posto di quello di Windows (vedi Tastiera.tsx): il campo non apre la tastiera di sistema.
   const tast = (m: ModoTastiera) => tastiera ? { inputMode: "none" as const, "data-tast": m } : { inputMode: (m === "n" ? "numeric" : "text") as any };
   const subtotale = cart.reduce((a: number, c: CartItem) => a + c.prezzoTotaleItem * c.qty, 0);
@@ -654,15 +663,29 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
                 {item.impasto && <div style={{ fontSize: 11, color: "var(--text)", fontWeight: 600 }}>Impasto {item.impasto.nome} (+{euro(item.impasto.supplemento)})</div>}
                 {item.ingredientiRimossi.length > 0 && <div style={{ fontSize: 11, color: "var(--danger)" }}>Senza: {item.ingredientiRimossi.map((i) => i.nome).join(", ")}</div>}
                 {item.ingredientiAggiunti.length > 0 && <div style={{ fontSize: 11, color: "var(--accent-ink)" }}>Con: {item.ingredientiAggiunti.map((i) => i.nome).join(", ")}</div>}
+                {item.noteItem && <div style={{ fontSize: 11, color: "var(--text-3)" }}>Note: {item.noteItem}</div>}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                 <button onClick={() => setCart((p: CartItem[]) => { const ex = p.find((c) => c.cartId === item.cartId); if (!ex) return p; return ex.qty === 1 ? p.filter((c) => c.cartId !== item.cartId) : p.map((c) => c.cartId === item.cartId ? { ...c, qty: c.qty - 1 } : c); })}
-                  style={{ width: 26, height: 26, borderRadius: 7, border: "1px solid var(--border)", background: "#fff", color: "var(--text)", fontSize: 14, cursor: "pointer" }}>−</button>
-                <span className="num" style={{ fontSize: 13, minWidth: 16, textAlign: "center" }}>{item.qty}</span>
+                  style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid var(--border)", background: "#fff", color: "var(--text)", fontSize: 17, cursor: "pointer" }}>−</button>
+                <span className="num" style={{ fontSize: 14, minWidth: 18, textAlign: "center" }}>{item.qty}</span>
                 <button onClick={() => setCart((p: CartItem[]) => p.map((c) => c.cartId === item.cartId ? { ...c, qty: c.qty + 1 } : c))}
-                  style={{ width: 26, height: 26, borderRadius: 7, border: "1px solid var(--border)", background: "#fff", color: "var(--text)", fontSize: 14, cursor: "pointer" }}>+</button>
+                  style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid var(--border)", background: "#fff", color: "var(--text)", fontSize: 17, cursor: "pointer" }}>+</button>
               </div>
               <span className="num" style={{ fontSize: 13, fontWeight: 500, color: "var(--text)", minWidth: 56, textAlign: "right", flexShrink: 0 }}>{euro(item.prezzoTotaleItem * item.qty)}</span>
+            </div>
+            {/* Modifica la pizza (ingredienti, formato, impasto, note) oppure toglila del tutto, qualunque sia la quantità. */}
+            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+              {CAT_PIZZA.includes(item.categoria) && !item.combo && onModifica && (
+                <button onClick={() => onModifica(item)} style={{
+                  padding: "6px 14px", borderRadius: 8, border: "1px solid var(--border)", background: "#fff", color: "var(--text)",
+                  fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-ui)",
+                }}>✎ Modifica</button>
+              )}
+              <button onClick={() => setCart((p: CartItem[]) => p.filter((c) => c.cartId !== item.cartId))} style={{
+                padding: "6px 14px", borderRadius: 8, border: "1px solid var(--danger-border)", background: "var(--danger-bg)", color: "var(--danger)",
+                fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-ui)",
+              }}>✕ Togli</button>
             </div>
           </div>
         ))}
@@ -748,6 +771,8 @@ export default function NuovoOrdinePage() {
   const [loading, setLoading] = useState(false);
   const [justSent, setJustSent] = useState(false);
   const [pizzaModal, setPizzaModal] = useState<any>(null);
+  // Riga del carrello che si sta modificando (riapre la finestra della pizza con le scelte già fatte).
+  const [rigaInModifica, setRigaInModifica] = useState<CartItem | null>(null);
   const [showCart, setShowCart] = useState(false);
   const [cercaPizza, setCercaPizza] = useState("");
   const [comboModal, setComboModal] = useState<any>(null);
@@ -961,6 +986,11 @@ export default function NuovoOrdinePage() {
     cart, setCart, canale, setCanale, tipo, setTipo, tavolo, setTavolo, clienteNome, setClienteNome, clienteTel, setClienteTel,
     clienteIndirizzo, setClienteIndirizzo: setAddr, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna,
     oraConsegna, modConsegna, onApriOrario: () => setShowOrarioModal(true),
+    onModifica: (riga: CartItem) => {
+      const voce = menuItems.find((m) => m.id === riga.menuItemId);
+      if (!voce) return toast.error("Questa pizza non è più nel menù: toglila e aggiungila di nuovo");
+      setRigaInModifica(riga); setPizzaModal(voce); setShowCart(false);
+    },
     onCercaCliente: () => setShowCercaCliente(true),
     noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma: confermaOrdine, loading, justSent,
     tastiera: tastieraAttiva,
@@ -1059,9 +1089,13 @@ export default function NuovoOrdinePage() {
       </div>
 
       {pizzaModal && (
-        <PizzaModal item={pizzaModal} tuttiIngredienti={ingredienti} sedeId={sedeSelezionata} maxi={maxi}
-          onConferma={(c) => { setCart((p) => [...p, c]); setPizzaModal(null); toast.success(`${c.nome} aggiunto`, { duration: 1000 }); }}
-          onChiudi={() => setPizzaModal(null)} />
+        <PizzaModal key={rigaInModifica?.cartId ?? "nuova"} item={pizzaModal} tuttiIngredienti={ingredienti} sedeId={sedeSelezionata} maxi={maxi} iniziale={rigaInModifica}
+          onConferma={(c) => {
+            if (rigaInModifica) { setCart((p) => p.map((x) => x.cartId === c.cartId ? c : x)); toast.success(`${c.nome} modificato`, { duration: 1000 }); }
+            else { setCart((p) => [...p, c]); toast.success(`${c.nome} aggiunto`, { duration: 1000 }); }
+            setPizzaModal(null); setRigaInModifica(null);
+          }}
+          onChiudi={() => { setPizzaModal(null); setRigaInModifica(null); }} />
       )}
       {comboModal && (
         <ComboModal item={comboModal} menu={disponibili}
