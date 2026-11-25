@@ -758,11 +758,17 @@ export default function NuovoOrdinePage() {
   const [domandaAperta, setDomandaAperta] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/sedi").then((r) => r.json()).then((d) => {
-      setSedi(Array.isArray(d) ? d : []);
-      if (!sedeSelezionata && d.length > 0) setSede(d[0].id);
-    });
+    fetch("/api/sedi").then((r) => r.json()).then((d) => setSedi(Array.isArray(d) ? d : []));
   }, []);
+
+  // La sede si decide DOPO che la sessione è pronta: chi lavora in una sede usa sempre la propria (altrimenti, con la pagina
+  // ricaricata, la cassa poteva partire dalla prima sede della lista e il server rifiutava l'ordine con «Permesso negato»);
+  // solo il super admin parte dalla prima sede e può cambiarla dal menu.
+  useEffect(() => {
+    if (!user) return;
+    if (!isSuperAdmin && user.sedeId) { if (sedeSelezionata !== user.sedeId) setSede(user.sedeId); return; }
+    if (!sedeSelezionata && sedi.length > 0) setSede(sedi[0].id);
+  }, [user, isSuperAdmin, sedi, sedeSelezionata]);
 
   // Menù e ingredienti della sede: si ricaricano da soli ogni 30 secondi e quando si torna sulla scheda, così chi sta
   // prendendo un ordine vede subito un prodotto o un ingrediente segnato esaurito da un collega.
