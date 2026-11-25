@@ -47,7 +47,8 @@ export function ordineApiPerStampa(o: any): PrintOrdine {
     scontoFedelta: parseFloat(o.scontoFedelta ?? 0) || undefined,
     scontoCodice: parseFloat(o.scontoCodice ?? 0) || undefined,
     codiceSconto: o.codiceSconto ?? undefined,
-    modificato: (o.canale === "online" || o.daAssistente) && !!o.modificatoAt ? true : undefined,
+    // Comanda ristampata dopo una modifica (del cliente dall'app, oppure fatta dalla cassa a un ordine già confermato).
+    modificato: !!o.modificatoAt ? true : undefined,
     note: o.note ?? undefined,
     noteDomicilio: o.noteDomicilio ?? undefined,
     oraConsegnaComunicata: o.oraConsegnaComunicata ? quando(o.oraConsegnaComunicata) : undefined,

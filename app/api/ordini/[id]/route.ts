@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { timbraOrdine, ripristinaSconto } from "@/lib/fedelta";
 import { richiedeAccettazione } from "@/lib/accettazione";
 import { inviaPushCliente } from "@/lib/push";
+import { prezzaRigheCassa } from "@/lib/ordini-cassa";
 
 // GET /api/ordini/[id]
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -107,6 +108,87 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   return NextResponse.json(ordineAggiornato);
+}
+
+// PUT /api/ordini/[id] — MODIFICA di un ordine già confermato dalla cassa (il cliente richiama: «aggiungi / togli / cambia una pizza»).
+// Le righe si sostituiscono per intero e il prezzo si ricalcola sul server con le stesse regole di un ordine nuovo. L'ordine resta
+// lo stesso (stesso numero); la comanda va stampata di nuovo con la scritta «ORDINE MODIFICATO». Gli ordini dell'app clienti o
+// dell'assistente vocale hanno il loro percorso (il cliente li modifica dall'app, la pizzeria li riaccetta): qui non si toccano.
+export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Non autorizzato" }, { status: 401 });
+  const user = session.user as any;
+  const body = await req.json();
+
+  const ordine = await prisma.ordine.findUnique({ where: { id: params.id }, include: { items: true } });
+  if (!ordine) return NextResponse.json({ error: "Ordine non trovato" }, { status: 404 });
+  if (user.ruolo !== "super_admin" && ordine.sedeId !== user.sedeId) {
+    return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
+  }
+  if (richiedeAccettazione(ordine)) {
+    return NextResponse.json({ error: "Gli ordini dell'app o dell'assistente vocale non si modificano da qui: li cambia il cliente dall'app, oppure annulla e rifai l'ordine" }, { status: 400 });
+  }
+  if (["consegnato", "annullato"].includes(ordine.stato)) {
+    return NextResponse.json({ error: "Questo ordine è già chiuso: non si può più modificare" }, { status: 400 });
+  }
+  if (ordine.stripePaymentId || parseFloat(ordine.scontoFedelta.toString()) > 0 || parseFloat(ordine.scontoCodice.toString()) > 0) {
+    return NextResponse.json({ error: "Ordine con pagamento online o sconto applicato: non si può modificare da qui" }, { status: 400 });
+  }
+
+  const { items, clienteNome, clienteTelefono, clienteIndirizzo, nomeCitofono, note, noteDomicilio, tavolo, oraConsegnaComunicata, modalitaConsegna, metodoPagamento, costoConsegna, stampato } = body;
+  if (!Array.isArray(items) || !items.length) return NextResponse.json({ error: "L'ordine deve avere almeno un prodotto (per cancellarlo usa «Annulla ordine»)" }, { status: 400 });
+
+  let esito;
+  try {
+    esito = await prezzaRigheCassa(ordine.sedeId, items, ordine.items as any);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message ?? "Prodotto non valido" }, { status: 400 });
+  }
+
+  // Tipo e canale restano quelli dell'ordine; stesse regole di un ordine nuovo per consegna, orario e tavolo.
+  const tipo = ordine.tipo;
+  const costoConsegnaFinale = tipo === "domicilio" ? Math.max(0, parseFloat(costoConsegna) || 0) : 0;
+  const totale = Math.round((esito.totale + costoConsegnaFinale) * 100) / 100;
+  const modalitaValida = ["appena_possibile", "non_prima"].includes(modalitaConsegna) ? modalitaConsegna : null;
+  const oraValida = oraConsegnaComunicata ? new Date(oraConsegnaComunicata) : null;
+  const orarioOk = !!oraValida && !Number.isNaN(oraValida.getTime());
+  const oraFinale = (tipo === "domicilio" || tipo === "asporto") && orarioOk ? oraValida : null;
+  const modalitaFinale = tipo === "domicilio" ? modalitaValida : tipo === "asporto" && oraFinale ? "alle_ore" : null;
+  const tavoloFinale = tipo === "tavolo" && typeof tavolo === "string" && tavolo.trim() ? tavolo.trim().slice(0, 40) : null;
+  if (tipo === "tavolo" && !tavoloFinale) return NextResponse.json({ error: "Indica il tavolo (numero o nome)" }, { status: 400 });
+
+  // Se era già «pronto» e il cliente aggiunge qualcosa, torna in preparazione; negli altri stati resta dov'è.
+  const nuovoStato = ordine.stato === "pronto" ? "in_preparazione" : ordine.stato;
+
+  const aggiornato = await prisma.$transaction(async (tx) => {
+    const o = await tx.ordine.update({
+      where: { id: ordine.id },
+      data: {
+        stato: nuovoStato,
+        // stampato = true solo se questa schermata stampa da sé la nuova comanda; altrimenti la ripresa la stampa automatica del PC.
+        stampato: stampato === true,
+        modificatoAt: new Date(),
+        clienteNome: clienteNome || ordine.clienteNome,
+        clienteTelefono: clienteTelefono || null,
+        clienteIndirizzo: tipo === "domicilio" ? (clienteIndirizzo || null) : null,
+        nomeCitofono: tipo === "domicilio" ? (nomeCitofono || null) : null,
+        note: note || null,
+        noteDomicilio: tipo === "domicilio" ? (noteDomicilio || null) : null,
+        tavolo: tavoloFinale,
+        oraConsegnaComunicata: oraFinale,
+        modalitaConsegna: modalitaFinale,
+        metodoPagamento: ["contanti", "pos"].includes(metodoPagamento) ? metodoPagamento : null,
+        costoConsegna: costoConsegnaFinale,
+        totale,
+        items: { deleteMany: {}, create: esito.itemsData as any },
+      },
+      include: { items: true, sede: { select: { nome: true } } },
+    });
+    await tx.ordineStatoLog.create({ data: { ordineId: ordine.id, stato: nuovoStato, utenteId: user.id, note: "Ordine modificato dalla cassa" } });
+    return o;
+  });
+
+  return NextResponse.json(aggiornato);
 }
 
 // DELETE /api/ordini/[id] — cancellazione DEFINITIVA, solo per il super admin e solo per ordini già ANNULLATI
