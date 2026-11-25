@@ -1,6 +1,7 @@
 // Chi può vedere quali clienti. Il super admin vede tutta la catena. Gli account delle sedi vedono solo:
 //  - i clienti che hanno già ordinato nella propria sede (un cliente che ordina a Marconi oggi e a Montesilvano domani
 //    risulta cliente di entrambe le sedi, ognuna vede solo i propri ordini);
+//  - i clienti importati con quella sede come «sede preferita» (archivio storico di una sede);
 //  - un cliente di un'altra sede solo se si scrive il suo numero di telefono COMPLETO (serve a prendere un ordine al
 //    telefono da chi non ha mai ordinato lì). Da quel momento, con il primo ordine, diventa cliente anche di questa sede.
 
@@ -20,6 +21,8 @@ export function filtroClientiVisibili(user: { ruolo?: string; sedeId?: string | 
   return {
     OR: [
       { ordini: { some: { sedeId: user.sedeId ?? "-" } } },
+      // Clienti importati per una sola sede (sede preferita): li vede solo quella sede, anche senza ordini.
+      ...(user.sedeId ? [{ sedePreferita: user.sedeId }] : []),
       ...(varianti.length ? [{ telefono: { in: varianti } }] : []),
     ],
   };
