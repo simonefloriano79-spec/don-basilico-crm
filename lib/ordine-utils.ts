@@ -18,6 +18,14 @@ export function nomeOrdine(o: any): string {
   return nome || "Anonimo";
 }
 
+// Il nome salvato dalla cassa porta in coda le modifiche («Crudo +Rucola -Mozzarella») e le stesse modifiche stanno già
+// nelle note della riga («Senza: Mozzarella | Con: Rucola»): sulla comanda uscivano due volte. Se le note le contengono,
+// si stampa solo il nome della pizza.
+function nomePerComanda(nome: string, note?: string | null): string {
+  if (!/(^|\|\s*)(senza|con):/i.test(note ?? "")) return nome;
+  return nome.replace(/\s[+-]\S.*$/, "");
+}
+
 // Ordine come lo restituisce l'API → dati per lo scontrino/comanda.
 export function ordineApiPerStampa(o: any): PrintOrdine {
   return {
@@ -32,7 +40,7 @@ export function ordineApiPerStampa(o: any): PrintOrdine {
     nomeCitofono: o.nomeCitofono ?? undefined,
     tavolo: o.tavolo ?? undefined,
     items: (o.items ?? []).map((i: any) => ({
-      nome: i.nomeSnapshot, qty: i.quantita, prezzo: parseFloat(i.prezzoSnapshot), note: i.noteItem ?? undefined,
+      nome: nomePerComanda(i.nomeSnapshot, i.noteItem), qty: i.quantita, prezzo: parseFloat(i.prezzoSnapshot), note: i.noteItem ?? undefined,
     })),
     totale: parseFloat(o.totale),
     costoConsegna: parseFloat(o.costoConsegna ?? 0) || undefined,
