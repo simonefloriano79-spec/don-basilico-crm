@@ -354,12 +354,13 @@ const DOMANDE: Record<string, { testo: string; sub: string }> = {
 };
 
 // ── Modale scelta orario di consegna ────────────────────────────
-function OrarioConsegnaModal({ oraConsegna, modConsegna, onSalva, onRimuovi, onChiudi }: {
-  oraConsegna: string; modConsegna: string;
+function OrarioConsegnaModal({ tipo, oraConsegna, modConsegna, onSalva, onRimuovi, onChiudi }: {
+  tipo: string; oraConsegna: string; modConsegna: string;
   onSalva: (ora: string, modalita: string) => void; onRimuovi: () => void; onChiudi: () => void;
 }) {
   const [ora, setOra] = useState(oraConsegna);
   const [modalita, setModalita] = useState(modConsegna || "appena_possibile");
+  const asporto = tipo === "asporto";
 
   return createPortal(
     <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 210, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
@@ -367,13 +368,14 @@ function OrarioConsegnaModal({ oraConsegna, modConsegna, onSalva, onRimuovi, onC
       <div style={{ background: "var(--surface)", borderRadius: 20, display: "flex", flexDirection: "column", width: "100%", maxWidth: 420 }}
         onClick={(e) => e.stopPropagation()}>
         <div style={{ padding: "20px 20px 16px" }}>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--text)", marginBottom: 14 }}>Orario di consegna</div>
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--text)", marginBottom: 14 }}>{asporto ? "Orario di ritiro" : "Orario di consegna"}</div>
 
-          <label style={{ display: "block", fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.6, marginBottom: 6 }}>Orario comunicato al cliente</label>
-          <input type="time" style={{ ...fieldSt, marginBottom: 14 }} value={ora} onChange={(e) => setOra(e.target.value)} />
+          <label style={{ display: "block", fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.6, marginBottom: 6 }}>{asporto ? "Il cliente ritira alle" : "Orario comunicato al cliente"}</label>
+          <input type="time" style={{ ...fieldSt, marginBottom: asporto ? 18 : 14 }} value={ora} onChange={(e) => setOra(e.target.value)} />
 
-          <label style={{ display: "block", fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.6, marginBottom: 6 }}>Modalità</label>
-          <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+          {/* Asporto: solo l'ora a cui passa il cliente (niente «appena possibile / non prima»). */}
+          {!asporto && <label style={{ display: "block", fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.6, marginBottom: 6 }}>Modalità</label>}
+          <div style={{ display: asporto ? "none" : "flex", gap: 8, marginBottom: 18 }}>
             {([["appena_possibile", "Appena possibile"], ["non_prima", "Non prima"]] as const).map(([val, label]) => (
               <button key={val} onClick={() => setModalita(val)} style={{
                 flex: 1, padding: "10px", borderRadius: 9, border: "1px solid",
@@ -389,7 +391,7 @@ function OrarioConsegnaModal({ oraConsegna, modConsegna, onSalva, onRimuovi, onC
             {oraConsegna && (
               <button onClick={onRimuovi} style={{ background: "#fff", border: "1px solid var(--danger-border)", color: "var(--danger)", padding: "11px 16px", borderRadius: 9, cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 12.5 }}>Rimuovi</button>
             )}
-            <button onClick={() => ora && onSalva(ora, modalita)} disabled={!ora} style={{
+            <button onClick={() => ora && onSalva(ora, asporto ? "alle_ore" : modalita)} disabled={!ora} style={{
               flex: 1, background: ora ? "var(--text)" : "var(--border)", color: ora ? "#fff" : "var(--text-faint)",
               border: "none", padding: "11px 16px", borderRadius: 9, fontSize: 13, fontWeight: 500,
               cursor: ora ? "pointer" : "default", fontFamily: "var(--font-ui)",
@@ -572,6 +574,19 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
           <input style={fieldSt} placeholder="Nome cliente" value={clienteNome} onChange={(e: any) => setClienteNome(e.target.value)} />
         )}
         <input style={fieldSt} placeholder="Telefono" value={clienteTel} onChange={(e: any) => setClienteTel(e.target.value)} />
+        {/* Asporto: a che ora passa il cliente a ritirare (vuoto = subito, come sempre). */}
+        {tipo === "asporto" && (
+          <button onClick={onApriOrario} style={{
+            display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%",
+            background: "#fff", border: "1px solid var(--border)", color: "var(--text-2)",
+            padding: "9px 12px", borderRadius: 9, fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-ui)",
+          }}>
+            <span>Orario di ritiro</span>
+            <span className="num" style={{ fontWeight: 500, color: oraConsegna ? "var(--text)" : "var(--text-faint)" }}>
+              {oraConsegna ? `Alle ${oraConsegna}` : "Subito"}
+            </span>
+          </button>
+        )}
         {tipo === "domicilio" && (
           <>
             <input style={fieldSt} placeholder="Indirizzo *" value={clienteIndirizzo} onChange={(e: any) => setClienteIndirizzo(e.target.value)} />
@@ -806,7 +821,11 @@ export default function NuovoOrdinePage() {
     const stampaQui = typeof window !== "undefined" && window.innerWidth > 900;
     setLoading(true);
     let oraConsegnaISO: string | null = null;
-    if (tipo === "domicilio" && oraConsegna) {
+    // L'orario si comunica al domicilio (consegna) e all'asporto (ritiro); al tavolo no.
+    const conOrario = tipo === "domicilio" || tipo === "asporto";
+    // Asporto: sempre «ritiro alle ore» (nel box orario non c'è la scelta appena possibile / non prima).
+    const modalitaInvio = tipo === "asporto" ? (oraConsegna ? "alle_ore" : null) : tipo === "domicilio" ? (modConsegna || null) : null;
+    if (conOrario && oraConsegna) {
       const [h, m] = oraConsegna.split(":").map(Number);
       const d = new Date();
       d.setHours(h, m, 0, 0);
@@ -825,7 +844,7 @@ export default function NuovoOrdinePage() {
         note: note || null,
         noteDomicilio: tipo === "domicilio" ? (noteDomicilio || null) : null,
         oraConsegnaComunicata: oraConsegnaISO,
-        modalitaConsegna: tipo === "domicilio" ? (modConsegna || null) : null,
+        modalitaConsegna: modalitaInvio,
         metodoPagamento: metodoPagamento || null,
         costoConsegna: deliveryFee,
         items: cart.map((c) => ({
@@ -860,8 +879,8 @@ export default function NuovoOrdinePage() {
         })),
         totale, costoConsegna: deliveryFee, note,
         noteDomicilio: tipo === "domicilio" ? noteDomicilio : undefined,
-        oraConsegnaComunicata: tipo === "domicilio" ? oraConsegna || undefined : undefined,
-        modalitaConsegna: tipo === "domicilio" ? (modConsegna as any || undefined) : undefined,
+        oraConsegnaComunicata: conOrario ? oraConsegna || undefined : undefined,
+        modalitaConsegna: (modalitaInvio as any) || undefined,
         metodoPagamento: metodoPagamento || undefined,
         ora: new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }),
       });
@@ -1012,7 +1031,7 @@ export default function NuovoOrdinePage() {
       )}
       {showOrarioModal && (
         <OrarioConsegnaModal
-          oraConsegna={oraConsegna} modConsegna={modConsegna}
+          tipo={tipo} oraConsegna={oraConsegna} modConsegna={modConsegna}
           onSalva={(ora, modalita) => { setOraConsegna(ora); setModConsegna(modalita); setShowOrarioModal(false); }}
           onRimuovi={() => { setOraConsegna(""); setModConsegna(""); setShowOrarioModal(false); }}
           onChiudi={() => setShowOrarioModal(false)}
