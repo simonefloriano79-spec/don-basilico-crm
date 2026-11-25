@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 async function puoGestireCliente(user: { ruolo?: string; sedeId?: string | null }, clienteId: string) {
   if (user.ruolo === "super_admin") return true;
   if (!user.sedeId) return false;
+  if (await prisma.cliente.findFirst({ where: { id: clienteId, sedePreferita: user.sedeId }, select: { id: true } })) return true;
   return !!(await prisma.ordine.findFirst({ where: { clienteId, sedeId: user.sedeId }, select: { id: true } }));
 }
 

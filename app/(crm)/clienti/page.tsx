@@ -228,7 +228,6 @@ export default function ClientiPage() {
                       <div style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--text)" }}>{selected.nome} {selected.cognome ?? ""}</div>
                       <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
                         {selected.createdAt && `Cliente dal ${new Date(selected.createdAt).toLocaleDateString("it-IT", { month: "long", year: "numeric" })}`}
-                        {selected.sedePreferita && ` · ${selected.sedePreferita}`}
                       </div>
                     </>
                   )}
