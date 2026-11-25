@@ -145,7 +145,7 @@ export default function KDSPage() {
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <div style={{ fontSize: 11.5, color: "var(--text-3)" }}>{CANALE_LABEL[ordine.canale]}</div>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "capitalize", marginTop: 2 }}>{ordine.tipo}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.6, color: "var(--text)", textTransform: "uppercase", marginTop: 2 }}>{ordine.tipo}{ordine.tipo === "tavolo" && ordine.tavolo ? ` ${ordine.tavolo}` : ""}</div>
                   </div>
                 </div>
 

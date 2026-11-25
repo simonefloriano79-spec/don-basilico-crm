@@ -48,6 +48,19 @@ function ora(d: string) {
 function inAttesaOnline(o: any) {
   return richiedeAccettazione(o) && o?.stato === "nuovo";
 }
+// Tipo dell'ordine scritto in chiaro (asporto / domicilio / tavolo): sul tablet non c'è il mouse, quindi niente suggerimenti al passaggio.
+const TIPO_LABEL: Record<string, string> = { asporto: "ASPORTO", domicilio: "DOMICILIO", tavolo: "TAVOLO" };
+function EtichettaTipo({ o }: { o: any }) {
+  const dom = o.tipo === "domicilio", tav = o.tipo === "tavolo";
+  return (
+    <span style={{
+      display: "inline-block", marginTop: 3, padding: "1px 8px", borderRadius: 6, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.6,
+      background: dom ? "var(--accent-bg-2)" : "var(--surface-muted)", color: dom ? "var(--accent-ink)" : "var(--text-3)",
+      border: `1px solid ${dom ? "var(--accent-border)" : "var(--border)"}`,
+    }}>{TIPO_LABEL[o.tipo] ?? String(o.tipo ?? "").toUpperCase()}{tav && o.tavolo ? ` ${o.tavolo}` : ""}</span>
+  );
+}
+
 // Modifiche e annullamenti fatti dal cliente dall'app («I miei ordini»).
 const modificatoDalCliente = (o: any) => richiedeAccettazione(o) && !!o?.modificatoAt && o?.stato === "nuovo";
 const annullatoDalCliente = (o: any) => richiedeAccettazione(o) && !!o?.modificatoAt && o?.stato === "annullato";
@@ -400,8 +413,9 @@ export default function OrdiniPage() {
                   <td style={{ padding: "13px 14px" }}>
                     <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>{nomeOrdine(o)}</div>
                     {o.clienteTelefono && <div className="num" style={{ fontSize: 11.5, color: "var(--text-muted)" }}>{o.clienteTelefono}</div>}
+                    <EtichettaTipo o={o} />
                     {o.tipo === "domicilio" && o.clienteIndirizzo && (
-                      <div style={{ fontSize: 11.5, color: "var(--text-2)", marginTop: 2, maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={o.clienteIndirizzo}>
+                      <div style={{ fontSize: 11.5, color: "var(--text-2)", marginTop: 2, maxWidth: 260 }}>
                         📍 {o.clienteIndirizzo}
                       </div>
                     )}
@@ -447,8 +461,9 @@ export default function OrdiniPage() {
               </div>
               <div style={{ marginTop: 6, fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>{nomeOrdine(o)}</div>
               {o.clienteTelefono && <div className="num" style={{ fontSize: 11.5, color: "var(--text-muted)" }}>{o.clienteTelefono}</div>}
+              <EtichettaTipo o={o} />
                     {o.tipo === "domicilio" && o.clienteIndirizzo && (
-                      <div style={{ fontSize: 11.5, color: "var(--text-2)", marginTop: 2, maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={o.clienteIndirizzo}>
+                      <div style={{ fontSize: 11.5, color: "var(--text-2)", marginTop: 2 }}>
                         📍 {o.clienteIndirizzo}
                       </div>
                     )}
