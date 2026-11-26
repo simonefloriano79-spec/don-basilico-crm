@@ -40,6 +40,10 @@ const formDa = (item: any) => ({
 //  - «Attiva» / «Disattivata»: permanente, lo gestisce liberamente ogni sede;
 //  - «Esaurito»: vale fino alle 5:00 del giorno dopo, poi il prodotto torna disponibile da solo.
 const inVendita = (item: any): boolean => item.attivoInSede ?? item.disponibileInSede;
+// Prezzo che vede il cliente nell'app: quello personalizzato della sede, altrimenti il prezzo app, altrimenti quello di cassa
+// (stesse regole di GET /api/menu?canale=online).
+const prezzoApp = (item: any): number =>
+  parseFloat(item.override?.prezzoCustom || item.prezzoOnline || item.prezzoBase);
 
 export default function MenuPage() {
   const { data: session } = useSession();
@@ -56,6 +60,8 @@ export default function MenuPage() {
   const [ingredienti, setIngredienti] = useState<any[]>([]);
   const [cercaIng, setCercaIng] = useState("");
   const [salvando, setSalvando] = useState(false);
+  // La descrizione è stata scritta a mano in questa finestra: allora non si cambia più da sola.
+  const [descScritta, setDescScritta] = useState(false);
   const user = session?.user as any;
   const isSuperAdmin = user?.ruolo === "super_admin";
   const sedeId = isSuperAdmin ? sedeVista : user?.sedeId;
@@ -72,7 +78,9 @@ export default function MenuPage() {
 
   const apri = (modifica: any, copia: any = null) => {
     setEditItem(modifica); setCopiaDi(copia); setNascondiComune(true); setCercaIng("");
-    setForm(modifica ? formDa(modifica) : copia ? formDa(copia) : { ...FORM_VUOTO });
+    setDescScritta(false);
+    // La versione della sede: il prezzo app non si copia (vale quello di cassa) e gli allergeni vanno ricontrollati.
+    setForm(modifica ? formDa(modifica) : copia ? { ...formDa(copia), prezzoOnline: "", allergeniControllati: false } : { ...FORM_VUOTO });
     setShowModal(true);
   };
 
@@ -132,10 +140,17 @@ export default function MenuPage() {
     else toast.error("Operazione non riuscita");
   };
 
+  // «Pomodoro, mozzarella, olive»: i nomi degli ingredienti scelti, come descrizione.
+  const testoIngredienti = (ids: string[]) => ids
+    .map((id) => ingredienti.find((i) => i.id === id)?.nome as string | undefined)
+    .filter((n): n is string => !!n)
+    .map((n, i) => (i === 0 ? n : n.charAt(0).toLowerCase() + n.slice(1)))
+    .join(", ");
+
   const salva = async () => {
     if (!form.nome.trim() || !form.prezzoBase) return toast.error("Compila nome e prezzo");
     // Senza descrizione scritta, si usano i nomi degli ingredienti scelti.
-    const descrizione = form.descrizione.trim() || form.ingredientiIds.map((id) => ingredienti.find((i) => i.id === id)?.nome).filter(Boolean).join(", ");
+    const descrizione = form.descrizione.trim() || testoIngredienti(form.ingredientiIds);
     setSalvando(true);
     const res = await fetch(editItem ? `/api/menu/${editItem.id}` : "/api/menu", {
       method: editItem ? "PATCH" : "POST", headers: { "Content-Type": "application/json" },
@@ -162,8 +177,26 @@ export default function MenuPage() {
     caricaMenu();
   };
 
-  const cambiaVoce = (campo: "ingredientiIds" | "allergeniExtra", valore: string) =>
-    setForm((p) => ({ ...p, [campo]: p[campo].includes(valore) ? p[campo].filter((x) => x !== valore) : [...p[campo], valore] }));
+  const cambiaLista = (lista: string[], valore: string) => lista.includes(valore) ? lista.filter((x) => x !== valore) : [...lista, valore];
+
+  const cambiaAllergene = (codice: string) => setForm((p) => ({ ...p, allergeniExtra: cambiaLista(p.allergeniExtra, codice) }));
+
+  // Cambiando gli ingredienti la descrizione li segue (così il cliente non legge ingredienti che non ci sono più) e gli
+  // allergeni tornano da ricontrollare. Una descrizione scritta a mano non viene toccata.
+  const cambiaIngrediente = (id: string) => setForm((p) => {
+    const ids = cambiaLista(p.ingredientiIds, id);
+    let descrizione = p.descrizione;
+    if (!descScritta) {
+      if (copiaDi) {
+        const originali: string[] = formDa(copiaDi).ingredientiIds;
+        const uguali = ids.length === originali.length && ids.every((x) => originali.includes(x));
+        descrizione = uguali ? copiaDi.descrizione ?? "" : testoIngredienti(ids);
+      } else if (!descrizione || descrizione === testoIngredienti(p.ingredientiIds)) {
+        descrizione = testoIngredienti(ids);
+      }
+    }
+    return { ...p, ingredientiIds: ids, descrizione, allergeniControllati: false };
+  });
 
   // Tasti per modificare (o copiare) un prodotto: il super admin tutti, la sede solo i suoi; dei comuni può fare la sua versione.
   const azioni = (item: any) => {
@@ -241,14 +274,12 @@ export default function MenuPage() {
                   <div style={{ fontFamily: "var(--font-display)", fontSize: 17, color: "var(--text)" }}>{item.nome} {etichettaSede(item)}</div>
                   <div style={{ fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 2 }}>{CAT_LABEL[item.categoria] ?? item.categoria}</div>
                 </div>
-                <div className="num" style={{ fontSize: 15, fontWeight: 600, color: "var(--text)", whiteSpace: "nowrap" }}>{euro(prezzo)}</div>
+                <div className="num" style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)", whiteSpace: "nowrap", textAlign: "right" }}>
+                  <div>cassa {euro(prezzo)}</div>
+                  <div style={{ color: "var(--text-muted)", fontWeight: 500 }}>app {euro(prezzoApp(item))}</div>
+                </div>
               </div>
               {item.descrizione && <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 6 }}>{item.descrizione}</div>}
-              {item.prezzoOnline != null && (
-                <div style={{ marginTop: 8 }}>
-                  <span style={{ fontSize: 11, background: "var(--accent-bg-2)", border: "1px solid var(--accent-border)", borderRadius: 20, padding: "1px 8px", color: "var(--text-2)" }}>app € {parseFloat(item.prezzoOnline).toFixed(2).replace(".", ",")}</span>
-                </div>
-              )}
               {item.bloccatoDaIngrediente && sedeId && (
                 <div style={{ fontSize: 11.5, color: "var(--danger)", marginTop: 8 }}>Non disponibile oggi: manca {item.bloccatoDaIngrediente}</div>
               )}
@@ -279,7 +310,7 @@ export default function MenuPage() {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "var(--surface-muted)" }}>
-              {["Prodotto", "Categoria", "Prezzo base", "Attivo globale", ...(sedeId ? ["Attiva in questa sede", "Esaurito oggi"] : []), ""].map((h, i) => (
+              {["Prodotto", "Categoria", "Prezzo cassa", "Prezzo app", "Attivo globale", ...(sedeId ? ["Attiva in questa sede", "Esaurito oggi"] : []), ""].map((h, i) => (
                 <th key={i} style={{ padding: "11px 14px", textAlign: "left", fontSize: 9.5, letterSpacing: 1.7, textTransform: "uppercase", color: "var(--text-muted)", fontWeight: 500, whiteSpace: "nowrap" }}>{h}</th>
               ))}
             </tr>
@@ -292,7 +323,6 @@ export default function MenuPage() {
                   <td style={{ padding: "13px 14px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ fontFamily: "var(--font-display)", fontSize: 17, color: "var(--text)" }}>{item.nome}</span>
-                      {item.prezzoOnline != null && <span title="Prezzo per l'app online" style={{ fontSize: 11, background: "var(--accent-bg-2)", border: "1px solid var(--accent-border)", borderRadius: 20, padding: "1px 8px", color: "var(--text-2)" }}>app € {parseFloat(item.prezzoOnline).toFixed(2).replace(".", ",")}</span>}
                       {etichettaSede(item)}
                       {!item.isAttivo && (
                         <span
@@ -310,7 +340,8 @@ export default function MenuPage() {
                   <td style={{ padding: "13px 14px" }}>
                     <span style={{ fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: "var(--text-muted)" }}>{CAT_LABEL[item.categoria] ?? item.categoria}</span>
                   </td>
-                  <td className="num" style={{ padding: "13px 14px", fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>{euro(prezzo)}</td>
+                  <td className="num" style={{ padding: "13px 14px", fontSize: 13.5, fontWeight: 500, color: "var(--text)", whiteSpace: "nowrap" }}>{euro(prezzo)}</td>
+                  <td className="num" style={{ padding: "13px 14px", fontSize: 13.5, fontWeight: 500, color: "var(--text)", whiteSpace: "nowrap" }}>{euro(prezzoApp(item))}</td>
                   <td style={{ padding: "13px 14px" }}>
                     <button
                       onClick={() => isSuperAdmin && toggleGlobale(item)}
@@ -375,26 +406,28 @@ export default function MenuPage() {
             ].map((f) => (
               <div key={f.key} style={{ marginBottom: 14 }}>
                 <label style={labelSt}>{f.label}</label>
-                <input style={fieldSt} placeholder={f.placeholder} value={(form as any)[f.key]} onChange={(e) => setForm((p) => ({ ...p, [f.key]: e.target.value }))} />
+                <input style={fieldSt} placeholder={f.placeholder} value={(form as any)[f.key]} onChange={(e) => { if (f.key === "descrizione") setDescScritta(true); setForm((p) => ({ ...p, [f.key]: e.target.value })); }} />
               </div>
             ))}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+            <div style={{ marginBottom: 14 }}>
               <div>
                 <label style={labelSt}>Categoria *</label>
                 <select style={fieldSt} value={form.categoria} onChange={(e) => setForm((p) => ({ ...p, categoria: e.target.value }))}>
                   {["combo", "pizze_rosse", "pizze_bianche", "calzoni", "focacce", "menu_speciale", "fritti", "bevande", "dolci", "extra"].filter((c) => isSuperAdmin || c !== "combo").map((c) => <option key={c} value={c}>{CAT_LABEL[c]}</option>)}
                 </select>
               </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 4 }}>
               <div>
-                <label style={labelSt}>Prezzo (€) *</label>
+                <label style={labelSt}>Prezzo cassa (€) *</label>
                 <input style={fieldSt} type="number" step="0.50" placeholder="7.50" value={form.prezzoBase} onChange={(e) => setForm((p) => ({ ...p, prezzoBase: e.target.value }))} />
               </div>
               <div>
-                <label style={labelSt}>Prezzo app (€) — facoltativo</label>
-                <input style={fieldSt} type="number" step="0.50" placeholder="uguale al prezzo di cassa" value={form.prezzoOnline} onChange={(e) => setForm((p) => ({ ...p, prezzoOnline: e.target.value }))} />
-                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>Se lo compili, l'app ordini e il menù pubblico usano questo; la cassa usa sempre il prezzo qui sopra.</div>
+                <label style={labelSt}>Prezzo app (€)</label>
+                <input style={fieldSt} type="number" step="0.50" placeholder="uguale alla cassa" value={form.prezzoOnline} onChange={(e) => setForm((p) => ({ ...p, prezzoOnline: e.target.value }))} />
               </div>
             </div>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 14 }}>Il prezzo app vale per l'app ordini e il menù pubblico. Se lo lasci vuoto, è uguale a quello di cassa.</div>
             {!["bevande", "combo"].includes(form.categoria) && (
               <div style={{ marginBottom: 14 }}>
                 <label style={labelSt}>Ingredienti {form.ingredientiIds.length > 0 && `· ${form.ingredientiIds.length} scelti`}</label>
@@ -406,7 +439,7 @@ export default function MenuPage() {
                     .map((i) => {
                       const on = form.ingredientiIds.includes(i.id);
                       return (
-                        <button key={i.id} type="button" onClick={() => cambiaVoce("ingredientiIds", i.id)} style={{ padding: "5px 11px", borderRadius: 20, fontSize: 12, cursor: "pointer", border: "1px solid", fontFamily: "var(--font-ui)", background: on ? "var(--text)" : "var(--surface-muted)", color: on ? "#fff" : "var(--text-3)", borderColor: on ? "var(--text)" : "var(--border)" }}>{i.nome}</button>
+                        <button key={i.id} type="button" onClick={() => cambiaIngrediente(i.id)} style={{ padding: "5px 11px", borderRadius: 20, fontSize: 12, cursor: "pointer", border: "1px solid", fontFamily: "var(--font-ui)", background: on ? "var(--text)" : "var(--surface-muted)", color: on ? "#fff" : "var(--text-3)", borderColor: on ? "var(--text)" : "var(--border)" }}>{i.nome}</button>
                       );
                     })}
                 </div>
@@ -419,7 +452,7 @@ export default function MenuPage() {
                 {ALLERGENI.map((a) => {
                   const on = form.allergeniExtra.includes(a.codice);
                   return (
-                    <button key={a.codice} type="button" onClick={() => cambiaVoce("allergeniExtra", a.codice)} style={{ padding: "5px 11px", borderRadius: 20, fontSize: 12, cursor: "pointer", border: "1px solid", fontFamily: "var(--font-ui)", background: on ? "var(--text)" : "var(--surface-muted)", color: on ? "#fff" : "var(--text-3)", borderColor: on ? "var(--text)" : "var(--border)" }}>{a.etichetta}</button>
+                    <button key={a.codice} type="button" onClick={() => cambiaAllergene(a.codice)} style={{ padding: "5px 11px", borderRadius: 20, fontSize: 12, cursor: "pointer", border: "1px solid", fontFamily: "var(--font-ui)", background: on ? "var(--text)" : "var(--surface-muted)", color: on ? "#fff" : "var(--text-3)", borderColor: on ? "var(--text)" : "var(--border)" }}>{a.etichetta}</button>
                   );
                 })}
               </div>
