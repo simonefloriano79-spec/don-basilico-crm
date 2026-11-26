@@ -30,6 +30,9 @@ export interface PrintOrdine {
   modalitaConsegna?: "appena_possibile" | "non_prima" | "alle_ore" | null;
   metodoPagamento?: "contanti" | "pos" | null;
   ora: string;
+  /** Righe del foglietto per la friggitoria (le riempie la stampa, chiedendole al server). */
+  fritti?: Array<{ nome: string; qty: number; note?: string }>;
+  frittiNonLetti?: boolean;
 }
 
 // L'orario di ritiro/consegna deve saltare all'occhio: riquadro a parte con le cifre grandi.
@@ -43,6 +46,40 @@ function riquadroOrario(o: PrintOrdine): string {
   const giorno = spazio > 0 ? o.oraConsegnaComunicata.slice(0, spazio) : "";
   const ora = o.oraConsegnaComunicata.slice(spazio + 1);
   return `<div class="orario"><div class="orario-etichetta">${etichetta}</div>${giorno ? `<div class="orario-giorno">${giorno}</div>` : ""}<div class="orario-ora">${ora}</div></div>`;
+}
+
+// Secondo foglietto, solo se l'ordine ha dei fritti: numero, nome, orario e i fritti. Va su una pagina a parte
+// così la stampante lo taglia separato dalla comanda.
+function foglioFritti(o: PrintOrdine): string {
+  if (!o.fritti?.length) return "";
+  const righe = o.fritti
+    .map((f) => `<tr><td style="width:36px">${f.qty}x</td><td>${f.nome}${f.note ? `<br><span style="font-size:14px">${f.note}</span>` : ""}</td></tr>`)
+    .join("");
+  return `<div class="foglio-fritti">
+        ${o.modificato ? `<div style="text-align:center;font-size:18px;border:3px solid #000;padding:4px;margin-bottom:6px">ORDINE MODIFICATO</div>` : ""}
+        <div class="ordine-num">#${o.numero}</div>
+        <div style="text-align:center;margin-bottom:6px"><span class="badge">FRITTI</span></div>
+        <div class="info-row"><span>Cliente:</span><strong>${o.cliente}</strong></div>
+        ${riquadroOrario(o) || `<div class="info-row"><span>Ora:</span><span>${o.ora}</span></div>`}
+        <hr style="border:none;border-top:1px dashed #000;margin:8px 0">
+        <table><tbody>${righe}</tbody></table>
+      </div>`;
+}
+
+// Chiede al server cosa va in friggitoria. Se non risponde, la comanda esce lo stesso (con un avviso in fondo).
+async function conFritti(o: PrintOrdine): Promise<PrintOrdine> {
+  if (!o.ordineId || o.fritti) return o;
+  const stop = new AbortController();
+  const timer = setTimeout(() => stop.abort(), 4000);
+  try {
+    const res = await fetch(`/api/ordini/${o.ordineId}/fritti`, { signal: stop.signal });
+    if (res.ok) return { ...o, fritti: await res.json() };
+  } catch {
+    // rete assente o lenta
+  } finally {
+    clearTimeout(timer);
+  }
+  return { ...o, frittiNonLetti: true };
 }
 
 // Genera HTML per la stampa termica (80mm). La comanda è a uso interno: niente intestazione né saluti, parte dal numero.
@@ -96,6 +133,7 @@ export async function generaTicketHTML(ordine: PrintOrdine): Promise<string> {
         .orario-etichetta { font-size: 15px; }
         .orario-giorno { font-size: 19px; }
         .orario-ora { font-size: 34px; line-height: 1.05; }
+        .foglio-fritti { break-before: page; page-break-before: always; }
       </style>
     </head>
     <body>
@@ -123,6 +161,8 @@ export async function generaTicketHTML(ordine: PrintOrdine): Promise<string> {
       ${ordine.noteDomicilio ? `<div style="margin-top:6px;font-size:15px;border-top:1px dashed #000;padding-top:4px"><strong>NOTE CONSEGNA:</strong> ${ordine.noteDomicilio}</div>` : ""}
       <div class="totale">TOTALE: €${ordine.totale.toFixed(2)}</div>
       ${qrDataUrl ? `<div style="text-align:center;margin-top:10px"><img src="${qrDataUrl}" style="width:150px;height:150px"><div style="font-size:11px;margin-top:2px">Scansiona per la consegna</div></div>` : ""}
+      ${ordine.frittiNonLetti ? `<div style="text-align:center;font-size:14px;margin-top:8px">FOGLIETTO FRITTI NON STAMPATO: RISTAMPARE</div>` : ""}
+      ${foglioFritti(ordine)}
     </body>
     </html>
   `;
@@ -134,7 +174,7 @@ export async function generaTicketHTML(ordine: PrintOrdine): Promise<string> {
 export async function stampaBrowser(ordine: PrintOrdine): Promise<void> {
   const win = window.open("", "_blank", "width=420,height=800");
   if (!win) return;
-  const html = await generaTicketHTML(ordine);
+  const html = await generaTicketHTML(await conFritti(ordine));
   win.document.open();
   win.document.write(html);
   win.document.close();
@@ -149,7 +189,7 @@ export async function stampaBrowser(ordine: PrintOrdine): Promise<void> {
 // iframe nascosto e stampato da lì. Serve per la stampa automatica: per evitare anche la finestra di conferma
 // avviare Chrome/Edge sul PC della cassa con l'opzione --kiosk-printing (stampa subito sulla stampante predefinita).
 export async function stampaSilenziosa(ordine: PrintOrdine): Promise<void> {
-  const html = await generaTicketHTML(ordine);
+  const html = await generaTicketHTML(await conFritti(ordine));
   await new Promise<void>((resolve) => {
     const iframe = document.createElement("iframe");
     iframe.setAttribute("aria-hidden", "true");
