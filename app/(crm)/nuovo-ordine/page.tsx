@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import { stampaBrowser } from "@/lib/print";
+import { RICHIESTE_RAPIDE, cambiaRichiesta, haRichiesta, nomeCassa } from "@/lib/nomi-cassa";
 import { ordineApiPerStampa } from "@/lib/ordine-utils";
 import { CATEGORIE_BABY, prezzoBaby } from "@/lib/pizza-baby";
 import Tastiera, { type CampoTesto, type ModoTastiera } from "./Tastiera";
@@ -29,6 +30,8 @@ function euro(n: number) {
 interface Ingrediente {
   id: string; nome: string; prezzoAggiunta: number;
   isAllergene: boolean; disabilitatoInSede?: boolean; escludiCompensazione?: boolean;
+  // Nome completo quando in cassa si mostra quello corto (serve per la ricerca e per rileggere i vecchi ordini).
+  nomeCompleto?: string;
 }
 interface ImpastoCassa { id: string; nome: string; descrizione: string | null; supplemento: number; }
 // In cassa il testo scritto a mano va in maiuscolo mentre si digita (la posizione del cursore resta dov'è).
@@ -65,7 +68,7 @@ function PizzaModal({ item, tuttiIngredienti, sedeId, maxi, iniziale, onConferma
   iniziale?: CartItem | null;
   onConferma: (c: CartItem) => void; onChiudi: () => void;
 }) {
-  const baseIngs: Ingrediente[] = (item.ingredienti ?? []).map((ii: any) => ii.ingrediente ?? ii);
+  const baseIngs: Ingrediente[] = (item.ingredienti ?? []).map((ii: any) => ii.ingrediente ?? ii).map((i: Ingrediente) => ({ ...i, nome: nomeCassa(i.nome) }));
   const baseIds = new Set(baseIngs.map((i) => i.id));
   const [rimossi, setRimossi] = useState<Set<string>>(new Set((iniziale?.ingredientiRimossi ?? []).map((i) => i.id)));
   const [aggiunti, setAggiunti] = useState<Map<string, Ingrediente>>(() => {
@@ -88,7 +91,7 @@ function PizzaModal({ item, tuttiIngredienti, sedeId, maxi, iniziale, onConferma
   const impastoScelto = impasti.find((x) => x.id === impastoId) ?? null;
 
   const extra = tuttiIngredienti.filter((i) => !rimossi.has(i.id) && !i.disabilitatoInSede
-    && i.nome.toLowerCase().includes(search.toLowerCase()));
+    && `${i.nome} ${i.nomeCompleto ?? ""}`.toLowerCase().includes(search.toLowerCase()));
   // Formato: la pizza è sempre NORMALE; in alto a destra due piccoli bottoni (Baby / Maxi) sono una scelta in più, che si può
   // togliere ritoccandoli. Baby solo su rosse e bianche; Maxi solo se la sede la fa. Se non è possibile nessuno, non si vedono.
   // Maxi: tutte le pizze tranne i calzoni, solo nelle sedi che la fanno; prezzo della pizza ed extra si moltiplicano
@@ -195,6 +198,17 @@ function PizzaModal({ item, tuttiIngredienti, sedeId, maxi, iniziale, onConferma
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.7, marginBottom: 8, fontWeight: 500 }}>
               Aggiungi extra
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+              {RICHIESTE_RAPIDE.map((r) => {
+                const on = haRichiesta(nota, r);
+                return (
+                  <button key={r} onClick={() => setNota((n) => cambiaRichiesta(n, r))} style={{
+                    padding: "7px 14px", borderRadius: 20, fontSize: 12.5, fontWeight: 600, border: "1.5px solid", cursor: "pointer",
+                    background: on ? "var(--text)" : "#fff", color: on ? "#fff" : "var(--text)", borderColor: on ? "var(--text)" : "var(--border)",
+                  }}>{r}</button>
+                );
+              })}
             </div>
             <div style={{ position: "relative", marginBottom: 10 }}>
               <span style={{ position: "absolute", left: 12, top: 10, color: "var(--text-faint)", fontSize: 13 }}>⌕</span>
@@ -856,7 +870,9 @@ export default function NuovoOrdinePage() {
       setMenuDellaSede(sedeSelezionata);
     }).catch(() => {});
     fetch(`/api/ingredienti?sedeId=${sedeSelezionata}`).then((r) => r.json()).then((d) =>
-      setIngredienti(Array.isArray(d) ? d : [])).catch(() => {});
+      setIngredienti(Array.isArray(d) ? d
+        .map((i: Ingrediente) => ({ ...i, nome: nomeCassa(i.nome), nomeCompleto: i.nome }))
+        .sort((a: Ingrediente, b: Ingrediente) => a.nome.localeCompare(b.nome, "it", { sensitivity: "base" })) : [])).catch(() => {});
   }, [sedeSelezionata]);
 
   useEffect(() => {
@@ -913,13 +929,13 @@ export default function NuovoOrdinePage() {
           const con = parti.find((p) => /^con:/i.test(p));
           if (con) {
             for (const nome of con.replace(/^con:\s*/i, "").split(",").map((s) => s.trim()).filter(Boolean)) {
-              const ing = ingredienti.find((x) => x.nome.trim().toLowerCase() === nome.toLowerCase());
+              const ing = ingredienti.find((x) => [x.nome, x.nomeCompleto].some((n) => n?.trim().toLowerCase() === nome.toLowerCase()));
               if (!ing) return bloccata();
               aggiunti.push({ id: ing.id, nome: ing.nome, prezzo: ing.prezzoAggiunta });
             }
           }
         }
-        const baseIngs: Ingrediente[] = (m.ingredienti ?? []).map((ii: any) => ii.ingrediente ?? ii);
+        const baseIngs: Ingrediente[] = (m.ingredienti ?? []).map((ii: any) => ii.ingrediente ?? ii).map((i: Ingrediente) => ({ ...i, nome: nomeCassa(i.nome) }));
         const rimossi: { id: string; nome: string }[] = [];
         for (const id of (it.ingredientiRimossi ?? []) as string[]) {
           const ing = baseIngs.find((x) => x.id === id) ?? ingredienti.find((x) => x.id === id);
