@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import { stampaBrowser } from "@/lib/print";
-import { nomeOrdine, ordineApiPerStampa } from "@/lib/ordine-utils";
+import { nomeOrdine, nomePerComanda, ordineApiPerStampa } from "@/lib/ordine-utils";
 import { richiedeAccettazione } from "@/lib/accettazione";
 
 const CANALE_LABEL: Record<string, string> = { online: "online", telefono: "telefono", walk_in: "walk-in" };
@@ -151,7 +151,7 @@ export default function KDSPage() {
                     <div key={i} style={{ display: "flex", gap: 8, padding: "6px 0", borderTop: i > 0 ? "1px solid var(--border-faint)" : "none" }}>
                       <span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 16, color: "var(--text)", minWidth: 26 }}>{item.quantita}×</span>
                       <div>
-                        <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>{item.nomeSnapshot}</div>
+                        <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>{nomePerComanda(item.nomeSnapshot, item.noteItem)}</div>
                         {item.noteItem && <div style={{ fontSize: 11, color: "var(--danger)", marginTop: 2 }}>{item.noteItem}</div>}
                       </div>
                     </div>
