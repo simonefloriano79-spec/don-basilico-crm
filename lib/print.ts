@@ -96,10 +96,10 @@ export async function generaTicketHTML(ordine: PrintOrdine): Promise<string> {
         .footer { text-align: center; margin-top: 10px; font-size: 13px; }
         .ordine-num { font-size: 32px; font-weight: bold; text-align: center; margin: 6px 0; }
         .badge { display: inline-block; border: 1px solid #000; padding: 3px 10px; font-size: 15px; }
-        .orario { border: 4px solid #000; text-align: center; padding: 4px 2px; margin: 8px 0 2px; }
-        .orario-etichetta { font-size: 18px; }
-        .orario-giorno { font-size: 26px; }
-        .orario-ora { font-size: 48px; line-height: 1.05; }
+        .orario { border: 3px solid #000; text-align: center; width: 78%; margin: 6px auto 0; padding: 2px; }
+        .orario-etichetta { font-size: 15px; }
+        .orario-giorno { font-size: 19px; }
+        .orario-ora { font-size: 34px; line-height: 1.05; }
       </style>
     </head>
     <body>
