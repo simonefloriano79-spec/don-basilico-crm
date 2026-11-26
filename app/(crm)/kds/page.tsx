@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import { stampaBrowser } from "@/lib/print";
-import { nomeOrdine } from "@/lib/ordine-utils";
+import { nomeOrdine, ordineApiPerStampa } from "@/lib/ordine-utils";
 import { richiedeAccettazione } from "@/lib/accettazione";
 
 const CANALE_LABEL: Record<string, string> = { online: "online", telefono: "telefono", walk_in: "walk-in" };
@@ -67,13 +67,7 @@ export default function KDSPage() {
 
   const stampa = async (ordine: any, e: React.MouseEvent) => {
     e.stopPropagation();
-    await stampaBrowser({
-      numero: ordine.numeroOrdine, ordineId: ordine.id, sede: ordine.sede?.nome ?? "", canale: ordine.canale, tipo: ordine.tipo,
-      cliente: nomeOrdine(ordine), tavolo: ordine.tavolo ?? undefined, telefono: ordine.clienteTelefono, indirizzo: ordine.clienteIndirizzo,
-      items: (ordine.items ?? []).map((i: any) => ({ nome: i.nomeSnapshot, qty: i.quantita, prezzo: parseFloat(i.prezzoSnapshot), note: i.noteItem })),
-      totale: parseFloat(ordine.totale), note: ordine.note,
-      ora: new Date(ordine.createdAt).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }),
-    });
+    await stampaBrowser(ordineApiPerStampa(ordine));
     await fetch(`/api/ordini/${ordine.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stampato: true }) });
     carica();
   };
