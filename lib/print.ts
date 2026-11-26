@@ -32,6 +32,19 @@ export interface PrintOrdine {
   ora: string;
 }
 
+// L'orario di ritiro/consegna deve saltare all'occhio: riquadro a parte con le cifre grandi.
+// Se non è per oggi («domani 19:00», «28/11 19:00») il giorno sta sopra l'ora, anch'esso ben visibile.
+function riquadroOrario(o: PrintOrdine): string {
+  if (!o.oraConsegnaComunicata) return "";
+  const etichetta = o.modalitaConsegna === "non_prima" ? "Non prima delle"
+    : o.modalitaConsegna === "alle_ore" ? (o.tipo === "domicilio" ? "Consegna alle" : "Ritiro alle")
+    : "Appena possibile, entro";
+  const spazio = o.oraConsegnaComunicata.lastIndexOf(" ");
+  const giorno = spazio > 0 ? o.oraConsegnaComunicata.slice(0, spazio) : "";
+  const ora = o.oraConsegnaComunicata.slice(spazio + 1);
+  return `<div class="orario"><div class="orario-etichetta">${etichetta}</div>${giorno ? `<div class="orario-giorno">${giorno}</div>` : ""}<div class="orario-ora">${ora}</div></div>`;
+}
+
 // Genera HTML per la stampa termica (80mm)
 export async function generaTicketHTML(ordine: PrintOrdine): Promise<string> {
   const linea = "─".repeat(32);
@@ -83,6 +96,10 @@ export async function generaTicketHTML(ordine: PrintOrdine): Promise<string> {
         .footer { text-align: center; margin-top: 10px; font-size: 13px; }
         .ordine-num { font-size: 32px; font-weight: bold; text-align: center; margin: 6px 0; }
         .badge { display: inline-block; border: 1px solid #000; padding: 3px 10px; font-size: 15px; }
+        .orario { border: 4px solid #000; text-align: center; padding: 4px 2px; margin: 8px 0 2px; }
+        .orario-etichetta { font-size: 18px; }
+        .orario-giorno { font-size: 26px; }
+        .orario-ora { font-size: 48px; line-height: 1.05; }
       </style>
     </head>
     <body>
@@ -101,7 +118,7 @@ export async function generaTicketHTML(ordine: PrintOrdine): Promise<string> {
       ${ordine.indirizzo ? `<div class="info-row"><span>Indirizzo:</span><span>${ordine.indirizzo}</span></div>` : ""}
       ${ordine.nomeCitofono ? `<div class="info-row"><span>Citofono:</span><strong>${ordine.nomeCitofono}</strong></div>` : ""}
       <div class="info-row"><span>Ora:</span><span>${ordine.ora}</span></div>
-      ${ordine.oraConsegnaComunicata ? `<div class="info-row"><span>${ordine.modalitaConsegna === "non_prima" ? "Non prima delle:" : ordine.modalitaConsegna === "alle_ore" ? (ordine.tipo === "domicilio" ? "Consegna alle:" : "Ritiro alle:") : "Appena possibile, entro:"}</span><strong>${ordine.oraConsegnaComunicata}</strong></div>` : ""}
+      ${riquadroOrario(ordine)}
       <hr style="border:none;border-top:1px dashed #000;margin:8px 0">
       <table>
         <tbody>${itemsHtml}</tbody>
