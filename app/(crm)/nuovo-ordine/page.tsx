@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { stampaBrowser } from "@/lib/print";
 import { RICHIESTE_RAPIDE, cambiaRichiesta, haRichiesta, nomeCassa } from "@/lib/nomi-cassa";
 import { ordineApiPerStampa } from "@/lib/ordine-utils";
+import { bozzaPiena, cancellaBozza, leggiBozza, salvaBozza } from "@/lib/bozza-cassa";
 import { CATEGORIE_BABY, prezzoBaby } from "@/lib/pizza-baby";
 import Tastiera, { type CampoTesto, type ModoTastiera } from "./Tastiera";
 import { bevandaAmmessaInCombo, comboDisponibileIn, leggiComboConfig, testoDettaglioCombo } from "@/lib/combo";
@@ -561,7 +562,7 @@ function CercaClienteModal({ onSeleziona, onChiudi }: {
 // ── Contenuto carrello (condiviso desktop/mobile) ──────────────
 const MESSAGGI_DOMICILIO = ["Resto a 50 euro", "Citofono rotto, chiamare", "Chiamare all'arrivo", "TAGLIATE"];
 
-function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo, setTavolo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna, oraConsegna, modConsegna, onApriOrario, onModifica, onCercaCliente, noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma, loading, justSent, tastiera, inModifica, onEsciModifica }: any) {
+function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo, setTavolo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna, oraConsegna, modConsegna, onApriOrario, onModifica, onCercaCliente, noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma, loading, justSent, tastiera, inModifica, onEsciModifica, ripresa, onCancellaBozza }: any) {
   // Tastierino nostro al posto di quello di Windows (vedi Tastiera.tsx): il campo non apre la tastiera di sistema.
   const tast = (m: ModoTastiera) => tastiera ? { inputMode: "none" as const, "data-tast": m } : { inputMode: (m === "n" ? "numeric" : "text") as any };
   const subtotale = cart.reduce((a: number, c: CartItem) => a + c.prezzoTotaleItem * c.qty, 0);
@@ -582,6 +583,17 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
               <span style={{ color: "var(--text-3)", fontSize: 11.5 }}>Aggiungi, togli o cambia le pizze, poi «Salva modifiche»: la comanda esce di nuovo.</span>
             </div>
             <button onClick={onEsciModifica} style={{ border: "1px solid var(--border)", background: "#fff", color: "var(--text-3)", borderRadius: 8, padding: "6px 10px", fontSize: 11.5, cursor: "pointer", fontFamily: "var(--font-ui)" }}>Esci</button>
+          </div>
+        )}
+        {ripresa && !inModifica && (
+          <div style={{ background: ripresa === "controlla" ? "var(--danger-bg)" : "var(--accent-bg-2)", border: `1px solid ${ripresa === "controlla" ? "var(--danger-border)" : "var(--accent-border)"}`, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ flex: 1, fontSize: 12.5, color: "var(--text)", lineHeight: 1.35 }}>
+              <strong>↺ Ordine ripreso</strong><br />
+              <span style={{ color: ripresa === "controlla" ? "var(--danger)" : "var(--text-3)", fontSize: 11.5 }}>
+                {ripresa === "controlla" ? "Stava partendo: guarda in «Ordini» se c'è già, prima di confermarlo di nuovo." : "Non era stato confermato."}
+              </span>
+            </div>
+            <button onClick={onCancellaBozza} style={{ border: "1px solid var(--border)", background: "#fff", color: "var(--danger)", borderRadius: 8, padding: "6px 10px", fontSize: 11.5, cursor: "pointer", fontFamily: "var(--font-ui)" }}>Cancella</button>
           </div>
         )}
         <div style={{ display: "flex", gap: 8, ...(inModifica ? { pointerEvents: "none", opacity: 0.55 } : {}) }}>
@@ -883,6 +895,47 @@ export default function NuovoOrdinePage() {
     return () => { clearInterval(iv); document.removeEventListener("visibilitychange", alRitorno); };
   }, [caricaMenuSede]);
 
+  // ── Ordine in corso salvato sul computer della cassa (lib/bozza-cassa.ts) ──
+  // bozzaSede = sede per cui il ripristino è già stato fatto: finché è vuota non si salva niente (altrimenti la pagina
+  // appena aperta, ancora vuota, cancellerebbe l'ordine salvato). Modificando un ordine confermato non si usa.
+  const [bozzaSede, setBozzaSede] = useState("");
+  const [ripresa, setRipresa] = useState<"" | "ripreso" | "controlla">("");
+  const inviatoRef = useRef(false);
+  const urlDiModifica = () => !!new URLSearchParams(window.location.search).get("modifica");
+
+  useEffect(() => {
+    if (!user || !sedeSelezionata || bozzaSede === sedeSelezionata || ordineMod || urlDiModifica()) return;
+    if (!isSuperAdmin && user.sedeId && sedeSelezionata !== user.sedeId) return;
+    // Il super admin che cambia sede porta con sé il carrello: la copia della sede di prima non serve più.
+    if (bozzaSede) { cancellaBozza(bozzaSede); setBozzaSede(sedeSelezionata); return; }
+    const b = leggiBozza(sedeSelezionata);
+    if (b) {
+      setCart(b.cart as CartItem[]); setCanale(b.canale); setTipo(b.tipo); setTavolo(b.tavolo); setClienteNome(b.clienteNome);
+      setClienteTel(b.clienteTel); setAddr(b.clienteIndirizzo); setNomeCitofono(b.nomeCitofono); setCostoConsegna(b.costoConsegna);
+      setNote(b.note); setNoteDomicilio(b.noteDomicilio); setOraConsegna(b.oraConsegna); setModConsegna(b.modConsegna);
+      setMetodoPagamento(b.metodoPagamento); setDomandeFatte(b.domandeFatte ?? []);
+      setRipresa(b.daControllare ? "controlla" : "ripreso");
+      toast(b.daControllare ? "Ordine ripreso: controlla in «Ordini» che non ci sia già" : "Ordine in corso ripreso", { id: "bozza", duration: 5000 });
+    }
+    setBozzaSede(sedeSelezionata);
+  }, [user, isSuperAdmin, sedeSelezionata, bozzaSede, ordineMod]);
+
+  useEffect(() => {
+    if (!bozzaSede || bozzaSede !== sedeSelezionata || ordineMod || inviatoRef.current || urlDiModifica()) return;
+    salvaBozza(bozzaSede, {
+      cart, canale, tipo, tavolo, clienteNome, clienteTel, clienteIndirizzo, nomeCitofono, costoConsegna, note, noteDomicilio,
+      oraConsegna, modConsegna, metodoPagamento, domandeFatte, daControllare: loading || ripresa === "controlla",
+    });
+  }, [bozzaSede, sedeSelezionata, ordineMod, cart, canale, tipo, tavolo, clienteNome, clienteTel, clienteIndirizzo, nomeCitofono,
+    costoConsegna, note, noteDomicilio, oraConsegna, modConsegna, metodoPagamento, domandeFatte, loading, ripresa]);
+
+  // Tutto da capo: dopo la conferma, oppure col tasto «Cancella» sull'ordine ripreso.
+  const svuotaOrdine = () => {
+    setCart([]); setTavolo(""); setClienteNome(""); setClienteTel(""); setAddr(""); setNomeCitofono(""); setCostoConsegna("1.50");
+    setNote(""); setNoteDomicilio(""); setOraConsegna(""); setModConsegna(""); setMetodoPagamento(""); setDomandeFatte([]);
+    setRipresa(""); setShowCart(false);
+  };
+
   // Se mentre si modifica un ordine si va su «Nuovo ordine» dal menù laterale, la pagina resta la stessa: si esce dalla
   // modifica e si riparte da zero, altrimenti il nuovo ordine sovrascriverebbe quello vecchio.
   useEffect(() => {
@@ -892,6 +945,7 @@ export default function NuovoOrdinePage() {
       setOrdineMod(null); setModCaricata(false); setCart([]); setTavolo(""); setClienteNome(""); setClienteTel(""); setAddr("");
       setNomeCitofono(""); setCostoConsegna("1.50"); setNote(""); setNoteDomicilio(""); setOraConsegna(""); setModConsegna(""); setMetodoPagamento("");
       setCanale("walk_in"); setTipo("asporto"); setShowCart(false);
+      setRipresa(""); setBozzaSede("");
     }, 400);
     return () => clearInterval(iv);
   }, [ordineMod]);
@@ -1059,6 +1113,7 @@ export default function NuovoOrdinePage() {
         })),
       }),
     });
+    if (res.ok && !ordineMod) { inviatoRef.current = true; cancellaBozza(sedeSelezionata); }
     setLoading(false);
     if (res.ok) {
       const ordine = await res.json();
@@ -1094,8 +1149,8 @@ export default function NuovoOrdinePage() {
       });
       setJustSent(true);
       setTimeout(() => setJustSent(false), 1800);
-      setDomandeFatte([]);
-      setCart([]); setTavolo(""); setClienteNome(""); setClienteTel(""); setAddr(""); setNomeCitofono(""); setCostoConsegna("1.50"); setNote(""); setNoteDomicilio(""); setOraConsegna(""); setModConsegna(""); setMetodoPagamento(""); setShowCart(false);
+      inviatoRef.current = false;
+      svuotaOrdine();
     } else {
       // Il server dice perché (es. «Capricciosa non è disponibile: Prosciutto cotto è finito in questa sede»): si mostra per intero
       // e si aggiorna subito il menù, così il prodotto risulta già non disponibile.
@@ -1151,6 +1206,8 @@ export default function NuovoOrdinePage() {
     noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma: confermaOrdine, loading, justSent,
     tastiera: tastieraAttiva,
     inModifica: ordineMod?.numeroOrdine ?? null,
+    ripresa: bozzaPiena({ cart, tavolo, clienteNome, clienteTel, clienteIndirizzo, nomeCitofono, note, noteDomicilio }) ? ripresa : "",
+    onCancellaBozza: () => { if (confirm("Cancello l'ordine ripreso?")) svuotaOrdine(); },
     onEsciModifica: () => { if (confirm("Esci senza salvare le modifiche?")) router.push("/ordini"); },
   };
 
