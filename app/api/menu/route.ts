@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { esauritoAttivo, filtroIngredientiFiniti, ingredienteMancante, overrideDisponibile } from "@/lib/esauriti";
+import { menuDellaSede } from "@/lib/menu-sede";
+import { leggiProdotto } from "@/lib/menu-prodotto";
 
 // GET /api/menu?sedeId=xxx&tutti=1
 // tutti=1 include anche i prodotti disattivati globalmente — usato dalla
@@ -16,10 +18,14 @@ export async function GET(req: NextRequest) {
   // canale=online: l'app dei clienti (e il menù pubblico) usano il «prezzo app» dove c'è; la cassa no.
   const perApp = searchParams.get("canale") === "online";
 
+  // Senza sede si vedono solo i prodotti comuni; la vista «Tutte le sedi» del super admin li mostra tutti, con il nome della sede.
+  const vistaGlobale = !sedeId && includiDisattivi && ((await getServerSession(authOptions))?.user as any)?.ruolo === "super_admin";
+
   const items = await prisma.menuItem.findMany({
-    where: { ...(includiDisattivi ? {} : { isAttivo: true }) },
+    where: { ...(includiDisattivi ? {} : { isAttivo: true }), ...(vistaGlobale ? {} : menuDellaSede(sedeId)) },
     include: {
       ingredienti: { include: { ingrediente: true } },
+      sede: { select: { nome: true } },
       ...(sedeId && {
         sedeOverride: {
           where: { sedeId },
@@ -84,25 +90,25 @@ export async function GET(req: NextRequest) {
   });
 }
 
-// POST /api/menu - crea nuovo item (solo super_admin)
+// POST /api/menu — nuovo prodotto. Il super admin lo crea per tutte le sedi; chi lavora in una sede lo crea solo per la sua.
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Non autorizzato" }, { status: 401 });
 
   const user = session.user as any;
-  if (user.ruolo !== "super_admin") {
-    return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
-  }
+  const isSuperAdmin = user.ruolo === "super_admin";
+  if (!isSuperAdmin && !user.sedeId) return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
 
-  const body = await req.json();
-  const { nome, descrizione, categoria, prezzoBase, prezzoOnline, immagineUrl, ordineVisualizzazione } = body;
+  const esito = leggiProdotto(await req.json(), { nuovo: true, isSuperAdmin });
+  if ("errore" in esito) return NextResponse.json({ error: esito.errore }, { status: 400 });
 
-  if (!nome || !categoria || !prezzoBase) {
-    return NextResponse.json({ error: "Dati mancanti" }, { status: 400 });
-  }
-
+  const { ingredientiIds, ...dati } = esito;
   const item = await prisma.menuItem.create({
-    data: { nome, descrizione, categoria, prezzoBase, prezzoOnline: prezzoOnline ?? null, immagineUrl, ordineVisualizzazione: ordineVisualizzazione ?? 0 },
+    data: {
+      ...(dati as any),
+      sedeId: isSuperAdmin ? null : user.sedeId,
+      ...(ingredientiIds?.length ? { ingredienti: { create: ingredientiIds.map((ingredienteId) => ({ ingredienteId })) } } : {}),
+    },
   });
 
   return NextResponse.json(item, { status: 201 });

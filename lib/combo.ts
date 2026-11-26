@@ -36,13 +36,14 @@ export const bevandaAmmessaInCombo = (nome: string) => /33\s?cl/i.test(nome) && 
 
 // Un combo è disponibile se nella pizzeria ci sono tutti i prodotti fissi e abbastanza bibite / pizze speciali da scegliere.
 // `disponibili` = i prodotti attivi e non esauriti in quella sede.
-export function comboDisponibileIn(combo: { comboConfig?: unknown }, disponibili: { id: string; nome: string; categoria: string }[]): boolean {
+export function comboDisponibileIn(combo: { comboConfig?: unknown }, disponibili: { id: string; nome: string; categoria: string; sedeId?: string | null }[]): boolean {
   const cfg = leggiComboConfig(combo.comboConfig);
   if (!cfg) return false;
   const ids = new Set(disponibili.map((m) => m.id));
   if (!cfg.componenti.every((c) => ids.has(c.id))) return false;
-  if (cfg.bibite > 0 && !disponibili.some((m) => m.categoria === "bevande" && bevandaAmmessaInCombo(m.nome))) return false;
-  if (cfg.pizzeSpeciali > 0 && !disponibili.some((m) => m.categoria === "menu_speciale")) return false;
+  // Tra le scelte ci sono solo i prodotti comuni: quelli creati da una sede non entrano nei combo.
+  if (cfg.bibite > 0 && !disponibili.some((m) => !m.sedeId && m.categoria === "bevande" && bevandaAmmessaInCombo(m.nome))) return false;
+  if (cfg.pizzeSpeciali > 0 && !disponibili.some((m) => !m.sedeId && m.categoria === "menu_speciale")) return false;
   return true;
 }
 

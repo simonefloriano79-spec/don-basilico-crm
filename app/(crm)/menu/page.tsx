@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
+import { ALLERGENI } from "@/lib/allergeni";
 
 const CAT_LABEL: Record<string, string> = {
   pizze: "Pizze", pizze_rosse: "Pizze rosse", pizze_bianche: "Pizze bianche",
@@ -22,6 +23,19 @@ function euro(n: number) {
   return `€ ${n.toFixed(2).replace(".", ",")}`;
 }
 
+const FORM_VUOTO = {
+  nome: "", descrizione: "", categoria: "pizze_rosse", prezzoBase: "", prezzoOnline: "",
+  ingredientiIds: [] as string[], allergeniExtra: [] as string[], allergeniControllati: false,
+};
+
+// Il modulo parte dai dati di un prodotto: per modificarlo, oppure per fare la «versione della sede» di uno comune.
+const formDa = (item: any) => ({
+  nome: item.nome, descrizione: item.descrizione ?? "", categoria: item.categoria,
+  prezzoBase: item.prezzoBase.toString(), prezzoOnline: item.prezzoOnline != null ? item.prezzoOnline.toString() : "",
+  ingredientiIds: (item.ingredienti ?? []).map((i: any) => i.ingredienteId) as string[],
+  allergeniExtra: (item.allergeniExtra ?? []) as string[], allergeniControllati: !item.allergeniDaVerificare,
+});
+
 // Per ogni prodotto, in ogni sede, due interruttori separati (vedi lib/esauriti.ts):
 //  - «Attiva» / «Disattivata»: permanente, lo gestisce liberamente ogni sede;
 //  - «Esaurito»: vale fino alle 5:00 del giorno dopo, poi il prodotto torna disponibile da solo.
@@ -35,7 +49,13 @@ export default function MenuPage() {
   const [catFiltro, setCatFiltro] = useState("tutti");
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
-  const [form, setForm] = useState({ nome: "", descrizione: "", categoria: "pizze_rosse", prezzoBase: "", prezzoOnline: "" });
+  const [form, setForm] = useState(FORM_VUOTO);
+  // Prodotto comune di cui la sede sta facendo la propria versione (e se va nascosto quello comune).
+  const [copiaDi, setCopiaDi] = useState<any>(null);
+  const [nascondiComune, setNascondiComune] = useState(true);
+  const [ingredienti, setIngredienti] = useState<any[]>([]);
+  const [cercaIng, setCercaIng] = useState("");
+  const [salvando, setSalvando] = useState(false);
   const user = session?.user as any;
   const isSuperAdmin = user?.ruolo === "super_admin";
   const sedeId = isSuperAdmin ? sedeVista : user?.sedeId;
@@ -44,14 +64,36 @@ export default function MenuPage() {
     if (isSuperAdmin) fetch("/api/sedi").then((r) => r.json()).then((d) => setSedi(Array.isArray(d) ? d : []));
   }, [isSuperAdmin]);
 
+  useEffect(() => {
+    fetch("/api/ingredienti").then((r) => r.json()).then((d) => setIngredienti(Array.isArray(d) ? d : []));
+  }, []);
+
+  const mio = (item: any) => !isSuperAdmin && !!item.sedeId && item.sedeId === user?.sedeId;
+
+  const apri = (modifica: any, copia: any = null) => {
+    setEditItem(modifica); setCopiaDi(copia); setNascondiComune(true); setCercaIng("");
+    setForm(modifica ? formDa(modifica) : copia ? formDa(copia) : { ...FORM_VUOTO });
+    setShowModal(true);
+  };
+
+  const elimina = async (item: any) => {
+    if (!confirm(`Eliminare «${item.nome}» dal menù della vostra pizzeria?`)) return;
+    const res = await fetch(`/api/menu/${item.id}`, { method: "DELETE" });
+    if (res.ok) { toast.success("Prodotto eliminato"); caricaMenu(); }
+    else toast.error("Operazione non riuscita");
+  };
+
   const caricaMenu = async () => {
+    // Finché non si sa chi è collegato non si carica niente (altrimenti, per un attimo, la lista sarebbe quella sbagliata).
+    if (!user) return;
     const url = sedeId ? `/api/menu?sedeId=${sedeId}&tutti=1` : "/api/menu?tutti=1";
     const res = await fetch(url);
     const data = await res.json();
-    setItems(data.items ?? []);
+    // Un prodotto eliminato dalla sede non si rivede più nella sua lista.
+    setItems((data.items ?? []).filter((i: any) => isSuperAdmin || !i.sedeId || i.isAttivo));
   };
 
-  useEffect(() => { caricaMenu(); }, [sedeId]);
+  useEffect(() => { caricaMenu(); }, [sedeId, user?.ruolo]);
 
   const cats = ["tutti", ...Array.from(new Set(items.map((m) => m.categoria)))] as string[];
   const itemsFiltrati = items.filter((m) => catFiltro === "tutti" || m.categoria === catFiltro);
@@ -91,20 +133,55 @@ export default function MenuPage() {
   };
 
   const salva = async () => {
-    if (!form.nome || !form.prezzoBase) return toast.error("Compila nome e prezzo");
-    const url = editItem ? `/api/menu/${editItem.id}` : "/api/menu";
-    const method = editItem ? "PATCH" : "POST";
-    const res = await fetch(url, {
-      method, headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, prezzoBase: parseFloat(form.prezzoBase), prezzoOnline: form.prezzoOnline.trim() === "" ? null : parseFloat(form.prezzoOnline) }),
+    if (!form.nome.trim() || !form.prezzoBase) return toast.error("Compila nome e prezzo");
+    // Senza descrizione scritta, si usano i nomi degli ingredienti scelti.
+    const descrizione = form.descrizione.trim() || form.ingredientiIds.map((id) => ingredienti.find((i) => i.id === id)?.nome).filter(Boolean).join(", ");
+    setSalvando(true);
+    const res = await fetch(editItem ? `/api/menu/${editItem.id}` : "/api/menu", {
+      method: editItem ? "PATCH" : "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nome: form.nome, descrizione, categoria: form.categoria,
+        prezzoBase: parseFloat(form.prezzoBase), prezzoOnline: form.prezzoOnline.trim() === "" ? null : parseFloat(form.prezzoOnline),
+        ingredientiIds: form.ingredientiIds, allergeniExtra: form.allergeniExtra, allergeniDaVerificare: !form.allergeniControllati,
+      }),
     });
-    if (res.ok) {
-      toast.success(editItem ? "Prodotto aggiornato" : "Prodotto aggiunto");
-      setShowModal(false); setEditItem(null);
-      setForm({ nome: "", descrizione: "", categoria: "pizze_rosse", prezzoBase: "", prezzoOnline: "" });
-      caricaMenu();
+    setSalvando(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => null);
+      return toast.error(d?.error ?? "Non riesco a salvare il prodotto");
     }
+    if (copiaDi && nascondiComune && sedeId) {
+      const r = await fetch(`/api/menu/${copiaDi.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sedeId, disponibile: false }),
+      });
+      if (!r.ok) toast.error("La tua versione è salvata, ma quella comune è ancora attiva: disattivala a mano");
+    }
+    toast.success(editItem ? "Prodotto aggiornato" : "Prodotto aggiunto");
+    setShowModal(false); setEditItem(null); setCopiaDi(null);
+    caricaMenu();
   };
+
+  const cambiaVoce = (campo: "ingredientiIds" | "allergeniExtra", valore: string) =>
+    setForm((p) => ({ ...p, [campo]: p[campo].includes(valore) ? p[campo].filter((x) => x !== valore) : [...p[campo], valore] }));
+
+  // Tasti per modificare (o copiare) un prodotto: il super admin tutti, la sede solo i suoi; dei comuni può fare la sua versione.
+  const azioni = (item: any) => {
+    const st: React.CSSProperties = { background: "#fff", border: "1px solid var(--border)", color: "var(--text-2)", padding: "5px 12px", borderRadius: 8, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-ui)", whiteSpace: "nowrap" };
+    return (
+      <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+        {(isSuperAdmin || mio(item)) && <button onClick={() => apri(item)} style={st}>Modifica</button>}
+        {mio(item) && <button onClick={() => elimina(item)} style={{ ...st, color: "var(--danger)", borderColor: "var(--danger-border)" }}>Elimina</button>}
+        {!isSuperAdmin && !item.sedeId && item.categoria !== "combo" && <button onClick={() => apri(null, item)} style={st}>Crea la nostra versione</button>}
+      </span>
+    );
+  };
+
+  const etichettaSede = (item: any) => item.sedeId ? (
+    <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase", padding: "2px 8px", borderRadius: 20, background: "var(--accent-bg-2)", border: "1px solid var(--accent-border)", color: "var(--accent-ink)", whiteSpace: "nowrap" }}>
+      {isSuperAdmin ? `Solo ${String(item.sede?.nome ?? "una sede").replace("Don Basilico ", "")}` : "Solo nostro"}
+    </span>
+  ) : null;
 
   return (
     <div className="animate-in">
@@ -134,17 +211,15 @@ export default function MenuPage() {
             }}>{c === "tutti" ? "Tutti" : CAT_LABEL[c] ?? c}</button>
           ))}
         </div>
-        {isSuperAdmin && (
-          <button
-            onClick={() => { setShowModal(true); setEditItem(null); setForm({ nome: "", descrizione: "", categoria: "pizze_rosse", prezzoBase: "", prezzoOnline: "" }); }}
-            style={{ background: "var(--text)", color: "#fff", border: "none", padding: "9px 18px", borderRadius: 9, fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)" }}
-          >Nuova voce</button>
-        )}
+        <button
+          onClick={() => apri(null)}
+          style={{ background: "var(--text)", color: "#fff", border: "none", padding: "9px 18px", borderRadius: 9, fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)" }}
+        >{isSuperAdmin ? "Nuova voce (tutte le sedi)" : "Aggiungi un prodotto nostro"}</button>
       </div>
 
       {!isSuperAdmin && (
         <div style={{ background: "var(--accent-bg)", border: "1px solid var(--accent-border)", borderRadius: 9, padding: "10px 16px", marginBottom: 16, fontSize: 12.5, color: "var(--accent-ink)" }}>
-          Modalità sede: per ogni prodotto puoi scegliere «Attiva» / «Disattivata» (permanente, finché non la cambi) ed «Esaurito» (nascosto fino alle 5:00 del giorno dopo, poi torna da solo). Le modifiche globali sono gestite dall'admin.
+          Modalità sede: per ogni prodotto puoi scegliere «Attiva» / «Disattivata» (permanente, finché non la cambi) ed «Esaurito» (nascosto fino alle 5:00 del giorno dopo, poi torna da solo). I prodotti comuni li modifica solo l'admin: puoi aggiungere i tuoi con «Aggiungi un prodotto nostro», o fare la tua versione di una pizza con «Crea la nostra versione». I tuoi si vedono solo nella tua pizzeria, in cassa e nell'app.
         </div>
       )}
 
@@ -163,7 +238,7 @@ export default function MenuPage() {
             <div key={item.id} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: "14px 16px", opacity: item.isAttivo ? 1 : 0.7 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontFamily: "var(--font-display)", fontSize: 17, color: "var(--text)" }}>{item.nome}</div>
+                  <div style={{ fontFamily: "var(--font-display)", fontSize: 17, color: "var(--text)" }}>{item.nome} {etichettaSede(item)}</div>
                   <div style={{ fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: "var(--text-muted)", marginTop: 2 }}>{CAT_LABEL[item.categoria] ?? item.categoria}</div>
                 </div>
                 <div className="num" style={{ fontSize: 15, fontWeight: 600, color: "var(--text)", whiteSpace: "nowrap" }}>{euro(prezzo)}</div>
@@ -193,12 +268,7 @@ export default function MenuPage() {
                     {item.esauritoOggi ? "Esaurito · torna domani" : "Segna esaurito"}
                   </button>
                 )}
-                {isSuperAdmin && (
-                  <button onClick={() => { setEditItem(item); setForm({ nome: item.nome, descrizione: item.descrizione ?? "", categoria: item.categoria, prezzoBase: item.prezzoBase.toString(), prezzoOnline: item.prezzoOnline != null ? item.prezzoOnline.toString() : "" }); setShowModal(true); }} style={{
-                    background: "#fff", border: "1px solid var(--border)", color: "var(--text-2)",
-                    padding: "6px 13px", borderRadius: 20, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-ui)", marginLeft: "auto",
-                  }}>Modifica</button>
-                )}
+                <span style={{ marginLeft: "auto" }}>{azioni(item)}</span>
               </div>
             </div>
           );
@@ -209,7 +279,7 @@ export default function MenuPage() {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "var(--surface-muted)" }}>
-              {["Prodotto", "Categoria", "Prezzo base", "Attivo globale", ...(sedeId ? ["Attiva in questa sede", "Esaurito oggi"] : []), ...(isSuperAdmin ? [""] : [])].map((h, i) => (
+              {["Prodotto", "Categoria", "Prezzo base", "Attivo globale", ...(sedeId ? ["Attiva in questa sede", "Esaurito oggi"] : []), ""].map((h, i) => (
                 <th key={i} style={{ padding: "11px 14px", textAlign: "left", fontSize: 9.5, letterSpacing: 1.7, textTransform: "uppercase", color: "var(--text-muted)", fontWeight: 500, whiteSpace: "nowrap" }}>{h}</th>
               ))}
             </tr>
@@ -223,6 +293,7 @@ export default function MenuPage() {
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ fontFamily: "var(--font-display)", fontSize: 17, color: "var(--text)" }}>{item.nome}</span>
                       {item.prezzoOnline != null && <span title="Prezzo per l'app online" style={{ fontSize: 11, background: "var(--accent-bg-2)", border: "1px solid var(--accent-border)", borderRadius: 20, padding: "1px 8px", color: "var(--text-2)" }}>app € {parseFloat(item.prezzoOnline).toFixed(2).replace(".", ",")}</span>}
+                      {etichettaSede(item)}
                       {!item.isAttivo && (
                         <span
                           onClick={() => isSuperAdmin && toggleGlobale(item)}
@@ -282,14 +353,7 @@ export default function MenuPage() {
                       )}
                     </td>
                   )}
-                  {isSuperAdmin && (
-                    <td style={{ padding: "13px 14px", textAlign: "right" }}>
-                      <button onClick={() => { setEditItem(item); setForm({ nome: item.nome, descrizione: item.descrizione ?? "", categoria: item.categoria, prezzoBase: item.prezzoBase.toString(), prezzoOnline: item.prezzoOnline != null ? item.prezzoOnline.toString() : "" }); setShowModal(true); }} style={{
-                        background: "#fff", border: "1px solid var(--border)", color: "var(--text-2)",
-                        padding: "5px 12px", borderRadius: 8, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-ui)",
-                      }}>Modifica</button>
-                    </td>
-                  )}
+                  <td style={{ padding: "13px 14px", textAlign: "right" }}>{azioni(item)}</td>
                 </tr>
               );
             })}
@@ -300,10 +364,10 @@ export default function MenuPage() {
       {showModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
           onClick={() => setShowModal(false)}>
-          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 26, width: 440, maxWidth: "90vw" }}
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 26, width: 520, maxWidth: "92vw", maxHeight: "90vh", overflowY: "auto" }}
             onClick={(e) => e.stopPropagation()}>
             <h2 style={{ fontFamily: "var(--font-display)", fontSize: 19, color: "var(--text)", marginBottom: 18 }}>
-              {editItem ? "Modifica prodotto" : "Nuovo prodotto"}
+              {editItem ? "Modifica prodotto" : copiaDi ? `La nostra versione di ${copiaDi.nome}` : isSuperAdmin ? "Nuovo prodotto per tutte le sedi" : "Nuovo prodotto della nostra pizzeria"}
             </h2>
             {[
               { label: "Nome *", key: "nome", placeholder: "es. Margherita" },
@@ -318,7 +382,7 @@ export default function MenuPage() {
               <div>
                 <label style={labelSt}>Categoria *</label>
                 <select style={fieldSt} value={form.categoria} onChange={(e) => setForm((p) => ({ ...p, categoria: e.target.value }))}>
-                  {["combo", "pizze_rosse", "pizze_bianche", "calzoni", "focacce", "menu_speciale", "fritti", "bevande", "dolci", "extra"].map((c) => <option key={c} value={c}>{CAT_LABEL[c]}</option>)}
+                  {["combo", "pizze_rosse", "pizze_bianche", "calzoni", "focacce", "menu_speciale", "fritti", "bevande", "dolci", "extra"].filter((c) => isSuperAdmin || c !== "combo").map((c) => <option key={c} value={c}>{CAT_LABEL[c]}</option>)}
                 </select>
               </div>
               <div>
@@ -331,9 +395,50 @@ export default function MenuPage() {
                 <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>Se lo compili, l'app ordini e il menù pubblico usano questo; la cassa usa sempre il prezzo qui sopra.</div>
               </div>
             </div>
+            {!["bevande", "combo"].includes(form.categoria) && (
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelSt}>Ingredienti {form.ingredientiIds.length > 0 && `· ${form.ingredientiIds.length} scelti`}</label>
+                <input style={{ ...fieldSt, marginBottom: 8 }} placeholder="Cerca ingrediente…" value={cercaIng} onChange={(e) => setCercaIng(e.target.value)} />
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 150, overflowY: "auto" }}>
+                  {ingredienti
+                    .filter((i) => form.ingredientiIds.includes(i.id) || i.nome.toLowerCase().includes(cercaIng.toLowerCase()))
+                    .sort((a, b) => Number(form.ingredientiIds.includes(b.id)) - Number(form.ingredientiIds.includes(a.id)))
+                    .map((i) => {
+                      const on = form.ingredientiIds.includes(i.id);
+                      return (
+                        <button key={i.id} type="button" onClick={() => cambiaVoce("ingredientiIds", i.id)} style={{ padding: "5px 11px", borderRadius: 20, fontSize: 12, cursor: "pointer", border: "1px solid", fontFamily: "var(--font-ui)", background: on ? "var(--text)" : "var(--surface-muted)", color: on ? "#fff" : "var(--text-3)", borderColor: on ? "var(--text)" : "var(--border)" }}>{i.nome}</button>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelSt}>Allergeni {form.ingredientiIds.length > 0 ? "in più rispetto agli ingredienti" : "del prodotto"}</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {ALLERGENI.map((a) => {
+                  const on = form.allergeniExtra.includes(a.codice);
+                  return (
+                    <button key={a.codice} type="button" onClick={() => cambiaVoce("allergeniExtra", a.codice)} style={{ padding: "5px 11px", borderRadius: 20, fontSize: 12, cursor: "pointer", border: "1px solid", fontFamily: "var(--font-ui)", background: on ? "var(--text)" : "var(--surface-muted)", color: on ? "#fff" : "var(--text-3)", borderColor: on ? "var(--text)" : "var(--border)" }}>{a.etichetta}</button>
+                  );
+                })}
+              </div>
+              <label style={{ display: "flex", gap: 8, alignItems: "flex-start", marginTop: 10, fontSize: 12, color: "var(--text-2)", cursor: "pointer" }}>
+                <input type="checkbox" checked={form.allergeniControllati} onChange={(e) => setForm((p) => ({ ...p, allergeniControllati: e.target.checked }))} />
+                <span>Ho controllato gli allergeni sulle etichette. Se non è spuntato, l'app scrive al cliente di chiedere al personale.</span>
+              </label>
+            </div>
+
+            {copiaDi && (
+              <label style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 16, fontSize: 12.5, color: "var(--text-2)", cursor: "pointer" }}>
+                <input type="checkbox" checked={nascondiComune} onChange={(e) => setNascondiComune(e.target.checked)} />
+                <span>Nella nostra pizzeria nascondi la {copiaDi.nome} comune (si può riattivare quando si vuole).</span>
+              </label>
+            )}
+
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button onClick={() => setShowModal(false)} style={{ background: "#fff", border: "1px solid var(--border)", color: "var(--text-2)", padding: "9px 16px", borderRadius: 9, cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 12.5 }}>Annulla</button>
-              <button onClick={salva} style={{ background: "var(--text)", color: "#fff", border: "none", padding: "9px 18px", borderRadius: 9, fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)" }}>
+              <button onClick={salva} disabled={salvando} style={{ background: "var(--text)", color: "#fff", border: "none", padding: "9px 18px", borderRadius: 9, fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)" }}>
                 {editItem ? "Salva" : "Aggiungi"}
               </button>
             </div>

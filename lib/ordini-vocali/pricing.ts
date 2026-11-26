@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { menuDellaSede } from "@/lib/menu-sede";
 import { filtroIngredientiFiniti, ingredienteMancante, overrideDisponibile } from "@/lib/esauriti";
 import { CATEGORIE_IMPASTO, impastiDellaSede } from "@/lib/impasti";
 import { èCodiceBreve, risolviCodice } from "./id-brevi";
@@ -69,7 +70,7 @@ async function espandiCodici(sedeId: string, articoli: ArticoloOrdinatoInput[]):
   if (!articoli.some((a) => campi(a).some(èCodiceBreve))) return articoli;
 
   const [menu, ingredienti, impasti] = await Promise.all([
-    prisma.menuItem.findMany({ select: { id: true } }),
+    prisma.menuItem.findMany({ where: menuDellaSede(sedeId), select: { id: true } }),
     prisma.ingrediente.findMany({ select: { id: true } }),
     impastiDellaSede(sedeId),
   ]);
@@ -122,7 +123,7 @@ export async function calcolaOrdine(
 
   const [menuItems, ingredienti, maxiConfig, overrides, disabilitati] = await Promise.all([
     prisma.menuItem.findMany({
-      where: { id: { in: menuItemIds }, isAttivo: true },
+      where: { id: { in: menuItemIds }, isAttivo: true, ...menuDellaSede(sedeId) },
       include: { ingredienti: { select: { ingredienteId: true, ingrediente: { select: { nome: true } } } } },
     }),
     ingredienteIds.length
@@ -150,7 +151,7 @@ export async function calcolaOrdine(
   });
   const [itemCollegati, overrideCollegati] = idCollegati.size
     ? await Promise.all([
-        prisma.menuItem.findMany({ where: { id: { in: Array.from(idCollegati) } }, select: { id: true, nome: true, categoria: true, isAttivo: true, ingredienti: { select: { ingredienteId: true } } } }),
+        prisma.menuItem.findMany({ where: { id: { in: Array.from(idCollegati) }, ...menuDellaSede(sedeId) }, select: { id: true, nome: true, categoria: true, isAttivo: true, sedeId: true, ingredienti: { select: { ingredienteId: true } } } }),
         prisma.sedeMenuOverride.findMany({ where: { sedeId, menuItemId: { in: Array.from(idCollegati) } } }),
       ])
     : [[], []];
@@ -182,7 +183,7 @@ export async function calcolaOrdine(
       if (sc.pizze.length !== cfg.pizzeSpeciali) throw new ErrorePricing(`${menuItem.nome}: scegli ${cfg.pizzeSpeciali} pizze speciali`);
       const nomeScelta = (id: string, ammessa: (i: { nome: string; categoria: string }) => boolean, cosa: string) => {
         const it = collegatiMap.get(id);
-        if (!it || !it.isAttivo || !ammessa(it)) throw new ErrorePricing(`${menuItem.nome}: ${cosa} non valida`);
+        if (!it || !it.isAttivo || it.sedeId || !ammessa(it)) throw new ErrorePricing(`${menuItem.nome}: ${cosa} non valida`);
         if (nonDisponibiliInSede.has(id)) throw new ErrorePricing(`${it.nome} non è disponibile in questa sede`);
         return it.nome;
       };
