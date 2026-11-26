@@ -961,10 +961,13 @@ export default function NuovoOrdinePage() {
 
   // In cassa "Speciali" viene dopo i calzoni; sul sito clienti (OrdinaFlow) è invece la prima sezione.
   const cats = ["pizze_rosse", "pizze_bianche", "calzoni", "focacce", "menu_speciale", "combo", "fritti", "dolci", "bevande", "extra"];
-  const catsPresenti = cats.filter((c) => menuItems.some((m) => m.categoria === c));
+  // Disattivato in questa sede (permanente) = non si vede; esaurito oggi o senza un ingrediente = resta, in grigio.
+  // (menuItems resta completo: serve per riaprire un ordine che contiene un prodotto disattivato nel frattempo.)
+  const visibili = menuItems.filter((m) => m.attivoInSede !== false);
+  const catsPresenti = cats.filter((c) => visibili.some((m) => m.categoria === c));
   const isSezionePizze = catFiltro === "pizze_rosse" || catFiltro === "pizze_bianche";
   // In ordine alfabetico dentro ogni sezione, per leggere e cercare più in fretta.
-  const itemsFiltrati = menuItems.filter((m) => m.categoria === catFiltro
+  const itemsFiltrati = visibili.filter((m) => m.categoria === catFiltro
     && (!isSezionePizze || m.nome.toLowerCase().includes(cercaPizza.toLowerCase())))
     .sort((a, b) => a.nome.localeCompare(b.nome, "it", { sensitivity: "base" }));
   const cartQty = cart.reduce((a, c) => a + c.qty, 0);
