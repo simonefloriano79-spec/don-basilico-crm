@@ -272,8 +272,8 @@ function ComboModal({ item, menu, onConferma, onChiudi }: {
   const cfg = leggiComboConfig(item.comboConfig)!;
   const perId = new Map(menu.map((m) => [m.id, m]));
   const fissi = cfg.componenti.flatMap((c) => Array<string>(c.qta).fill(perId.get(c.id)?.nome ?? "prodotto"));
-  const bibiteOpz = menu.filter((m) => m.categoria === "bevande" && bevandaAmmessaInCombo(m.nome)).sort((a, b) => a.nome.localeCompare(b.nome, "it"));
-  const pizzeOpz = menu.filter((m) => m.categoria === "menu_speciale").sort((a, b) => a.nome.localeCompare(b.nome, "it"));
+  const bibiteOpz = menu.filter((m) => !m.sedeId && m.categoria === "bevande" && bevandaAmmessaInCombo(m.nome)).sort((a, b) => a.nome.localeCompare(b.nome, "it"));
+  const pizzeOpz = menu.filter((m) => !m.sedeId && m.categoria === "menu_speciale").sort((a, b) => a.nome.localeCompare(b.nome, "it"));
   const [bibite, setBibite] = useState<Record<string, number>>({});
   const [pizze, setPizze] = useState<Record<string, number>>({});
   const [nota, setNota] = useState("");

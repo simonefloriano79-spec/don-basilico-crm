@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { CATEGORIE_IMPASTO, impastiDellaSede } from "@/lib/impasti";
 import { calcolaOrdine, CATEGORIE_MAXI, type ArticoloPrezzato } from "@/lib/ordini-vocali/pricing";
 import { CATEGORIE_BABY, prezzoBaby } from "@/lib/pizza-baby";
+import { menuDellaSede } from "@/lib/menu-sede";
 import { esauritoAttivo, filtroIngredientiFiniti, ingredienteMancante, overrideDisponibile } from "@/lib/esauriti";
 
 // Righe d'ordine della cassa: il prezzo si ricalcola SEMPRE sul server (mai fidarsi di quello mandato dal browser).
@@ -43,7 +44,7 @@ export async function prezzaRigheCassa(sedeId: string, items: any[], esistenti: 
   const [menuItemsDb, overrideDb, sedeExtraDb, ingredientiDb, finitiDb] = await Promise.all([
     menuItemIds.length
       ? prisma.menuItem.findMany({
-          where: { id: { in: menuItemIds } },
+          where: { id: { in: menuItemIds }, ...menuDellaSede(sedeId) },
           include: { ingredienti: { select: { ingredienteId: true, ingrediente: { select: { nome: true } } } } },
         })
       : [],

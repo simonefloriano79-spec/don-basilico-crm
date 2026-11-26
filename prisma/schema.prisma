@@ -91,6 +91,7 @@ model Sede {
   interazioni    InterazioneLog[]
   ordiniVocali   OrdineVocale[]
   impasti        SedeImpasto[]
+  menuProprio    MenuItem[]
 
   @@map("sedi")
 }
@@ -133,13 +134,17 @@ model MenuItem {
   allergeniDaVerificare Boolean       @default(false) @map("allergeni_da_verificare")
   // Solo per i «Menù Combo»: cosa contengono e cosa sceglie il cliente (vedi lib/combo.ts).
   comboConfig           Json?         @map("combo_config")
+  // Vuoto = prodotto di tutte le sedi (lo gestisce il super admin); valorizzato = solo di quella sede (vedi lib/menu-sede.ts).
+  sedeId                String?       @map("sede_id") @db.Uuid
   createdAt             DateTime      @default(now()) @map("created_at")
   updatedAt             DateTime      @updatedAt @map("updated_at")
 
   ingredienti  MenuItemIngrediente[]
   sedeOverride SedeMenuOverride[]
   ordineItems  OrdineItem[]
+  sede         Sede?                 @relation(fields: [sedeId], references: [id], onDelete: Cascade)
 
+  @@index([sedeId])
   @@map("menu_items")
 }
 

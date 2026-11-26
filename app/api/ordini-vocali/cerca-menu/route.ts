@@ -1,6 +1,7 @@
 import { parlatoDeep } from "@/lib/ordini-vocali/parlato";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { menuDellaSede } from "@/lib/menu-sede";
 import { verificaSegretoWebhook } from "@/lib/ordini-vocali/auth";
 import { idBreve } from "@/lib/ordini-vocali/id-brevi";
 import { CATEGORIE_MAXI, CATEGORIE_META_E_META, PREZZO_PEZZO_FRITTO, coloreDellaPizza, vendutoAPezzo } from "@/lib/ordini-vocali/pricing";
@@ -26,7 +27,7 @@ async function cerca(q: string, sedeSlug?: string | null) {
   const uguale = (nome: string) => ({ nome: { equals: nome, mode: "insensitive" as const } });
   const [pizzeCasistica, extraCasistica] = casistica
     ? await Promise.all([
-        prisma.menuItem.findMany({ where: { isAttivo: true, OR: casistica.opzioni.map((o) => uguale(o.pizza)) }, select: { id: true, nome: true } }),
+        prisma.menuItem.findMany({ where: { isAttivo: true, AND: [menuDellaSede(sede?.id), { OR: casistica.opzioni.map((o) => uguale(o.pizza)) }] }, select: { id: true, nome: true } }),
         prisma.ingrediente.findMany({
           where: { OR: casistica.opzioni.flatMap((o) => o.conExtra).map(uguale) },
           select: { id: true, nome: true, prezzoAggiunta: true },
@@ -39,7 +40,8 @@ async function cerca(q: string, sedeSlug?: string | null) {
       ? Promise.resolve([] as { id: string; punteggio: number }[])
       : prisma.$queryRaw<{ id: string; punteggio: number }[]>`
       SELECT id, similarity(nome, ${q})::float8 AS punteggio FROM menu_items
-      WHERE is_attivo = true AND (similarity(nome, ${q}) > 0.2 OR word_similarity(${q}, nome) > 0.45)
+      WHERE is_attivo = true AND (sede_id IS NULL OR sede_id = ${sede?.id ?? null}::uuid)
+        AND (similarity(nome, ${q}) > 0.2 OR word_similarity(${q}, nome) > 0.45)
       ORDER BY (lower(nome) = lower(${q})) DESC,
                GREATEST(similarity(nome, ${q}), word_similarity(${q}, nome)) DESC,
                similarity(nome, ${q}) DESC
@@ -74,7 +76,7 @@ async function cerca(q: string, sedeSlug?: string | null) {
   const [prodottiDb, ingredientiDb, overrides, maxi, disabilitati] = await Promise.all([
     idProdotti.length
       ? prisma.menuItem.findMany({
-          where: { id: { in: idProdotti }, isAttivo: true },
+          where: { id: { in: idProdotti }, isAttivo: true, ...menuDellaSede(sede?.id) },
           include: { ingredienti: { include: { ingrediente: { select: { id: true, nome: true } } } } },
         })
       : [],
@@ -96,12 +98,12 @@ async function cerca(q: string, sedeSlug?: string | null) {
     .slice(0, MAX_RISULTATI);
 
   // Combo: servono i prodotti della sede per dire cosa contiene e tra cosa si può scegliere.
-  let disponibiliInSede: { id: string; nome: string; categoria: string }[] = [];
+  let disponibiliInSede: { id: string; nome: string; categoria: string; sedeId?: string | null }[] = [];
   if (prodotti.some((p) => p.categoria === "combo")) {
-    const tutti = await prisma.menuItem.findMany({ where: { isAttivo: true }, select: { id: true, nome: true, categoria: true, ingredienti: { select: { ingredienteId: true } } } });
+    const tutti = await prisma.menuItem.findMany({ where: { isAttivo: true, ...menuDellaSede(sede?.id) }, select: { id: true, nome: true, categoria: true, sedeId: true, ingredienti: { select: { ingredienteId: true } } } });
     disponibiliInSede = tutti
       .filter((m) => { const o = overrideMap.get(m.id); return (!o || overrideDisponibile(o)) && !ingredienteMancante(m.ingredienti, ingDisabilitati); })
-      .map(({ id, nome, categoria }) => ({ id, nome, categoria }));
+      .map(({ id, nome, categoria, sedeId }) => ({ id, nome, categoria, sedeId }));
   }
 
   const casisticaDelProdotto = (nome: string) => {
@@ -149,10 +151,10 @@ async function cerca(q: string, sedeSlug?: string | null) {
           bibiteDaScegliere: cfg.bibite,
           pizzeSpecialiDaScegliere: cfg.pizzeSpeciali,
           bibiteAmmesse: disponibiliInSede
-            .filter((m) => m.categoria === "bevande" && bevandaAmmessaInCombo(m.nome))
+            .filter((m) => !m.sedeId && m.categoria === "bevande" && bevandaAmmessaInCombo(m.nome))
             .map((m) => ({ menuItemId: idBreve(m.id), nome: m.nome })),
           pizzeSpecialiAmmesse: disponibiliInSede
-            .filter((m) => m.categoria === "menu_speciale")
+            .filter((m) => !m.sedeId && m.categoria === "menu_speciale")
             .map((m) => ({ menuItemId: idBreve(m.id), nome: m.nome })),
         },
       };
