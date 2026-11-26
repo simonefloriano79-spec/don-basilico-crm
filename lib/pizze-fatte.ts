@@ -2,8 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { pesoRiga } from "@/lib/peso-pizze";
 import { leggiComboConfig } from "@/lib/combo";
 
-// Contatore delle pizze della serata: pizze rosse/bianche, speciali e calzoni a pezzo (una maxi è UNA pizza, contata anche
-// a parte), più le pizze contenute nei «Menù Combo». Fritti, bevande, dolci ed extra non contano.
+// Contatore delle pizze della serata: pizze rosse/bianche, speciali, calzoni, focacce e Rollè Nutella a pezzo (una maxi è UNA
+// pizza, contata anche a parte), più le pizze contenute nei «Menù Combo». Fritti, bevande, altri dolci ed extra non contano.
 // Stesse regole della capienza cucina (lib/peso-pizze.ts), ma la maxi vale 1 invece di 2.
 
 export interface PizzeSede { pizze: number; maxi: number; asporto?: number; domicilio?: number; tavolo?: number } // asporto/domicilio/tavolo: pizze per tipo di ordine
