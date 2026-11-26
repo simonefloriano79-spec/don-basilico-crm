@@ -45,7 +45,7 @@ function riquadroOrario(o: PrintOrdine): string {
   return `<div class="orario"><div class="orario-etichetta">${etichetta}</div>${giorno ? `<div class="orario-giorno">${giorno}</div>` : ""}<div class="orario-ora">${ora}</div></div>`;
 }
 
-// Genera HTML per la stampa termica (80mm)
+// Genera HTML per la stampa termica (80mm). La comanda è a uso interno: niente intestazione né saluti, parte dal numero.
 export async function generaTicketHTML(ordine: PrintOrdine): Promise<string> {
   const linea = "─".repeat(32);
   const itemsHtml = ordine.items
@@ -86,15 +86,11 @@ export async function generaTicketHTML(ordine: PrintOrdine): Promise<string> {
           color: #000;
           text-transform: uppercase; /* la comanda esce sempre tutta in maiuscolo */
         }
-        .header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; }
-        .logo { font-size: 22px; font-weight: bold; }
-        .sub { font-size: 14px; }
         .info-row { display: flex; justify-content: space-between; font-size: 15px; margin: 3px 0; }
         table { width: 100%; border-collapse: collapse; }
         td { padding: 4px 2px; font-size: 16px; }
         .totale { border-top: 1px dashed #000; margin-top: 6px; padding-top: 6px; text-align: right; font-weight: bold; font-size: 20px; }
-        .footer { text-align: center; margin-top: 10px; font-size: 13px; }
-        .ordine-num { font-size: 32px; font-weight: bold; text-align: center; margin: 6px 0; }
+        .ordine-num { font-size: 32px; font-weight: bold; text-align: center; margin: 0 0 6px; }
         .badge { display: inline-block; border: 1px solid #000; padding: 3px 10px; font-size: 15px; }
         .orario { border: 3px solid #000; text-align: center; width: 78%; margin: 6px auto 0; padding: 2px; }
         .orario-etichetta { font-size: 15px; }
@@ -103,10 +99,6 @@ export async function generaTicketHTML(ordine: PrintOrdine): Promise<string> {
       </style>
     </head>
     <body>
-      <div class="header">
-        <div class="logo">DON BASILICO</div>
-        <div class="sub">${ordine.sede}</div>
-      </div>
       ${ordine.modificato ? `<div style="text-align:center;font-size:22px;font-weight:bold;border:3px solid #000;padding:6px;margin:6px 0">ORDINE MODIFICATO<div style="font-size:13px;font-weight:normal">sostituisce la comanda precedente</div></div>` : ""}
       <div class="ordine-num">#${ordine.numero}</div>
       <div style="text-align:center;margin-bottom:6px">
@@ -131,10 +123,6 @@ export async function generaTicketHTML(ordine: PrintOrdine): Promise<string> {
       ${ordine.noteDomicilio ? `<div style="margin-top:6px;font-size:15px;border-top:1px dashed #000;padding-top:4px"><strong>NOTE CONSEGNA:</strong> ${ordine.noteDomicilio}</div>` : ""}
       <div class="totale">TOTALE: €${ordine.totale.toFixed(2)}</div>
       ${qrDataUrl ? `<div style="text-align:center;margin-top:10px"><img src="${qrDataUrl}" style="width:150px;height:150px"><div style="font-size:11px;margin-top:2px">Scansiona per la consegna</div></div>` : ""}
-      <div class="footer">
-        Grazie e buon appetito!<br>
-        www.donbasilico.it
-      </div>
     </body>
     </html>
   `;
