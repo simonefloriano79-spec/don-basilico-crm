@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { stampaBrowser } from "@/lib/print";
-import { nomeOrdine } from "@/lib/ordine-utils";
+import { nomeOrdine, nomePerComanda, ordineApiPerStampa } from "@/lib/ordine-utils";
 import { pesoRiga } from "@/lib/peso-pizze";
 import { richiedeAccettazione } from "@/lib/accettazione";
 import { RegistroOnline } from "./RegistroOnline";
@@ -272,31 +272,7 @@ export default function OrdiniPage() {
   };
 
   const gestisciStampa = async (ordine: any) => {
-    await stampaBrowser({
-      numero: ordine.numeroOrdine,
-      ordineId: ordine.id,
-      sede: ordine.sede?.nome ?? "",
-      canale: ordine.canale,
-      tipo: ordine.tipo,
-      cliente: nomeOrdine(ordine),
-      tavolo: ordine.tavolo ?? undefined,
-      telefono: ordine.clienteTelefono,
-      indirizzo: ordine.clienteIndirizzo,
-      nomeCitofono: ordine.nomeCitofono,
-      items: (ordine.items ?? []).map((i: any) => ({ nome: i.nomeSnapshot, qty: i.quantita, prezzo: parseFloat(i.prezzoSnapshot), note: i.noteItem })),
-      totale: parseFloat(ordine.totale),
-      costoConsegna: parseFloat(ordine.costoConsegna ?? 0) || undefined,
-      scontoFedelta: parseFloat(ordine.scontoFedelta ?? 0) || undefined,
-      scontoCodice: parseFloat(ordine.scontoCodice ?? 0) || undefined,
-      codiceSconto: ordine.codiceSconto ?? undefined,
-      modificato: !!ordine.modificatoAt ? true : undefined,
-      note: ordine.note,
-      noteDomicilio: ordine.noteDomicilio,
-      oraConsegnaComunicata: ordine.oraConsegnaComunicata ? quando(ordine.oraConsegnaComunicata) : undefined,
-      modalitaConsegna: ordine.modalitaConsegna,
-      metodoPagamento: ordine.metodoPagamento,
-      ora: ora(ordine.createdAt),
-    });
+    await stampaBrowser(ordineApiPerStampa(ordine));
     await fetch(`/api/ordini/${ordine.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stampato: true }) });
     caricaOrdini();
   };
@@ -525,7 +501,7 @@ export default function OrdiniPage() {
               <div key={i.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
                 <div>
                   <span className="num" style={{ fontSize: 13, color: "var(--text-2)" }}>{i.quantita}× </span>
-                  <span style={{ fontSize: 13, color: "var(--text)" }}>{i.nomeSnapshot}</span>
+                  <span style={{ fontSize: 13, color: "var(--text)" }}>{nomePerComanda(i.nomeSnapshot, i.noteItem)}</span>
                   {i.noteItem && <div style={{ fontSize: 11.5, color: "var(--danger)", marginTop: 2 }}>{i.noteItem}</div>}
                 </div>
                 <span className="num" style={{ fontSize: 13, color: "var(--text-2)", flexShrink: 0 }}>{euro(parseFloat(i.prezzoSnapshot) * i.quantita)}</span>

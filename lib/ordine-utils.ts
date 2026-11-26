@@ -20,8 +20,8 @@ export function nomeOrdine(o: any): string {
 
 // Il nome salvato dalla cassa porta in coda le modifiche («Crudo +Rucola -Mozzarella») e le stesse modifiche stanno già
 // nelle note della riga («Senza: Mozzarella | Con: Rucola»): sulla comanda uscivano due volte. Se le note le contengono,
-// si stampa solo il nome della pizza.
-function nomePerComanda(nome: string, note?: string | null): string {
+// si mostra solo il nome della pizza (comanda, Ordini, Cucina).
+export function nomePerComanda(nome: string, note?: string | null): string {
   if (!/(^|\|\s*)(senza|con):/i.test(note ?? "")) return nome;
   return nome.replace(/\s[+-]\S.*$/, "");
 }

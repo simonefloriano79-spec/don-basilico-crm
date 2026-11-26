@@ -125,7 +125,7 @@ export async function generaTicketHTML(ordine: PrintOrdine): Promise<string> {
         }
         .info-row { display: flex; justify-content: space-between; font-size: 15px; margin: 3px 0; }
         table { width: 100%; border-collapse: collapse; }
-        td { padding: 4px 2px; font-size: 16px; }
+        td { padding: 4px 2px; font-size: 16px; vertical-align: top; }
         .totale { border-top: 1px dashed #000; margin-top: 6px; padding-top: 6px; text-align: right; font-weight: bold; font-size: 20px; }
         .ordine-num { font-size: 32px; font-weight: bold; text-align: center; margin: 0 0 6px; }
         .badge { display: inline-block; border: 1px solid #000; padding: 3px 10px; font-size: 15px; }
