@@ -266,7 +266,7 @@ export default function ClientiPage() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   <div>
                     <label style={labelSt}>Telefono</label>
-                    <input style={fieldSt} value={editForm.telefono} onChange={(e) => setEditForm((p) => ({ ...p, telefono: e.target.value }))} />
+                    <input style={fieldSt} data-tast="n" value={editForm.telefono} onChange={(e) => setEditForm((p) => ({ ...p, telefono: e.target.value }))} />
                   </div>
                   <div>
                     <label style={labelSt}>Email</label>
@@ -345,7 +345,7 @@ export default function ClientiPage() {
 
       {/* MODAL NUOVO CLIENTE */}
       {showModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
+        <div className="con-tastierino" style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
           onClick={() => setShowModal(false)}>
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 26, width: 460, maxWidth: "90vw" }}
             onClick={(e) => e.stopPropagation()}>
@@ -368,7 +368,7 @@ export default function ClientiPage() {
             ].map((f) => (
               <div key={f.key} style={{ marginBottom: 12 }}>
                 <label style={labelSt}>{f.label}</label>
-                <input style={fieldSt} placeholder={f.placeholder} value={(form as any)[f.key]} onChange={(e) => setForm((p) => ({ ...p, [f.key]: e.target.value }))} />
+                <input style={fieldSt} data-tast={f.key === "telefono" ? "n" : "t"} placeholder={f.placeholder} value={(form as any)[f.key]} onChange={(e) => setForm((p) => ({ ...p, [f.key]: e.target.value }))} />
               </div>
             ))}
 

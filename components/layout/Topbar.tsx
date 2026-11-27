@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { Session } from "next-auth";
+import { PulsanteTastierino } from "@/components/tastiera/TastierinoCrm";
 
 const PAGES: Record<string, { title: string; subtitle: string }> = {
   "/dashboard":     { title: "Panoramica",    subtitle: "servizio serale" },
@@ -80,6 +81,8 @@ export function Topbar({ session }: { session: Session }) {
       )}
 
       <div className="topbar-right" style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
+        {pathname !== "/pannello" && <PulsanteTastierino />}
+
         <div className="topbar-live" style={{
           display: "flex", alignItems: "center", gap: 6,
           padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", flexShrink: 0,

@@ -5,6 +5,7 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import styles from "./login.module.css";
+import TastierinoCrm, { PulsanteTastierino } from "@/components/tastiera/TastierinoCrm";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -34,7 +35,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className={styles.wrapper}>
+    <div className={`${styles.wrapper} accesso-tastierino`}>
       <div className={styles.card}>
         <div className={styles.logo}>
           <img src="/brand/don-basilico-logo.png" alt="Don Basilico" className={styles.logoImg} />
@@ -74,10 +75,13 @@ export default function LoginPage() {
           </button>
         </div>
 
+        <div style={{ display: "flex", justifyContent: "center", marginTop: 16 }}><PulsanteTastierino /></div>
+
         <div className={styles.footer}>
           Don Basilico CRM v1.0 · Pitta srl
         </div>
       </div>
+      <TastierinoCrm />
     </div>
   );
 }

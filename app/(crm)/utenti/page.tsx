@@ -134,7 +134,7 @@ export default function UtentiPage() {
       </div>
 
       {showModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
+        <div className="con-tastierino" style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
           onClick={() => setShowModal(false)}>
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 26, width: 460, maxWidth: "90vw" }}
             onClick={(e) => e.stopPropagation()}>
@@ -188,7 +188,7 @@ export default function UtentiPage() {
       )}
 
       {showPwdModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
+        <div className="con-tastierino" style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
           onClick={() => setShowPwdModal(null)}>
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 26, width: 380, maxWidth: "90vw" }}
             onClick={(e) => e.stopPropagation()}>

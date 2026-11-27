@@ -393,7 +393,7 @@ export default function MenuPage() {
       </div>
 
       {showModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
+        <div className="con-tastierino" style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
           onClick={() => setShowModal(false)}>
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 26, width: 520, maxWidth: "92vw", maxHeight: "90vh", overflowY: "auto" }}
             onClick={(e) => e.stopPropagation()}>
@@ -420,11 +420,11 @@ export default function MenuPage() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 4 }}>
               <div>
                 <label style={labelSt}>Prezzo cassa (€) *</label>
-                <input style={fieldSt} type="number" step="0.50" placeholder="7.50" value={form.prezzoBase} onChange={(e) => setForm((p) => ({ ...p, prezzoBase: e.target.value }))} />
+                <input style={fieldSt} inputMode="decimal" placeholder="7.50" value={form.prezzoBase} onChange={(e) => setForm((p) => ({ ...p, prezzoBase: e.target.value.replace(",", ".").replace(/[^\d.]/g, "") }))} />
               </div>
               <div>
                 <label style={labelSt}>Prezzo app (€)</label>
-                <input style={fieldSt} type="number" step="0.50" placeholder="uguale alla cassa" value={form.prezzoOnline} onChange={(e) => setForm((p) => ({ ...p, prezzoOnline: e.target.value }))} />
+                <input style={fieldSt} inputMode="decimal" placeholder="uguale alla cassa" value={form.prezzoOnline} onChange={(e) => setForm((p) => ({ ...p, prezzoOnline: e.target.value.replace(",", ".").replace(/[^\d.]/g, "") }))} />
               </div>
             </div>
             <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 14 }}>Il prezzo app vale per l'app ordini e il menù pubblico. Se lo lasci vuoto, è uguale a quello di cassa.</div>

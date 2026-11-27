@@ -9,6 +9,7 @@ import { nomeOrdine, nomePerComanda, ordineApiPerStampa } from "@/lib/ordine-uti
 import { pesoRiga } from "@/lib/peso-pizze";
 import { richiedeAccettazione } from "@/lib/accettazione";
 import { RegistroOnline } from "./RegistroOnline";
+import CampoOra from "@/components/tastiera/CampoOra";
 
 const STATI_FLOW = ["nuovo", "confermato", "in_preparazione", "pronto", "consegnato"];
 const STATO_LABEL: Record<string, string> = {
@@ -90,6 +91,9 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
 const perInputLocale = (d: Date) =>
   `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 const arrotonda10 = (d: Date) => new Date(Math.ceil(d.getTime() / 600000) * 600000);
+const stileOrario: React.CSSProperties = {
+  minWidth: 0, width: "100%", padding: "9px 12px", border: "1px solid var(--border)", borderRadius: 9, fontSize: 13, background: "#fff", fontFamily: "var(--font-ui)",
+};
 
 export default function OrdiniPage() {
   const { data: session } = useSession();
@@ -569,10 +573,10 @@ export default function OrdiniPage() {
                 <div style={{ fontSize: 12.5, color: "var(--text-2)", marginBottom: 8 }}>
                   Richiesto dal cliente: <strong>{prenotato(selezionato) ? quando(selezionato.oraRichiesta) : "appena possibile"}</strong>
                 </div>
-                <input type="datetime-local" step={600} value={orarioConferma} onChange={(e) => setOrarioConferma(e.target.value)} style={{
-                  width: "100%", padding: "9px 12px", border: "1px solid var(--border)", borderRadius: 9,
-                  fontSize: 13, background: "#fff", fontFamily: "var(--font-ui)", marginBottom: 8,
-                }} />
+                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                  <input type="date" value={orarioConferma.split("T")[0] ?? ""} onChange={(e) => setOrarioConferma(`${e.target.value}T${orarioConferma.split("T")[1] ?? ""}`)} style={{ ...stileOrario, flex: 3 }} />
+                  <CampoOra value={orarioConferma.split("T")[1] ?? ""} onChange={(ora) => setOrarioConferma((prima) => `${prima.split("T")[0]}T${ora}`)} style={{ ...stileOrario, flex: 2 }} />
+                </div>
                 {selezionato.tipo === "domicilio" && (() => {
                   const t = new Date(orarioConferma).getTime();
                   if (Number.isNaN(t)) return null;

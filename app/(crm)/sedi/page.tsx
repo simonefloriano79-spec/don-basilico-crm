@@ -150,11 +150,11 @@ export default function SediPage() {
                   <div>{s.orarioApertura} – {s.orarioChiusura}</div>
                   {editCap && editCap.id === s.id ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-                      <input type="number" min={1} max={200} style={{ ...fieldSt, width: 64, padding: "6px 8px" }} value={editCap.pizze}
-                        onChange={(e) => setEditCap({ ...editCap, pizze: e.target.value })} />
+                      <input inputMode="numeric" maxLength={3} style={{ ...fieldSt, width: 64, padding: "6px 8px" }} value={editCap.pizze}
+                        onChange={(e) => setEditCap({ ...editCap, pizze: e.target.value.replace(/\D/g, "") })} />
                       <span>pizze ogni</span>
-                      <input type="number" min={5} max={60} step={5} style={{ ...fieldSt, width: 64, padding: "6px 8px" }} value={editCap.finestra}
-                        onChange={(e) => setEditCap({ ...editCap, finestra: e.target.value })} />
+                      <input inputMode="numeric" maxLength={2} style={{ ...fieldSt, width: 64, padding: "6px 8px" }} value={editCap.finestra}
+                        onChange={(e) => setEditCap({ ...editCap, finestra: e.target.value.replace(/\D/g, "") })} />
                       <span>min</span>
                       <button onClick={salvaCapienza} style={{ background: "var(--text)", color: "#fff", border: "none", padding: "6px 12px", borderRadius: 8, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-ui)" }}>Salva</button>
                       <button onClick={() => setEditCap(null)} style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: 12, cursor: "pointer" }}>Annulla</button>
@@ -204,7 +204,7 @@ export default function SediPage() {
       </div>
 
       {showModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "24px 12px", overflowY: "auto", boxSizing: "border-box" }} onClick={() => setShowModal(false)}>
+        <div className="con-tastierino" style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "24px 12px", overflowY: "auto", boxSizing: "border-box" }} onClick={() => setShowModal(false)}>
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 26, width: 560, maxWidth: "92vw", maxHeight: "calc(100dvh - 48px)", overflowY: "auto", margin: "auto" }} onClick={(e) => e.stopPropagation()}>
             <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, color: "var(--text)", marginBottom: 6 }}>Nuova filiale Don Basilico</h2>
             <p style={{ color: "var(--text-muted)", fontSize: 12.5, marginBottom: 18 }}>Lo slug viene generato automaticamente; puoi modificarlo solo se ti serve un URL specifico.</p>
@@ -224,7 +224,7 @@ export default function SediPage() {
               </div>
               <div>
                 <label style={labelSt}>Telefono</label>
-                <input style={fieldSt} placeholder="085 0000000" value={form.telefono} onChange={(e) => aggiornaCampo("telefono", e.target.value)} />
+                <input style={fieldSt} data-tast="n" placeholder="085 0000000" value={form.telefono} onChange={(e) => aggiornaCampo("telefono", e.target.value)} />
               </div>
               <div>
                 <label style={labelSt}>Email</label>
@@ -236,11 +236,11 @@ export default function SediPage() {
               </div>
               <div>
                 <label style={labelSt}>Apertura</label>
-                <input style={fieldSt} value={form.orarioApertura} onChange={(e) => aggiornaCampo("orarioApertura", e.target.value)} />
+                <input style={fieldSt} data-tast="o" value={form.orarioApertura} onChange={(e) => aggiornaCampo("orarioApertura", e.target.value)} />
               </div>
               <div>
                 <label style={labelSt}>Chiusura</label>
-                <input style={fieldSt} value={form.orarioChiusura} onChange={(e) => aggiornaCampo("orarioChiusura", e.target.value)} />
+                <input style={fieldSt} data-tast="o" value={form.orarioChiusura} onChange={(e) => aggiornaCampo("orarioChiusura", e.target.value)} />
               </div>
             </div>
 
