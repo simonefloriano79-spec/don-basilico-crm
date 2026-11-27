@@ -82,17 +82,18 @@ export default function TastierinoCrm() {
       const a = document.activeElement;
       setCampo(adatto(a) ? a : null);
     };
-    // Finché il dito (o il mouse) è giù il tastierino non si apre e non si chiude: la finestra si sposterebbe sotto e il
-    // tocco finirebbe nel posto sbagliato (col mouse il clic cadeva sullo sfondo e la finestra dell'orario si chiudeva).
+    // Il tastierino si apre solo a tocco FINITO: se si aprisse subito, la finestra si sposterebbe, il clic cadrebbe sullo
+    // sfondo e la finestra dell'orario si chiuderebbe. Col mouse il campo prende il fuoco a tasto ancora giù (si aspetta
+    // il rilascio); col dito lo prende a dito già alzato, ma prima che arrivi il clic: per questo si aspetta comunque.
     let premuto = false;
     const giu = () => { premuto = true; };
     const su = () => { premuto = false; };
     const fuoco = (e: FocusEvent) => {
       const el = e.target;
       if (!adatto(el)) return;
-      if (!premuto) return setCampo(el);
-      // setTimeout 0: si apre dopo che il clic è arrivato al campo.
-      document.addEventListener("pointerup", () => { setTimeout(() => { if (document.activeElement === el) setCampo(el); }, 0); }, { once: true });
+      const apri = () => { setTimeout(() => { if (document.activeElement === el) setCampo(el); }, 60); };
+      if (premuto) document.addEventListener("pointerup", apri, { once: true });
+      else apri();
     };
     // Un attimo di attesa: passando da un campo all'altro il tastierino resta aperto.
     const lasciato = () => {
