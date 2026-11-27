@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { CATEGORIE_IMPASTO, impastiDellaSede } from "@/lib/impasti";
 import { calcolaOrdine, CATEGORIE_MAXI, type ArticoloPrezzato } from "@/lib/ordini-vocali/pricing";
 import { CATEGORIE_BABY, prezzoBaby } from "@/lib/pizza-baby";
-import { menuDellaSede } from "@/lib/menu-sede";
+import { menuDellaSede, ingredientiDellaSede } from "@/lib/menu-sede";
 import { esauritoAttivo, filtroIngredientiFiniti, ingredienteMancante, overrideDisponibile } from "@/lib/esauriti";
 
 // Righe d'ordine della cassa: il prezzo si ricalcola SEMPRE sul server (mai fidarsi di quello mandato dal browser).
@@ -50,7 +50,7 @@ export async function prezzaRigheCassa(sedeId: string, items: any[], esistenti: 
       : [],
     menuItemIds.length ? prisma.sedeMenuOverride.findMany({ where: { sedeId, menuItemId: { in: menuItemIds } } }) : [],
     sedeExtraIds.length ? prisma.sedeMenuExtra.findMany({ where: { id: { in: sedeExtraIds }, sedeId } }) : [],
-    ingredienteIds.length ? prisma.ingrediente.findMany({ where: { id: { in: ingredienteIds as string[] } } }) : [],
+    ingredienteIds.length ? prisma.ingrediente.findMany({ where: { id: { in: ingredienteIds as string[] }, ...ingredientiDellaSede(sedeId) } }) : [],
     // Ingredienti finiti oggi in questa sede (scadono alle 5:00 del giorno dopo, vedi lib/esauriti.ts).
     prisma.sedeIngredienteDisabilitato.findMany({ where: { sedeId, ...filtroIngredientiFiniti() }, select: { ingredienteId: true } }),
   ]);

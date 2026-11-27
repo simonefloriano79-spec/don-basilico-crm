@@ -92,6 +92,7 @@ model Sede {
   ordiniVocali   OrdineVocale[]
   impasti        SedeImpasto[]
   menuProprio    MenuItem[]
+  ingredientiPropri Ingrediente[]
 
   @@map("sedi")
 }
@@ -175,7 +176,7 @@ model SedeImpasto {
 
 model Ingrediente {
   id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nome                 String   @unique
+  nome                 String // unico tra i comuni e dentro ogni sede (prisma/sql/ingredienti_per_sede.sql)
   isAllergene          Boolean  @default(false) @map("is_allergene")
   prezzoAggiunta       Decimal  @default(0.00) @map("prezzo_aggiunta") @db.Decimal(10, 2)
   disponibileDefault   Boolean  @default(true) @map("disponibile_default")
@@ -186,9 +187,14 @@ model Ingrediente {
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @default(now()) @updatedAt @map("updated_at")
 
+  // Vuoto = ingrediente di tutte le sedi (lo gestisce il super admin); valorizzato = solo di quella sede.
+  sedeId String? @map("sede_id") @db.Uuid
+
+  sede         Sede?                         @relation(fields: [sedeId], references: [id], onDelete: Cascade)
   menuItems    MenuItemIngrediente[]
   disabilitati SedeIngredienteDisabilitato[]
 
+  @@index([sedeId])
   @@map("ingredienti")
 }
 

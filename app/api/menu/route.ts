@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { esauritoAttivo, filtroIngredientiFiniti, ingredienteMancante, overrideDisponibile } from "@/lib/esauriti";
 import { menuDellaSede } from "@/lib/menu-sede";
 import { leggiProdotto } from "@/lib/menu-prodotto";
+import { ingredientiAmmessi } from "@/lib/ingredienti-prodotto";
 
 // GET /api/menu?sedeId=xxx&tutti=1
 // tutti=1 include anche i prodotti disattivati globalmente — usato dalla
@@ -103,6 +104,9 @@ export async function POST(req: NextRequest) {
   if ("errore" in esito) return NextResponse.json({ error: esito.errore }, { status: 400 });
 
   const { ingredientiIds, ...dati } = esito;
+  if (!(await ingredientiAmmessi(ingredientiIds, isSuperAdmin ? null : user.sedeId))) {
+    return NextResponse.json({ error: "Uno degli ingredienti scelti è di una sola pizzeria e non si può usare in questo prodotto" }, { status: 400 });
+  }
   const item = await prisma.menuItem.create({
     data: {
       ...(dati as any),

@@ -1,7 +1,7 @@
 import { parlatoDeep } from "@/lib/ordini-vocali/parlato";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { menuDellaSede } from "@/lib/menu-sede";
+import { menuDellaSede, ingredientiDellaSede } from "@/lib/menu-sede";
 import { verificaSegretoWebhook } from "@/lib/ordini-vocali/auth";
 import { idBreve } from "@/lib/ordini-vocali/id-brevi";
 import { CATEGORIE_MAXI, CATEGORIE_META_E_META, PREZZO_PEZZO_FRITTO, coloreDellaPizza, vendutoAPezzo } from "@/lib/ordini-vocali/pricing";
@@ -29,7 +29,7 @@ async function cerca(q: string, sedeSlug?: string | null) {
     ? await Promise.all([
         prisma.menuItem.findMany({ where: { isAttivo: true, AND: [menuDellaSede(sede?.id), { OR: casistica.opzioni.map((o) => uguale(o.pizza)) }] }, select: { id: true, nome: true } }),
         prisma.ingrediente.findMany({
-          where: { OR: casistica.opzioni.flatMap((o) => o.conExtra).map(uguale) },
+          where: { AND: [ingredientiDellaSede(sede?.id), { OR: casistica.opzioni.flatMap((o) => o.conExtra).map(uguale) }] },
           select: { id: true, nome: true, prezzoAggiunta: true },
         }),
       ])
@@ -80,7 +80,7 @@ async function cerca(q: string, sedeSlug?: string | null) {
           include: { ingredienti: { include: { ingrediente: { select: { id: true, nome: true } } } } },
         })
       : [],
-    idIngredienti.length ? prisma.ingrediente.findMany({ where: { id: { in: idIngredienti } } }) : [],
+    idIngredienti.length ? prisma.ingrediente.findMany({ where: { id: { in: idIngredienti }, ...ingredientiDellaSede(sede?.id) } }) : [],
     sede ? prisma.sedeMenuOverride.findMany({ where: { sedeId: sede.id } }) : [],
     sede ? prisma.sedePizzaMaxi.findUnique({ where: { sedeId: sede.id } }) : null,
     sede ? prisma.sedeIngredienteDisabilitato.findMany({ where: { sedeId: sede.id, ...filtroIngredientiFiniti() } }) : [], // finiti «oggi» (scadono alle 5:00)

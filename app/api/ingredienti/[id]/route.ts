@@ -3,10 +3,12 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ALLERGENI } from "@/lib/allergeni";
+import { ingredientiDellaSede } from "@/lib/menu-sede";
+import { leggiIngrediente } from "@/lib/ingrediente-dati";
 
 // PATCH /api/ingredienti/[id]
-// Admin: modifica prezzo_aggiunta, nome, is_allergene
-// Operatore sede: disabilita/riabilita nella propria sede
+// Admin: modifica qualsiasi ingrediente.
+// Sede: segna «finito» un ingrediente (comune o suo) e modifica solo quelli suoi.
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -16,6 +18,9 @@ export async function PATCH(
 
   const user = session.user as any;
   const body = await req.json();
+
+  const ingrediente = await prisma.ingrediente.findUnique({ where: { id: params.id }, select: { sedeId: true } });
+  if (!ingrediente) return NextResponse.json({ error: "Ingrediente non trovato" }, { status: 404 });
 
   if (user.ruolo === "super_admin") {
     // Admin: modifica globale
@@ -58,7 +63,29 @@ export async function PATCH(
     return NextResponse.json(updated);
   }
 
-  // Operatore sede: toggle disabilitazione locale
+  // Gli ingredienti di un'altra pizzeria non esistono per chi non è super admin.
+  if (ingrediente.sedeId && ingrediente.sedeId !== user.sedeId) {
+    return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
+  }
+
+  // Modifica di un ingrediente proprio (nome, prezzo, allergeni): i comuni li cambia solo l'amministratore.
+  if (body.disabilita === undefined) {
+    if (!ingrediente.sedeId) {
+      return NextResponse.json({ error: "Gli ingredienti comuni li modifica solo l'amministratore" }, { status: 403 });
+    }
+    const dati = leggiIngrediente(body, { nuovo: false });
+    if ("errore" in dati) return NextResponse.json({ error: dati.errore }, { status: 400 });
+    if (dati.nome) {
+      const doppio = await prisma.ingrediente.findFirst({
+        where: { id: { not: params.id }, nome: { equals: dati.nome, mode: "insensitive" }, ...ingredientiDellaSede(ingrediente.sedeId) },
+        select: { nome: true },
+      });
+      if (doppio) return NextResponse.json({ error: `«${doppio.nome}» c'è già nell'elenco` }, { status: 409 });
+    }
+    return NextResponse.json(await prisma.ingrediente.update({ where: { id: params.id }, data: dati }));
+  }
+
+  // «Finito» nella propria sede
   const { sedeId, disabilita, note } = body;
 
   if (!sedeId) {
@@ -84,7 +111,7 @@ export async function PATCH(
   return NextResponse.json({ ok: true });
 }
 
-// DELETE /api/ingredienti/[id] — solo admin (soft: disattiva)
+// DELETE /api/ingredienti/[id] — admin sui comuni: si disattiva. Sede sui suoi: si cancella, se nessun suo prodotto lo usa.
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -93,14 +120,24 @@ export async function DELETE(
   if (!session) return NextResponse.json({ error: "Non autorizzato" }, { status: 401 });
 
   const user = session.user as any;
-  if (user.ruolo !== "super_admin") {
+  const ingrediente = await prisma.ingrediente.findUnique({
+    where: { id: params.id },
+    select: { sedeId: true, menuItems: { where: { menuItem: { isAttivo: true } }, select: { menuItem: { select: { nome: true } } } } },
+  });
+  if (!ingrediente) return NextResponse.json({ error: "Ingrediente non trovato" }, { status: 404 });
+
+  if (user.ruolo === "super_admin" && !ingrediente.sedeId) {
+    await prisma.ingrediente.update({ where: { id: params.id }, data: { disponibileDefault: false } });
+    return NextResponse.json({ ok: true });
+  }
+  if (user.ruolo !== "super_admin" && (!ingrediente.sedeId || ingrediente.sedeId !== user.sedeId)) {
     return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
   }
+  if (ingrediente.menuItems.length) {
+    const nomi = ingrediente.menuItems.map((m) => m.menuItem.nome).join(", ");
+    return NextResponse.json({ error: `Lo usano questi prodotti: ${nomi}. Toglilo prima da lì` }, { status: 409 });
+  }
 
-  await prisma.ingrediente.update({
-    where: { id: params.id },
-    data: { disponibileDefault: false },
-  });
-
+  await prisma.ingrediente.delete({ where: { id: params.id } });
   return NextResponse.json({ ok: true });
 }
