@@ -177,3 +177,9 @@ html { overflow-x: hidden; }
   .ordini-cards-mobile { display: none !important; }
   .menu-cards-mobile { display: none !important; }
 }
+
+/* Tastierino aperto: le finestre salgono sopra di lui e la pagina si può scorrere fino in fondo. */
+html.tastierino-aperto .main-content { padding-bottom: 380px !important; }
+html.tastierino-aperto .accesso-tastierino { padding-bottom: 360px; }
+html.tastierino-aperto .con-tastierino { padding-top: 8px !important; padding-bottom: 372px !important; }
+html.tastierino-aperto .con-tastierino > * { max-height: calc(100vh - 384px) !important; overflow-y: auto !important; }

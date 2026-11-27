@@ -132,7 +132,7 @@ export default function IngredientiPage() {
                   {editingId === ing.id ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                       <span style={{ color: "var(--text-muted)", fontSize: 12.5 }}>€</span>
-                      <input style={{ ...editInputSt, width: 80 }} type="number" step="0.10" min="0" value={editForm.prezzoAggiunta} onChange={(e) => setEditForm((p) => ({ ...p, prezzoAggiunta: e.target.value }))} />
+                      <input style={{ ...editInputSt, width: 80 }} inputMode="decimal" value={editForm.prezzoAggiunta} onChange={(e) => setEditForm((p) => ({ ...p, prezzoAggiunta: e.target.value.replace(",", ".").replace(/[^\d.]/g, "") }))} />
                     </div>
                   ) : (
                     <span className="num" style={{ fontSize: 13, color: parseFloat(ing.prezzoAggiunta) > 0 ? "var(--text)" : "var(--text-muted)" }}>
@@ -224,7 +224,7 @@ export default function IngredientiPage() {
       </div>
 
       {showNuovo && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
+        <div className="con-tastierino" style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
           onClick={() => setShowNuovo(false)}>
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 26, width: 400, maxWidth: "90vw" }}
             onClick={(e) => e.stopPropagation()}>
@@ -235,7 +235,7 @@ export default function IngredientiPage() {
             </div>
             <div style={{ marginBottom: 12 }}>
               <label style={labelSt}>Prezzo aggiunta (€)</label>
-              <input style={fieldSt} type="number" step="0.10" min="0" value={nuovoForm.prezzoAggiunta} onChange={(e) => setNuovoForm((p) => ({ ...p, prezzoAggiunta: e.target.value }))} />
+              <input style={fieldSt} inputMode="decimal" value={nuovoForm.prezzoAggiunta} onChange={(e) => setNuovoForm((p) => ({ ...p, prezzoAggiunta: e.target.value.replace(",", ".").replace(/[^\d.]/g, "") }))} />
             </div>
             <div style={{ marginBottom: 12 }}>
               <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 12.5, color: "var(--text-2)" }}>

@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { MobileNav } from "@/components/layout/MobileNav";
+import TastierinoCrm from "@/components/tastiera/TastierinoCrm";
 
 // CRM installabile sul telefono e sul computer (icona baffo verde + «CRM»): vedi lib/crm-metadata.ts.
 export async function generateMetadata(): Promise<Metadata> {
@@ -33,6 +34,8 @@ export default async function CRMLayout({ children }: { children: React.ReactNod
 
       {/* Bottom nav — solo mobile */}
       <MobileNav session={session} />
+
+      <TastierinoCrm />
     </div>
   );
 }
