@@ -9,6 +9,9 @@ export interface ClienteSuggerito {
   telefono?: string | null; indirizzoDefault?: string | null; note?: string | null;
 }
 
+// Niente finestrella di Chrome con gli indirizzi salvati sul PC: «off» Chrome lo ignora, un valore che non conosce no.
+export const SENZA_COMPILAZIONE = "cassa-nessuna";
+
 type Props = InputHTMLAttributes<HTMLInputElement> & {
   cerca: "nome" | "telefono" | "indirizzo" | null; // null = campo normale, senza elenco
   onScegli: (c: ClienteSuggerito) => void;
@@ -41,7 +44,7 @@ export default function CampoCliente({ cerca, onScegli, onChange, ...campo }: Pr
 
   return (
     <div style={{ position: "relative" }}>
-      <input {...campo} autoComplete="off"
+      <input {...campo} autoComplete={SENZA_COMPILAZIONE}
         onChange={(e) => { if (cerca) setAperto(true); onChange?.(e); }}
         onFocus={() => clearTimeout(chiusura.current)}
         // Un attimo di attesa: il tocco fuori dall'elenco deve arrivare a destinazione prima che l'elenco sparisca.

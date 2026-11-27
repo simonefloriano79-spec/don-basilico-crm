@@ -12,7 +12,7 @@ import { bozzaPiena, cancellaBozza, leggiBozza, salvaBozza } from "@/lib/bozza-c
 import { CATEGORIE_BABY, prezzoBaby } from "@/lib/pizza-baby";
 import type { ModoTastiera } from "@/components/tastiera/Tastiera";
 import CampoOra from "@/components/tastiera/CampoOra";
-import CampoCliente, { type ClienteSuggerito } from "@/components/cassa/CampoCliente";
+import CampoCliente, { SENZA_COMPILAZIONE, type ClienteSuggerito } from "@/components/cassa/CampoCliente";
 import { bevandaAmmessaInCombo, comboDisponibileIn, leggiComboConfig, testoDettaglioCombo } from "@/lib/combo";
 import { prezzoAggiunte } from "@/lib/compensazione";
 import { scontoCassaValido } from "@/lib/sconto-cassa";
@@ -449,7 +449,7 @@ const canalePredefinito = (tipo: string): "walk_in" | "telefono" => (tipo === "d
 
 function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo, setTavolo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna, sconto, setSconto, oraConsegna, modConsegna, onApriOrario, onModifica, onScegliCliente, noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma, loading, justSent, inModifica, onEsciModifica, ripresa, onCancellaBozza }: any) {
   // Che tastierino aprire su questo campo (components/tastiera): lettere o solo numeri.
-  const tast = (m: ModoTastiera) => ({ "data-tast": m, inputMode: (m === "n" ? "numeric" : "text") as "numeric" | "text" });
+  const tast = (m: ModoTastiera) => ({ "data-tast": m, inputMode: (m === "n" ? "numeric" : "text") as "numeric" | "text", autoComplete: SENZA_COMPILAZIONE });
   const subtotale = cart.reduce((a: number, c: CartItem) => a + c.prezzoTotaleItem * c.qty, 0);
   const consegna = tipo === "domicilio" ? (parseFloat(costoConsegna) || 0) : 0;
   const scontato = scontoCassaValido(sconto, subtotale + consegna);
