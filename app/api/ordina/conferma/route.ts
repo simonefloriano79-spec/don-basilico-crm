@@ -97,6 +97,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "In questo momento non stiamo ricevendo ordini online per questa sede (troppo lavoro in cucina). Riprova tra poco oppure chiamaci.", esito: "sospeso" }, { status: 422 });
   }
 
+  // «Appena possibile» solo fino all'ultimo ordine: dopo si prenota per il giorno dopo.
+  if (!oraRitiro) {
+    const gen = generaSlot({ adesso: new Date(), apertura: sede.orarioApertura, chiusura: sede.orarioChiusura });
+    if (!gen.asapOra) {
+      return NextResponse.json({ error: `Per stasera l'ultimo ordine dall'app era alle ${gen.ultimoOrdine}: scegli un orario per domani`, esito: "chiuso" }, { status: 422 });
+    }
+  }
+
   if (oraRitiro) {
 
     const gen = generaSlot({ adesso: new Date(), apertura: sede.orarioApertura, chiusura: sede.orarioChiusura });

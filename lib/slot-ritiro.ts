@@ -58,10 +58,16 @@ export function istanteRoma(data: string, hhmm: string): Date {
   return off2 === off1 ? risultato : new Date(tentativo.getTime() - off2 * 60000);
 }
 
+// L'app smette di prendere ordini per la sera stessa questi minuti prima della chiusura (chiusura 22:30 → ultimo ordine 22:00).
+export const MINUTI_ULTIMO_ORDINE = 30;
+
 export type GiornoRitiro = "oggi" | "domani";
 
 export interface SlotGenerati {
   apertoOra: boolean;
+  /** Si accetta «Appena possibile»: sede aperta e non ancora passato l'ultimo ordine. */
+  asapOra: boolean;
+  ultimoOrdine: string;
   primoGiorno: GiornoRitiro;
   oggi: { ora: string; iso: string }[];
   domani: { ora: string; iso: string }[];
@@ -82,6 +88,7 @@ export function generaSlot(opts: {
   const nowMin = p.ore * 60 + p.minuti;
   const dataOggi = dataLocale(opts.adesso);
   const dataDomani = aggiungiGiorni(dataOggi, 1);
+  const ultimo = ch - MINUTI_ULTIMO_ORDINE;
 
   const arrotonda = (min: number) => Math.ceil(min / passo) * passo;
   const costruisci = (data: string, daMin: number) => {
@@ -93,11 +100,13 @@ export function generaSlot(opts: {
     return out;
   };
 
-  const oggi = costruisci(dataOggi, Math.max(arrotonda(ap), arrotonda(nowMin + anticipo)));
+  const oggi = nowMin > ultimo ? [] : costruisci(dataOggi, Math.max(arrotonda(ap), arrotonda(nowMin + anticipo)));
   const domani = costruisci(dataDomani, arrotonda(ap));
 
   return {
     apertoOra: nowMin >= ap && nowMin < ch,
+    asapOra: nowMin >= ap && nowMin <= ultimo,
+    ultimoOrdine: daMinuti(ultimo),
     primoGiorno: oggi.length ? "oggi" : "domani",
     oggi,
     domani,

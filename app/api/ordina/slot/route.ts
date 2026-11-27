@@ -32,6 +32,8 @@ export async function GET(req: NextRequest) {
     apertura: sede.orarioApertura,
     chiusura: sede.orarioChiusura,
     apertoOra: gen.apertoOra,
+    asapOra: gen.asapOra,
+    ultimoOrdine: gen.ultimoOrdine,
     primoGiorno: gen.primoGiorno,
     oggi: unisci(gen.oggi, dispOggi),
     domani: unisci(gen.domani, dispDomani),
