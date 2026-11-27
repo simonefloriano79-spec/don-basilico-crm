@@ -46,6 +46,7 @@ export function ordineApiPerStampa(o: any): PrintOrdine {
     costoConsegna: parseFloat(o.costoConsegna ?? 0) || undefined,
     scontoFedelta: parseFloat(o.scontoFedelta ?? 0) || undefined,
     scontoCodice: parseFloat(o.scontoCodice ?? 0) || undefined,
+    scontoCassa: parseFloat(o.scontoCassa ?? 0) || undefined,
     codiceSconto: o.codiceSconto ?? undefined,
     // Comanda ristampata dopo una modifica (del cliente dall'app, oppure fatta dalla cassa a un ordine già confermato).
     modificato: !!o.modificatoAt ? true : undefined,

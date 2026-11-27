@@ -15,6 +15,7 @@ export interface BozzaCassa {
   clienteIndirizzo: string;
   nomeCitofono: string;
   costoConsegna: string;
+  sconto?: string;
   note: string;
   noteDomicilio: string;
   oraConsegna: string;
@@ -27,7 +28,7 @@ export interface BozzaCassa {
 
 // C'è qualcosa che valga la pena tenere? (solo aver toccato asporto/domicilio non conta)
 export const bozzaPiena = (b: Partial<BozzaCassa>): boolean =>
-  !!(b.cart?.length || b.tavolo || b.clienteNome || b.clienteTel || b.clienteIndirizzo || b.nomeCitofono || b.note || b.noteDomicilio);
+  !!(b.cart?.length || b.tavolo || b.clienteNome || b.clienteTel || b.clienteIndirizzo || b.nomeCitofono || b.note || b.noteDomicilio || b.sconto);
 
 export function leggiBozza(sedeId: string): BozzaCassa | null {
   try {

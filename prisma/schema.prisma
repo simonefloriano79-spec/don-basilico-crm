@@ -324,6 +324,8 @@ model Ordine {
   // Codice sconto inserito dal cliente nell'app (es. BAFFO15): il codice e quanto ha scontato sui prodotti.
   codiceSconto    String? @map("codice_sconto")
   scontoCodice    Decimal @default(0) @map("sconto_codice") @db.Decimal(10, 2)
+  // Sconto netto fatto in cassa (già sottratto da `totale`).
+  scontoCassa     Decimal @default(0) @map("sconto_cassa") @db.Decimal(10, 2)
   pagato          Boolean @default(false)
   // true per gli ordini presi dall'assistente vocale: nascono «da accettare» come quelli dell'app (il canale resta
   // `telefono`, perché la cassa usa lo stesso canale per gli ordini presi dallo staff, che non vanno accettati).

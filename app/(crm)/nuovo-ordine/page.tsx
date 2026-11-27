@@ -14,6 +14,7 @@ import type { ModoTastiera } from "@/components/tastiera/Tastiera";
 import CampoOra from "@/components/tastiera/CampoOra";
 import { bevandaAmmessaInCombo, comboDisponibileIn, leggiComboConfig, testoDettaglioCombo } from "@/lib/combo";
 import { prezzoAggiunte } from "@/lib/compensazione";
+import { scontoCassaValido } from "@/lib/sconto-cassa";
 
 const CAT_LABEL: Record<string, string> = {
   pizze_rosse: "Pizze rosse", pizze_bianche: "Pizze bianche", calzoni: "Calzoni",
@@ -563,12 +564,13 @@ const MESSAGGI_DOMICILIO = ["Resto a 50 euro", "Citofono rotto, chiamare", "Chia
 // Il domicilio di solito arriva per telefono, il resto da chi è in pizzeria: quel tasto sta a sinistra ed è già scelto.
 const canalePredefinito = (tipo: string): "walk_in" | "telefono" => (tipo === "domicilio" ? "telefono" : "walk_in");
 
-function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo, setTavolo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna, oraConsegna, modConsegna, onApriOrario, onModifica, onCercaCliente, noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma, loading, justSent, inModifica, onEsciModifica, ripresa, onCancellaBozza }: any) {
+function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo, setTavolo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna, sconto, setSconto, oraConsegna, modConsegna, onApriOrario, onModifica, onCercaCliente, noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma, loading, justSent, inModifica, onEsciModifica, ripresa, onCancellaBozza }: any) {
   // Che tastierino aprire su questo campo (components/tastiera): lettere o solo numeri.
   const tast = (m: ModoTastiera) => ({ "data-tast": m, inputMode: (m === "n" ? "numeric" : "text") as "numeric" | "text" });
   const subtotale = cart.reduce((a: number, c: CartItem) => a + c.prezzoTotaleItem * c.qty, 0);
   const consegna = tipo === "domicilio" ? (parseFloat(costoConsegna) || 0) : 0;
-  const totale = subtotale + consegna;
+  const scontato = scontoCassaValido(sconto, subtotale + consegna);
+  const totale = subtotale + consegna - scontato;
   return (
     <>
       {/* Campi ordine + lista prodotti: un'unica area scrollabile, così quando
@@ -765,6 +767,15 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
             <span className="num" style={{ fontSize: 12.5, color: "var(--text-2)" }}>{euro(consegna)}</span>
           </div>
         )}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+          <span style={{ fontSize: 12.5, color: "var(--text-muted)", flex: 1 }}>Sconto</span>
+          <div style={{ position: "relative", width: 90 }}>
+            <span style={{ position: "absolute", left: 10, top: 9, color: "var(--text-muted)", fontSize: 12.5 }}>−€</span>
+            <input type="text" {...tast("n")} inputMode="decimal" aria-label="Sconto in euro" placeholder="0"
+              style={{ ...fieldSt, paddingLeft: 28, textAlign: "right" }}
+              value={sconto} onChange={(e: any) => setSconto(e.target.value.replace(",", ".").replace(/[^0-9.]/g, ""))} />
+          </div>
+        </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
           <span style={{ fontSize: 13, color: "var(--text-muted)" }}>Totale</span>
           <span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 28, color: "var(--text)" }}>{euro(totale)}</span>
@@ -803,6 +814,7 @@ export default function NuovoOrdinePage() {
   const [clienteIndirizzo, setAddr] = useState("");
   const [nomeCitofono, setNomeCitofono] = useState("");
   const [costoConsegna, setCostoConsegna] = useState("1.50");
+  const [sconto, setSconto] = useState("");
   const [note, setNote] = useState("");
   const [noteDomicilio, setNoteDomicilio] = useState("");
   const [oraConsegna, setOraConsegna] = useState("");
@@ -854,6 +866,7 @@ export default function NuovoOrdinePage() {
       setNote(d.note ?? "");
       setNoteDomicilio(d.noteDomicilio ?? "");
       setCostoConsegna(String(parseFloat(d.costoConsegna ?? 0) || 0));
+      setSconto(parseFloat(d.scontoCassa ?? 0) > 0 ? String(parseFloat(d.scontoCassa)) : "");
       setMetodoPagamento(d.metodoPagamento === "pos" || d.metodoPagamento === "contanti" ? d.metodoPagamento : "");
       if (d.oraConsegnaComunicata) {
         const t = new Date(d.oraConsegnaComunicata);
@@ -912,7 +925,7 @@ export default function NuovoOrdinePage() {
     const b = leggiBozza(sedeSelezionata);
     if (b) {
       setCart(b.cart as CartItem[]); setCanale(b.canale); setTipo(b.tipo); setTavolo(b.tavolo); setClienteNome(b.clienteNome);
-      setClienteTel(b.clienteTel); setAddr(b.clienteIndirizzo); setNomeCitofono(b.nomeCitofono); setCostoConsegna(b.costoConsegna);
+      setClienteTel(b.clienteTel); setAddr(b.clienteIndirizzo); setNomeCitofono(b.nomeCitofono); setCostoConsegna(b.costoConsegna); setSconto(b.sconto ?? "");
       setNote(b.note); setNoteDomicilio(b.noteDomicilio); setOraConsegna(b.oraConsegna); setModConsegna(b.modConsegna);
       setMetodoPagamento(b.metodoPagamento); setDomandeFatte(b.domandeFatte ?? []);
       setRipresa(b.daControllare ? "controlla" : "ripreso");
@@ -924,15 +937,15 @@ export default function NuovoOrdinePage() {
   useEffect(() => {
     if (!bozzaSede || bozzaSede !== sedeSelezionata || ordineMod || inviatoRef.current || urlDiModifica()) return;
     salvaBozza(bozzaSede, {
-      cart, canale, tipo, tavolo, clienteNome, clienteTel, clienteIndirizzo, nomeCitofono, costoConsegna, note, noteDomicilio,
+      cart, canale, tipo, tavolo, clienteNome, clienteTel, clienteIndirizzo, nomeCitofono, costoConsegna, sconto, note, noteDomicilio,
       oraConsegna, modConsegna, metodoPagamento, domandeFatte, daControllare: loading || ripresa === "controlla",
     });
   }, [bozzaSede, sedeSelezionata, ordineMod, cart, canale, tipo, tavolo, clienteNome, clienteTel, clienteIndirizzo, nomeCitofono,
-    costoConsegna, note, noteDomicilio, oraConsegna, modConsegna, metodoPagamento, domandeFatte, loading, ripresa]);
+    costoConsegna, sconto, note, noteDomicilio, oraConsegna, modConsegna, metodoPagamento, domandeFatte, loading, ripresa]);
 
   // Tutto da capo: dopo la conferma, oppure col tasto «Cancella» sull'ordine ripreso.
   const svuotaOrdine = () => {
-    setCart([]); setTavolo(""); setClienteNome(""); setClienteTel(""); setAddr(""); setNomeCitofono(""); setCostoConsegna("1.50");
+    setCart([]); setTavolo(""); setClienteNome(""); setClienteTel(""); setAddr(""); setNomeCitofono(""); setCostoConsegna("1.50"); setSconto("");
     setNote(""); setNoteDomicilio(""); setOraConsegna(""); setModConsegna(""); setMetodoPagamento(""); setDomandeFatte([]);
     setRipresa(""); setShowCart(false); setCanale(canalePredefinito(tipo));
   };
@@ -944,7 +957,7 @@ export default function NuovoOrdinePage() {
     const iv = setInterval(() => {
       if (new URLSearchParams(window.location.search).get("modifica")) return;
       setOrdineMod(null); setModCaricata(false); setCart([]); setTavolo(""); setClienteNome(""); setClienteTel(""); setAddr("");
-      setNomeCitofono(""); setCostoConsegna("1.50"); setNote(""); setNoteDomicilio(""); setOraConsegna(""); setModConsegna(""); setMetodoPagamento("");
+      setNomeCitofono(""); setCostoConsegna("1.50"); setSconto(""); setNote(""); setNoteDomicilio(""); setOraConsegna(""); setModConsegna(""); setMetodoPagamento("");
       setCanale("walk_in"); setTipo("asporto"); setShowCart(false);
       setRipresa(""); setBozzaSede("");
     }, 400);
@@ -1028,7 +1041,8 @@ export default function NuovoOrdinePage() {
   const cartQty = cart.reduce((a, c) => a + c.qty, 0);
   const subtotale = cart.reduce((a, c) => a + c.prezzoTotaleItem * c.qty, 0);
   const deliveryFee = tipo === "domicilio" ? (parseFloat(costoConsegna) || 0) : 0;
-  const totale = subtotale + deliveryFee;
+  const scontato = scontoCassaValido(sconto, subtotale + deliveryFee);
+  const totale = subtotale + deliveryFee - scontato;
   const nomeSede = sedi.find((s) => s.id === sedeSelezionata)?.nome ?? "";
   // Prodotti attivi e non esauriti in questa sede: da qui si sceglie per i combo e si decide se un combo si può vendere.
   const disponibili = menuItems.filter((m) => m.disponibileInSede !== false);
@@ -1101,6 +1115,7 @@ export default function NuovoOrdinePage() {
         modalitaConsegna: modalitaInvio,
         metodoPagamento: metodoPagamento || null,
         costoConsegna: deliveryFee,
+        sconto: scontato,
         items: cart.map((c) => c.conservaRigaId ? { conservaRigaId: c.conservaRigaId, quantita: c.qty } : ({
           menuItemId: c.menuItemId,
           nomeSnapshot: c.nome + (c.ingredientiAggiunti.length ? ` +${c.ingredientiAggiunti.map((i) => i.nome).join("+")}` : "") + (c.ingredientiRimossi.length ? ` -${c.ingredientiRimossi.map((i) => i.nome).join("-")}` : ""),
@@ -1141,7 +1156,7 @@ export default function NuovoOrdinePage() {
             c.noteItem,
           ].filter(Boolean).join(" | ") || undefined,
         })),
-        totale, costoConsegna: deliveryFee, note,
+        totale, costoConsegna: deliveryFee, scontoCassa: scontato || undefined, note,
         noteDomicilio: tipo === "domicilio" ? noteDomicilio : undefined,
         oraConsegnaComunicata: conOrario ? oraConsegna || undefined : undefined,
         modalitaConsegna: (modalitaInvio as any) || undefined,
@@ -1163,7 +1178,7 @@ export default function NuovoOrdinePage() {
 
   const cartProps = {
     cart, setCart, canale, setCanale, tipo, setTipo, tavolo, setTavolo, clienteNome, setClienteNome, clienteTel, setClienteTel,
-    clienteIndirizzo, setClienteIndirizzo: setAddr, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna,
+    clienteIndirizzo, setClienteIndirizzo: setAddr, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna, sconto, setSconto,
     oraConsegna, modConsegna, onApriOrario: () => setShowOrarioModal(true),
     onModifica: (riga: CartItem) => {
       const voce = menuItems.find((m) => m.id === riga.menuItemId);
@@ -1173,7 +1188,7 @@ export default function NuovoOrdinePage() {
     onCercaCliente: () => setShowCercaCliente(true),
     noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma: confermaOrdine, loading, justSent,
     inModifica: ordineMod?.numeroOrdine ?? null,
-    ripresa: bozzaPiena({ cart, tavolo, clienteNome, clienteTel, clienteIndirizzo, nomeCitofono, note, noteDomicilio }) ? ripresa : "",
+    ripresa: bozzaPiena({ cart, tavolo, clienteNome, clienteTel, clienteIndirizzo, nomeCitofono, note, noteDomicilio, sconto }) ? ripresa : "",
     onCancellaBozza: () => { if (confirm("Cancello l'ordine ripreso?")) svuotaOrdine(); },
     onEsciModifica: () => { if (confirm("Esci senza salvare le modifiche?")) router.push("/ordini"); },
   };

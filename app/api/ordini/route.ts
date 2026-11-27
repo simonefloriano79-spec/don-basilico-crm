@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { prossimoNumeroOrdine } from "@/lib/numero-ordine";
 import { prezzaRigheCassa } from "@/lib/ordini-cassa";
+import { scontoCassaValido } from "@/lib/sconto-cassa";
 // GET /api/ordini
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -55,6 +56,7 @@ export async function POST(req: NextRequest) {
     clienteId,
     note,
     costoConsegna,
+    sconto,
     oraConsegnaComunicata,
     modalitaConsegna,
     noteDomicilio,
@@ -86,6 +88,8 @@ export async function POST(req: NextRequest) {
 
   const costoConsegnaFinale = tipo === "domicilio" ? Math.max(0, parseFloat(costoConsegna) || 0) : 0;
   totale += costoConsegnaFinale;
+  const scontoCassa = scontoCassaValido(sconto, totale);
+  totale = Math.round((totale - scontoCassa) * 100) / 100;
 
   // Domicilio: orario di consegna «alle ore» oppure «non prima». Asporto: solo l'orario di ritiro («alle ore»).
   const modalitaConsegnaValida = modalitaConsegna === "non_prima" ? "non_prima" : "alle_ore";
@@ -142,6 +146,7 @@ export async function POST(req: NextRequest) {
       metodoPagamento: metodoPagamentoFinale,
       totale,
       costoConsegna: costoConsegnaFinale,
+      scontoCassa,
       items: { create: itemsData },
     },
     include: {
