@@ -31,6 +31,9 @@ export default function CampoOra({ value, onChange, style }: { value: string; on
   }
   return (
     <input type="text" data-tast="o" placeholder="es. 2130" style={style} value={testo}
+      // Un orario già scritto si seleziona tutto: le cifre nuove lo sostituiscono (prima si attaccavano in coda e non cambiava).
+      onFocus={(e) => e.currentTarget.select()}
+      onClick={(e) => e.currentTarget.select()}
       onChange={(e) => { const nuovo = mascherata(e.target.value); setTesto(nuovo); manda(completa(nuovo)); }}
       onBlur={() => { const ora = completa(testo); if (ora) setTesto(ora); }} />
   );
