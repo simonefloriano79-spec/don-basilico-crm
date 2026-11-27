@@ -65,7 +65,8 @@ export default function DashboardPage() {
   const pizzeNostre = vistaSede ? vistaSede.pizzeNostre : stats?.totali?.pizzeNostre ?? 0;
   const pizzeJe = vistaSede ? vistaSede.pizzeJustEat : stats?.totali?.pizzeJustEat ?? 0;
   const incasso = vistaSede ? vistaSede.incassoOggi : stats?.incassoOggi ?? 0;
-  const ticketMedio = ordiniOggi > 0 ? incasso / ordiniOggi : 0;
+  const incassoBanco = (vistaSede ? vistaSede.incassoBanco : stats?.incassoBanco) ?? 0;
+  const ticketMedio = ordiniOggi > 0 ? (incasso - incassoBanco) / ordiniOggi : 0;
   const canaliVista = vistaSede ? vistaSede.canali : stats?.totali
     ? { online: stats.totali.online, telefono: stats.totali.telefono, walk_in: stats.totali.walk_in }
     : null;

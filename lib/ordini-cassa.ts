@@ -5,6 +5,7 @@ import { CATEGORIE_BABY, prezzoBaby } from "@/lib/pizza-baby";
 import { menuDellaSede, ingredientiDellaSede } from "@/lib/menu-sede";
 import { esauritoAttivo, filtroIngredientiFiniti, ingredienteMancante, overrideDisponibile } from "@/lib/esauriti";
 import { prezzoAggiunte } from "@/lib/compensazione";
+import { SEDI_BANCO, trancioDaId } from "@/lib/banco";
 
 // Righe d'ordine della cassa: il prezzo si ricalcola SEMPRE sul server (mai fidarsi di quello mandato dal browser).
 // Lo usano sia «nuovo ordine» (POST /api/ordini) sia «modifica ordine» (PUT /api/ordini/[id]): stesse regole, stessi errori.
@@ -35,7 +36,13 @@ export async function prezzaRigheCassa(sedeId: string, items: any[], esistenti: 
   // Righe da tenere identiche (es. una pizza vecchia che non si riesce a riaprire): non si ricalcolano.
   const daRicalcolare = items.filter((i: any) => !i.conservaRigaId);
 
-  const menuItemIds = daRicalcolare.filter((i: any) => i.menuItemId).map((i: any) => i.menuItemId);
+  // Tranci (solo nelle sedi con il banco): non sono prodotti del menù, il prezzo sta in lib/banco.ts.
+  if (daRicalcolare.some((i: any) => trancioDaId(i.menuItemId))) {
+    const sede = await prisma.sede.findUnique({ where: { id: sedeId }, select: { slug: true } });
+    if (!sede || !SEDI_BANCO.includes(sede.slug)) throw new Error("In questa pizzeria non ci sono i tranci: toglili dall'ordine");
+  }
+
+  const menuItemIds = daRicalcolare.filter((i: any) => i.menuItemId && !trancioDaId(i.menuItemId)).map((i: any) => i.menuItemId);
   const sedeExtraIds = daRicalcolare.filter((i: any) => i.sedeExtraId).map((i: any) => i.sedeExtraId);
   const ingredienteIds = Array.from(new Set(daRicalcolare.flatMap((i: any) => [
     ...(i.ingredientiAggiuntiIds ?? []),
@@ -91,6 +98,17 @@ export async function prezzaRigheCassa(sedeId: string, items: any[], esistenti: 
         menuItemId: e.menuItemId, sedeExtraId: e.sedeExtraId, nomeSnapshot: e.nomeSnapshot, prezzoSnapshot: prezzo, quantita,
         noteItem: e.noteItem, impasto: e.impasto, impastoId: e.impastoId, ingredientiRimossi: e.ingredientiRimossi,
         ingredientiAggiunti: e.ingredientiAggiunti, ...(e.comboScelte ? { comboScelte: e.comboScelte as object } : {}),
+      };
+    }
+
+    const trancio = trancioDaId(i.menuItemId);
+    if (trancio) {
+      const quantita = Math.max(1, parseInt(i.quantita) || 1);
+      totale += trancio.prezzo * quantita;
+      return {
+        menuItemId: null, sedeExtraId: null, nomeSnapshot: trancio.nome, prezzoSnapshot: trancio.prezzo, quantita,
+        noteItem: typeof i.noteItem === "string" ? i.noteItem.slice(0, 200) || null : null,
+        impasto: null, ingredientiRimossi: [] as string[], ingredientiAggiunti: [] as string[],
       };
     }
 

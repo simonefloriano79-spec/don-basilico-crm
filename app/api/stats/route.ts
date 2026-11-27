@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { finestraServizio, giornoServizioOggi } from "@/lib/conti";
 import { pizzeJePerSede, pizzePerSede } from "@/lib/pizze-fatte";
+import { venditeBanco } from "@/lib/banco-db";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -50,7 +51,10 @@ export async function GET(req: NextRequest) {
   const pizzeJe = (await pizzeJePerSede(giornoServizio, sedeFilter)).per;
   let pizzeTotNostre = 0, pizzeTotJe = 0;
 
-  const incassoOggi = ordiniOggi.reduce((acc, o) => acc + parseFloat(o.totale.toString()), 0);
+  // Al banco (tranci) non ci sono ordini: entra nell'incasso ma non nel numero di ordini né nel ticket medio.
+  const vendite = await venditeBanco(oggi, undefined, sedeFilter);
+  const bancoDi = (id?: string) => vendite.filter((v) => !id || v.sedeId === id).reduce((a, v) => a + v.totale, 0);
+  const incassoOggi = ordiniOggi.reduce((acc, o) => acc + parseFloat(o.totale.toString()), 0) + bancoDi();
 
   const sediStats = sedi.map((s) => {
     const ord = s.ordini;
@@ -64,7 +68,8 @@ export async function GET(req: NextRequest) {
       slug: s.slug,
       ordiniAttivi: ord.filter((o) => !["consegnato", "annullato"].includes(o.stato)).length,
       pronti: ord.filter((o) => o.stato === "pronto").length,
-      incassoOggi: ord.reduce((acc, o) => acc + parseFloat(o.totale.toString()), 0),
+      incassoOggi: ord.reduce((acc, o) => acc + parseFloat(o.totale.toString()), 0) + bancoDi(s.id),
+      incassoBanco: bancoDi(s.id),
       totaleOrdiniOggi: ord.length,
       canali: {
         online: ord.filter((o) => o.canale === "online").length,
@@ -77,6 +82,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ordiniAttivi,
     incassoOggi,
+    incassoBanco: bancoDi(),
     pronti,
     online,
     sediStats,

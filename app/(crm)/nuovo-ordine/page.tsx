@@ -15,10 +15,12 @@ import CampoOra from "@/components/tastiera/CampoOra";
 import { bevandaAmmessaInCombo, comboDisponibileIn, leggiComboConfig, testoDettaglioCombo } from "@/lib/combo";
 import { prezzoAggiunte } from "@/lib/compensazione";
 import { scontoCassaValido } from "@/lib/sconto-cassa";
+import Banco from "@/components/cassa/Banco";
+import { SEDI_BANCO, TRANCI, idTrancio } from "@/lib/banco";
 
 const CAT_LABEL: Record<string, string> = {
   pizze_rosse: "Pizze rosse", pizze_bianche: "Pizze bianche", calzoni: "Calzoni",
-  fritti: "Fritti", bevande: "Bevande", dolci: "Dolci", extra: "Extra", menu_speciale: "Speciali", focacce: "Focacce", combo: "Menù Combo",
+  fritti: "Fritti", bevande: "Bevande", dolci: "Dolci", extra: "Extra", menu_speciale: "Speciali", focacce: "Focacce", combo: "Menù Combo", tranci: "Tranci",
 };
 
 const fieldSt: React.CSSProperties = {
@@ -564,7 +566,7 @@ const MESSAGGI_DOMICILIO = ["Resto a 50 euro", "Citofono rotto, chiamare", "Chia
 // Il domicilio di solito arriva per telefono, il resto da chi è in pizzeria: quel tasto sta a sinistra ed è già scelto.
 const canalePredefinito = (tipo: string): "walk_in" | "telefono" => (tipo === "domicilio" ? "telefono" : "walk_in");
 
-function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo, setTavolo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna, sconto, setSconto, oraConsegna, modConsegna, onApriOrario, onModifica, onCercaCliente, noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma, loading, justSent, inModifica, onEsciModifica, ripresa, onCancellaBozza }: any) {
+function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo, setTavolo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna, sconto, setSconto, oraConsegna, modConsegna, onApriOrario, onModifica, onCercaCliente, noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma, loading, justSent, inModifica, onEsciModifica, ripresa, onCancellaBozza, onBanco }: any) {
   // Che tastierino aprire su questo campo (components/tastiera): lettere o solo numeri.
   const tast = (m: ModoTastiera) => ({ "data-tast": m, inputMode: (m === "n" ? "numeric" : "text") as "numeric" | "text" });
   const subtotale = cart.reduce((a: number, c: CartItem) => a + c.prezzoTotaleItem * c.qty, 0);
@@ -613,13 +615,19 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
         <div style={{ display: "flex", gap: 6, ...(inModifica ? { pointerEvents: "none", opacity: 0.55 } : {}) }}>
           {(["asporto", "domicilio", "tavolo"] as const).map((t) => (
             <button key={t} onClick={() => { if (t !== tipo) { setTipo(t); setCanale(canalePredefinito(t)); } }} style={{
-              flex: 1, padding: "7px", borderRadius: 8, border: "1px solid",
+              flex: 1, padding: "7px 3px", borderRadius: 8, border: "1px solid",
               fontSize: 11.5, cursor: "pointer", fontFamily: "var(--font-ui)", textTransform: "capitalize",
               background: tipo === t ? "var(--accent-bg-2)" : "transparent",
               borderColor: tipo === t ? "var(--accent-border)" : "var(--border)",
               color: tipo === t ? "var(--text)" : "var(--text-3)",
             }}>{t}</button>
           ))}
+          {onBanco && (
+            <button onClick={onBanco} style={{
+              flex: 1, padding: "7px 3px", borderRadius: 8, border: "1px solid var(--border)",
+              fontSize: 11.5, cursor: "pointer", fontFamily: "var(--font-ui)", background: "transparent", color: "var(--text-3)",
+            }}>Banco</button>
+          )}
         </div>
         {tipo === "tavolo" && (
           <input {...tast("t")} style={{ ...fieldSt, borderColor: "var(--accent-border)", fontWeight: 600 }} placeholder="Tavolo * (numero o nome)" value={tavolo} onChange={inMaius(setTavolo)} />
@@ -815,6 +823,8 @@ export default function NuovoOrdinePage() {
   const [nomeCitofono, setNomeCitofono] = useState("");
   const [costoConsegna, setCostoConsegna] = useState("1.50");
   const [sconto, setSconto] = useState("");
+  // Vendita al banco (tranci): schermata a parte, l'ordine che si sta prendendo resta com'è.
+  const [banco, setBanco] = useState(false);
   const [note, setNote] = useState("");
   const [noteDomicilio, setNoteDomicilio] = useState("");
   const [oraConsegna, setOraConsegna] = useState("");
@@ -1028,10 +1038,15 @@ export default function NuovoOrdinePage() {
   }, [ordineMod, modCaricata, menuDellaSede, menuItems, ingredienti]);
 
   // In cassa "Speciali" viene dopo i calzoni; sul sito clienti (OrdinaFlow) è invece la prima sezione.
-  const cats = ["pizze_rosse", "pizze_bianche", "calzoni", "focacce", "menu_speciale", "combo", "fritti", "dolci", "bevande", "extra"];
+  const cats = ["pizze_rosse", "pizze_bianche", "calzoni", "focacce", "tranci", "menu_speciale", "combo", "fritti", "dolci", "bevande", "extra"];
   // Disattivato in questa sede (permanente) = non si vede; esaurito oggi o senza un ingrediente = resta, in grigio.
   // (menuItems resta completo: serve per riaprire un ordine che contiene un prodotto disattivato nel frattempo.)
-  const visibili = menuItems.filter((m) => m.attivoInSede !== false);
+  // Dove c'è il banco, i tranci si possono mettere anche in un ordine (es. al tavolo: pizze al piatto e tranci nello stesso conto).
+  const conTranci = SEDI_BANCO.includes(sedi.find((s) => s.id === sedeSelezionata)?.slug);
+  const visibili = [
+    ...menuItems.filter((m) => m.attivoInSede !== false),
+    ...(conTranci ? TRANCI.map((t) => ({ id: idTrancio(t.id), nome: t.nome, categoria: "tranci", prezzoBase: t.prezzo })) : []),
+  ] as any[];
   const catsPresenti = cats.filter((c) => visibili.some((m) => m.categoria === c));
   const isSezionePizze = catFiltro === "pizze_rosse" || catFiltro === "pizze_bianche";
   // In ordine alfabetico dentro ogni sezione, per leggere e cercare più in fretta.
@@ -1044,6 +1059,7 @@ export default function NuovoOrdinePage() {
   const scontato = scontoCassaValido(sconto, subtotale + deliveryFee);
   const totale = subtotale + deliveryFee - scontato;
   const nomeSede = sedi.find((s) => s.id === sedeSelezionata)?.nome ?? "";
+  const haBanco = !ordineMod && SEDI_BANCO.includes(sedi.find((s) => s.id === sedeSelezionata)?.slug);
   // Prodotti attivi e non esauriti in questa sede: da qui si sceglie per i combo e si decide se un combo si può vendere.
   const disponibili = menuItems.filter((m) => m.disponibileInSede !== false);
 
@@ -1177,6 +1193,7 @@ export default function NuovoOrdinePage() {
   };
 
   const cartProps = {
+    onBanco: haBanco ? () => { setShowCart(false); setBanco(true); } : undefined,
     cart, setCart, canale, setCanale, tipo, setTipo, tavolo, setTavolo, clienteNome, setClienteNome, clienteTel, setClienteTel,
     clienteIndirizzo, setClienteIndirizzo: setAddr, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna, sconto, setSconto,
     oraConsegna, modConsegna, onApriOrario: () => setShowOrarioModal(true),
@@ -1193,6 +1210,31 @@ export default function NuovoOrdinePage() {
     onEsciModifica: () => { if (confirm("Esci senza salvare le modifiche?")) router.push("/ordini"); },
   };
 
+  if (banco && haBanco) {
+    return (
+      <div className="animate-in cassa-maiuscolo" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <style>{".cassa-maiuscolo, .cassa-maiuscolo * { text-transform: uppercase; }"}</style>
+        {isSuperAdmin && (
+          <select value={sedeSelezionata} onChange={(e) => setSede(e.target.value)} style={{ ...fieldSt, background: "#fff", width: 260 }}>
+            {sedi.map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
+          </select>
+        )}
+        <Banco sedeId={sedeSelezionata} scelta={
+          <div style={{ display: "flex", gap: 6 }}>
+            {(["asporto", "domicilio", "tavolo", "banco"] as const).map((t) => (
+              <button key={t} onClick={() => { if (t === "banco") return; setBanco(false); if (t !== tipo) { setTipo(t); setCanale(canalePredefinito(t)); } }} style={{
+                flex: 1, padding: "9px 4px", borderRadius: 8, border: "1px solid", fontSize: 11.5, cursor: "pointer", fontFamily: "var(--font-ui)",
+                background: t === "banco" ? "var(--text)" : "transparent",
+                borderColor: t === "banco" ? "var(--text)" : "var(--border)",
+                color: t === "banco" ? "#fff" : "var(--text-3)",
+              }}>{t}</button>
+            ))}
+          </div>
+        } />
+      </div>
+    );
+  }
+
   return (
     <div className="animate-in cassa-maiuscolo" style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
       {/* In cassa si scrive e si legge tutto in maiuscolo (solo qui: l'app ordini resta com'è). */}
@@ -1204,6 +1246,11 @@ export default function NuovoOrdinePage() {
           </select>
         )}
 
+        {haBanco && (
+          <div className="cart-mobile-fab" style={{ display: "none", marginBottom: 12 }}>
+            <button onClick={() => setBanco(true)} style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid var(--accent-border)", background: "var(--accent-bg-2)", color: "var(--accent-ink)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-ui)" }}>Banco (tranci)</button>
+          </div>
+        )}
         <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8, marginBottom: 12 }}>
           {catsPresenti.map((c) => (
             <button key={c} onClick={() => { setCatFiltro(c); setCercaPizza(""); }} style={{

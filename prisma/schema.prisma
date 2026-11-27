@@ -619,6 +619,22 @@ model RegistroZoneConsegna {
 
 // Incasso Just Eat inserito a mano dalla sede per ogni serata (pagina Conti): quanto «già pagato» online e quanto in contanti.
 // Non è collegato alle altre tabelle: se manca la tabella, la pagina Conti funziona lo stesso (senza la riga Just Eat).
+// Vendite al banco dei tranci (lib/banco.ts): non sono ordini.
+model VenditaBanco {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sedeId     String   @map("sede_id") @db.Uuid
+  margherita Int      @default(0)
+  farcito    Int      @default(0)
+  speciale   Int      @default(0)
+  totale     Decimal  @db.Decimal(10, 2)
+  utenteNome String?  @map("utente_nome")
+  annullata  Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([sedeId, createdAt])
+  @@map("vendite_banco")
+}
+
 model ContiJe {
   id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   sedeId     String   @map("sede_id") @db.Uuid

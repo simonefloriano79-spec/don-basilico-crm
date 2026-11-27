@@ -6,6 +6,7 @@ import { subDays, startOfDay, format } from "date-fns";
 import { it } from "date-fns/locale";
 import { pizzeJePerGiorno, pizzeRiga } from "@/lib/pizze-fatte";
 import { leggiComboConfig } from "@/lib/combo";
+import { venditeBanco } from "@/lib/banco-db";
 
 // GET /api/statistiche?giorni=7&sedeId=xxx
 export async function GET(req: NextRequest) {
@@ -131,8 +132,23 @@ export async function GET(req: NextRequest) {
     .sort((a, b) => b.importo - a.importo)
     .slice(0, 10);
 
+  // Vendite al banco (tranci): incasso del CRM senza ordine.
+  const vendite = await venditeBanco(dataInizio, undefined, sedeFilter);
+  const nomiSedi = new Map((vendite.length ? await prisma.sede.findMany({ select: { id: true, nome: true } }) : []).map((s) => [s.id, s.nome.replace("Don Basilico ", "")]));
+  let totBanco = 0;
+  const bancoPerSede: Record<string, number> = {};
+  for (const v of vendite) {
+    const g = perGiorno[format(v.createdAt, "yyyy-MM-dd")];
+    if (!g) continue;
+    g.incasso += v.totale;
+    g.incassoCrm += v.totale;
+    totBanco += v.totale;
+    const nome = nomiSedi.get(v.sedeId) ?? "—";
+    bancoPerSede[nome] = (bancoPerSede[nome] ?? 0) + v.totale;
+  }
+
   // Incasso totale periodo
-  const totCrm = ordini.reduce((acc, o) => acc + parseFloat(o.totale.toString()), 0);
+  const totCrm = ordini.reduce((acc, o) => acc + parseFloat(o.totale.toString()), 0) + totBanco;
   const totPeriodo = totCrm + jeTotale;
   const mediaGiornaliera = totPeriodo / giorni;
 
@@ -151,6 +167,7 @@ export async function GET(req: NextRequest) {
     const nome = o.sede?.nome?.replace("Don Basilico ", "") ?? "—";
     incassoPerSedeMap[nome] = (incassoPerSedeMap[nome] ?? 0) + parseFloat(o.totale.toString());
   });
+  Object.entries(bancoPerSede).forEach(([nome, importo]) => { incassoPerSedeMap[nome] = (incassoPerSedeMap[nome] ?? 0) + importo; });
   Object.entries(jePerSede).forEach(([nome, importo]) => { incassoPerSedeMap[nome] = (incassoPerSedeMap[nome] ?? 0) + importo; });
   const incassoPerSede = Object.entries(incassoPerSedeMap)
     .map(([nome, incasso]) => ({ nome, incasso }))
