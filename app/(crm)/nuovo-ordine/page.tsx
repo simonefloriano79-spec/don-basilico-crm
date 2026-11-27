@@ -454,6 +454,15 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
   const consegna = tipo === "domicilio" ? (parseFloat(costoConsegna) || 0) : 0;
   const scontato = scontoCassaValido(sconto, subtotale + consegna);
   const totale = subtotale + consegna - scontato;
+  // Al domicilio, scrivendo il nome sul citofono o il telefono escono i clienti: un tocco compila tutto.
+  const campoTelefono = (
+    <CampoCliente cerca={tipo === "domicilio" ? "telefono" : null} onScegli={onScegliCliente}
+      {...tast("n")} style={fieldSt} placeholder="Telefono" value={clienteTel} onChange={(e: any) => setClienteTel(e.target.value)} />
+  );
+  const campoCitofono = (
+    <CampoCliente cerca="nome" onScegli={onScegliCliente} {...tast("t")} style={fieldSt} placeholder="Nome sul citofono"
+      value={nomeCitofono || clienteNome} onChange={inMaius((v: string) => { setNomeCitofono(v); setClienteNome(v); })} />
+  );
   return (
     <>
       {/* Campi ordine + lista prodotti: un'unica area scrollabile, così quando
@@ -507,13 +516,12 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
         {tipo === "tavolo" && (
           <input {...tast("t")} style={{ ...fieldSt, borderColor: "var(--accent-border)", fontWeight: 600 }} placeholder="Tavolo * (numero o nome)" value={tavolo} onChange={inMaius(setTavolo)} />
         )}
-        {/* Al domicilio il nome è uno solo: quello sul citofono (campo più sotto). */}
+        {/* Al domicilio il nome è uno solo: quello sul citofono. */}
         {tipo !== "domicilio" && (
           <input {...tast("t")} style={fieldSt} placeholder="Nome cliente" value={clienteNome} onChange={inMaius(setClienteNome)} />
         )}
-        {/* Al domicilio, scrivendo il telefono o il nome sul citofono escono i clienti: un tocco compila tutto. */}
-        <CampoCliente cerca={tipo === "domicilio" ? "telefono" : null} onScegli={onScegliCliente}
-          {...tast("n")} style={fieldSt} placeholder="Telefono" value={clienteTel} onChange={(e: any) => setClienteTel(e.target.value)} />
+        {/* Al domicilio qui c'è il nome sul citofono e il telefono sta sotto l'indirizzo; negli altri casi c'è il telefono. */}
+        {tipo === "domicilio" ? campoCitofono : campoTelefono}
         {/* Asporto: a che ora passa il cliente a ritirare (vuoto = subito, come sempre). */}
         {tipo === "asporto" && (
           <button onClick={onApriOrario} style={{
@@ -532,7 +540,7 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
             {/* Per via si cerca solo partendo da zero: con telefono o nome già scritti è un indirizzo nuovo da digitare. */}
             <CampoCliente cerca={!clienteTel && !nomeCitofono && !clienteNome ? "indirizzo" : null} onScegli={onScegliCliente}
               {...tast("t")} style={fieldSt} placeholder="Indirizzo *" value={clienteIndirizzo} onChange={inMaius(setClienteIndirizzo)} />
-            <CampoCliente cerca="nome" onScegli={onScegliCliente} {...tast("t")} style={fieldSt} placeholder="Nome sul citofono" value={nomeCitofono || clienteNome} onChange={inMaius((v: string) => { setNomeCitofono(v); setClienteNome(v); })} />
+            {campoTelefono}
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 12.5, color: "var(--text-2)", flex: 1 }}>Costo consegna</span>
               <div style={{ position: "relative", width: 90 }}>
