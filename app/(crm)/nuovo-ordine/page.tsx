@@ -13,6 +13,7 @@ import { CATEGORIE_BABY, prezzoBaby } from "@/lib/pizza-baby";
 import type { ModoTastiera } from "@/components/tastiera/Tastiera";
 import CampoOra from "@/components/tastiera/CampoOra";
 import { bevandaAmmessaInCombo, comboDisponibileIn, leggiComboConfig, testoDettaglioCombo } from "@/lib/combo";
+import { prezzoAggiunte } from "@/lib/compensazione";
 
 const CAT_LABEL: Record<string, string> = {
   pizze_rosse: "Pizze rosse", pizze_bianche: "Pizze bianche", calzoni: "Calzoni",
@@ -105,12 +106,8 @@ function PizzaModal({ item, tuttiIngredienti, sedeId, maxi, iniziale, onConferma
   const prezzoNormale = parseFloat(item.prezzoEffettivo ?? item.prezzoBase);
   const moltTaglia = taglia === "maxi" && maxi ? maxi : 1;
   const prezzoBase = taglia === "baby" ? prezzoBaby(prezzoNormale) : prezzoNormale * moltTaglia;
-  const prezzoAggiuntiLordo = Array.from(aggiunti.values()).reduce((a, i) => a + parseFloat(i.prezzoAggiunta?.toString() ?? "0"), 0);
-  // Compensazione: rimuovere un ingrediente non genera mai uno sconto da solo, ma
-  // "copre" fino al suo valore un ingrediente aggiunto al suo posto — es. tolgo
-  // carciofi (1€) e aggiungo salsa tartufata (2€): pago solo 1€ di differenza.
-  const credito = baseIngs.filter((i) => rimossi.has(i.id) && !i.escludiCompensazione).reduce((a, i) => a + parseFloat(i.prezzoAggiunta?.toString() ?? "0"), 0);
-  const prezzoExtra = Math.max(0, prezzoAggiuntiLordo - credito) * moltTaglia;
+  // Compensazione e cambio di mozzarella: regole in lib/compensazione.ts (le stesse dell'app e del server).
+  const prezzoExtra = prezzoAggiunte(Array.from(aggiunti.values()), baseIngs.filter((i) => rimossi.has(i.id))).supplemento * moltTaglia;
   const supplementoImpasto = impastoScelto?.supplemento ?? 0;
   const totale = (prezzoBase + prezzoExtra + supplementoImpasto) * qty;
 
