@@ -245,7 +245,7 @@ function PizzaModal({ item, tuttiIngredienti, sedeId, maxi, iniziale, onConferma
             placeholder="Note (es. ben cotta, senza sale…)" value={nota} onChange={inMaius(setNota)} />
         </div>
 
-        <div style={{ padding: "14px 20px", borderTop: "1px solid var(--border-soft)", background: "var(--surface-muted)", paddingBottom: "max(14px, env(safe-area-inset-bottom))" }}>
+        <div className="via-col-tastierino" style={{ padding: "14px 20px", borderTop: "1px solid var(--border-soft)", background: "var(--surface-muted)", paddingBottom: "max(14px, env(safe-area-inset-bottom))" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <button onClick={() => setQty((q) => Math.max(1, q - 1))} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid var(--border)", background: "#fff", color: "var(--text)", fontSize: 16, cursor: "pointer" }}>−</button>
@@ -364,7 +364,7 @@ function ComboModal({ item, menu, onConferma, onChiudi }: {
           <input style={{ ...fieldSt, marginTop: 14 }} placeholder="Note (es. senza ghiaccio…)" value={nota} onChange={inMaius(setNota)} />
         </div>
 
-        <div style={{ padding: "14px 20px", borderTop: "1px solid var(--border-soft)", background: "var(--surface-muted)", paddingBottom: "max(14px, env(safe-area-inset-bottom))" }}>
+        <div className="via-col-tastierino" style={{ padding: "14px 20px", borderTop: "1px solid var(--border-soft)", background: "var(--surface-muted)", paddingBottom: "max(14px, env(safe-area-inset-bottom))" }}>
           {!completo && <div style={{ fontSize: 12.5, color: "var(--danger)", textAlign: "center", marginBottom: 10 }}>Manca da scegliere: {mancano}</div>}
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

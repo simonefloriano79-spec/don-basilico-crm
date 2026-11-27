@@ -182,4 +182,5 @@ html { overflow-x: hidden; }
 html.tastierino-aperto .main-content { padding-bottom: 380px !important; }
 html.tastierino-aperto .accesso-tastierino { padding-bottom: 360px; }
 html.tastierino-aperto .con-tastierino { padding-top: 8px !important; padding-bottom: 372px !important; }
+html.tastierino-aperto .via-col-tastierino { display: none !important; }
 html.tastierino-aperto .con-tastierino > * { max-height: calc(100vh - 384px) !important; overflow-y: auto !important; }
