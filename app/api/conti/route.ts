@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { dataValida, finestraServizio, giornoServizioOggi } from "@/lib/conti";
 import { pizzeJePerSede, pizzePerSede, type PizzeSede } from "@/lib/pizze-fatte";
+import { venditeBanco } from "@/lib/banco-db";
 
 export const dynamic = "force-dynamic";
 
@@ -151,10 +152,20 @@ export async function GET(req: NextRequest) {
     asporto: perTipo("asporto"), domicilio: perTipo("domicilio"), tavolo: perTipo("tavolo"),
   };
 
+  // ── BANCO (tranci): non sono ordini ──────────────────────────────────────────────────
+  const vendite = await venditeBanco(inizio, fine, sedeFiltro);
+  const sommaBanco = (lista: typeof vendite) => r2(lista.reduce((a, v) => a + v.totale, 0));
+  const banco = {
+    vendite: vendite.length, totale: sommaBanco(vendite),
+    margherita: vendite.reduce((a, v) => a + v.margherita, 0),
+    farcito: vendite.reduce((a, v) => a + v.farcito, 0),
+    speciale: vendite.reduce((a, v) => a + v.speciale, 0),
+  };
+
   const totDomicilio = r2(totDom.totale), totAsporto = somma(asp).totale, totTavolo = somma(tav).totale;
   const totale = {
-    domicilio: totDomicilio, asporto: totAsporto, tavolo: totTavolo, justEat: r2(je.giaPagato + je.contanti),
-    totalone: r2(totDomicilio + totAsporto + totTavolo + je.giaPagato + je.contanti),
+    domicilio: totDomicilio, asporto: totAsporto, tavolo: totTavolo, banco: banco.totale, justEat: r2(je.giaPagato + je.contanti),
+    totalone: r2(totDomicilio + totAsporto + totTavolo + banco.totale + je.giaPagato + je.contanti),
     contantiNoti: r2(totDom.contanti + je.contanti), // domicilio in contanti + Just Eat in contanti
     carteNote: r2(totDom.pos + je.giaPagato),        // POS del domicilio + Just Eat già pagato
     ordiniInCorso: dto.filter((o) => !["consegnato", "pronto"].includes(o.stato)).length,
@@ -175,8 +186,9 @@ export async function GET(req: NextRequest) {
       const a = r2(mie.filter((o) => o.tipo === "asporto").reduce((x, o) => x + o.totale, 0));
       const t = r2(mie.filter((o) => o.tipo === "tavolo").reduce((x, o) => x + o.totale, 0));
       const j = jePerSede.get(s.id) ?? { g: 0, c: 0 };
+      const b = sommaBanco(vendite.filter((v) => v.sedeId === s.id));
       const pn = nostrePerSede.get(s.id)?.pizze ?? 0, pj = jePizze.per.get(s.id) ?? 0;
-      return { sedeId: s.id, nome: s.nome, domicilio: d, asporto: a, tavolo: t, justEatGiaPagato: r2(j.g), justEatContanti: r2(j.c), totale: r2(d + a + t + j.g + j.c), pizzeNostre: pn, pizzeJustEat: pj, pizzeTotali: pn + pj };
+      return { sedeId: s.id, nome: s.nome, domicilio: d, asporto: a, tavolo: t, banco: b, justEatGiaPagato: r2(j.g), justEatContanti: r2(j.c), totale: r2(d + a + t + b + j.g + j.c), pizzeNostre: pn, pizzeJustEat: pj, pizzeTotali: pn + pj };
     });
   }
 
@@ -191,6 +203,6 @@ export async function GET(req: NextRequest) {
     },
     asporto: { ...somma(asp), perCanale, ordini: asp },
     tavolo: { ...somma(tav), ordini: tav },
-    je, pizze, totale, perSede,
+    banco, je, pizze, totale, perSede,
   });
 }

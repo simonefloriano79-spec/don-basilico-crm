@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
+import { descriviBanco } from "@/lib/banco";
 
 type Ord = {
   id: string; numero: number; ora: string; sedeId: string; sede: string; tipo: string; canale: string; stato: string;
@@ -19,10 +20,11 @@ type Conti = {
   domicilio: { totali: any; rider: Rider[] };
   asporto: { ordini: Ord[]; totale: number; perCanale: { canale: string; ordini: number; totale: number }[] } & { ordini_n?: number };
   tavolo: { ordini: Ord[]; totale: number };
+  banco: { vendite: number; totale: number; margherita: number; farcito: number; speciale: number };
   je: { ok: boolean; giaPagato: number; contanti: number; modificatoDa: string | null; modificatoAt: string | null };
   pizze: { ok: boolean; nostre: number; maxi: number; justEat: number; totale: number; asporto: number; domicilio: number; tavolo: number };
-  totale: { domicilio: number; asporto: number; tavolo: number; justEat: number; totalone: number; contantiNoti: number; carteNote: number; ordiniInCorso: number };
-  perSede: { sedeId: string; nome: string; domicilio: number; asporto: number; tavolo: number; justEatGiaPagato: number; justEatContanti: number; totale: number; pizzeNostre: number; pizzeJustEat: number; pizzeTotali: number }[] | null;
+  totale: { domicilio: number; asporto: number; tavolo: number; banco: number; justEat: number; totalone: number; contantiNoti: number; carteNote: number; ordiniInCorso: number };
+  perSede: { sedeId: string; nome: string; domicilio: number; asporto: number; tavolo: number; banco: number; justEatGiaPagato: number; justEatContanti: number; totale: number; pizzeNostre: number; pizzeJustEat: number; pizzeTotali: number }[] | null;
 };
 
 const euro = (n: number) => `€ ${(n ?? 0).toFixed(2).replace(".", ",")}`;
@@ -324,6 +326,9 @@ Confermi la correzione dell'ordine #${o.numero}?`)) return;
             <Riga a="Domicilio" nota={`${tot?.ordini ?? 0} consegne · contanti ${euro(tot?.contanti ?? 0)} · POS ${euro(tot?.pos ?? 0)}`} b={euro(dati.totale.domicilio)} />
             <Riga a="Asporto" nota={`${dati.asporto.ordini.length} ordini`} b={euro(dati.totale.asporto)} />
             <Riga a="Tavolo" nota={`${dati.tavolo.ordini.length} ordini`} b={euro(dati.totale.tavolo)} />
+            {dati.banco.vendite > 0 && (
+              <Riga a="Banco (tranci)" nota={`${dati.banco.vendite} ${dati.banco.vendite === 1 ? "vendita" : "vendite"} · ${descriviBanco(dati.banco)}`} b={euro(dati.totale.banco)} />
+            )}
 
             {/* Just Eat: inserito a mano */}
             <div style={{ borderTop: "1px solid var(--border-soft)", padding: "10px 0" }}>
@@ -380,7 +385,7 @@ Confermi la correzione dell'ordine #${o.numero}?`)) return;
                 <span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 24 }}>{dati.pizze.totale}</span>
               </div>
             </div>
-            <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 6 }}>Asporto e tavolo non sono divisi per metodo di pagamento: per questo contanti e carte «noti» non arrivano al totale.</div>
+            <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 6 }}>Asporto, tavolo e banco non sono divisi per metodo di pagamento: per questo contanti e carte «noti» non arrivano al totale.</div>
           </div>
 
           {dati.perSede && (
@@ -391,6 +396,7 @@ Confermi la correzione dell'ordine #${o.numero}?`)) return;
                   <tr style={{ textAlign: "right", color: "var(--text-muted)", fontSize: 11 }}>
                     <th style={{ textAlign: "left", padding: "4px 0", fontWeight: 600 }}>Sede</th>
                     <th style={{ fontWeight: 600 }}>Domicilio</th><th style={{ fontWeight: 600 }}>Asporto</th><th style={{ fontWeight: 600 }}>Tavolo</th>
+                    {dati.totale.banco > 0 && <th style={{ fontWeight: 600 }}>Banco</th>}
                     <th style={{ fontWeight: 600 }}>Just Eat</th><th style={{ fontWeight: 600 }}>Totale</th><th style={{ fontWeight: 600 }}>Pizze</th>
                   </tr>
                 </thead>
@@ -402,13 +408,13 @@ Confermi la correzione dell'ordine #${o.numero}?`)) return;
                           {s.nome.replace("Don Basilico ", "")}
                         </button>
                       </td>
-                      <td className="num">{euro(s.domicilio)}</td><td className="num">{euro(s.asporto)}</td><td className="num">{euro(s.tavolo)}</td>
+                      <td className="num">{euro(s.domicilio)}</td><td className="num">{euro(s.asporto)}</td><td className="num">{euro(s.tavolo)}</td>{dati.totale.banco > 0 && <td className="num">{euro(s.banco)}</td>}
                       <td className="num">{euro(s.justEatGiaPagato + s.justEatContanti)}</td><td className="num" style={{ fontWeight: 600 }}>{euro(s.totale)}</td><td className="num">{s.pizzeTotali}</td>
                     </tr>
                   ))}
                   <tr style={{ textAlign: "right", borderTop: "2px solid var(--text)", fontWeight: 700 }}>
                     <td style={{ textAlign: "left", padding: "8px 0" }}>TOTALE</td>
-                    <td className="num">{euro(dati.totale.domicilio)}</td><td className="num">{euro(dati.totale.asporto)}</td><td className="num">{euro(dati.totale.tavolo)}</td>
+                    <td className="num">{euro(dati.totale.domicilio)}</td><td className="num">{euro(dati.totale.asporto)}</td><td className="num">{euro(dati.totale.tavolo)}</td>{dati.totale.banco > 0 && <td className="num">{euro(dati.totale.banco)}</td>}
                     <td className="num">{euro(dati.totale.justEat)}</td><td className="num">{euro(dati.totale.totalone)}</td><td className="num">{dati.pizze.totale}</td>
                   </tr>
                 </tbody>
