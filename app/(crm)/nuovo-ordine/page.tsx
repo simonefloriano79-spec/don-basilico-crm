@@ -394,7 +394,7 @@ function OrarioConsegnaModal({ tipo, oraConsegna, modConsegna, onSalva, onRimuov
   onSalva: (ora: string, modalita: string) => void; onRimuovi: () => void; onChiudi: () => void;
 }) {
   const [ora, setOra] = useState(oraConsegna);
-  const [modalita, setModalita] = useState(modConsegna || "appena_possibile");
+  const [modalita, setModalita] = useState(modConsegna === "non_prima" ? "non_prima" : "alle_ore");
   const asporto = tipo === "asporto";
 
   return createPortal(
@@ -408,10 +408,10 @@ function OrarioConsegnaModal({ tipo, oraConsegna, modConsegna, onSalva, onRimuov
           <label style={{ display: "block", fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.6, marginBottom: 6 }}>{asporto ? "Il cliente ritira alle" : "Orario comunicato al cliente"}</label>
           <CampoOra style={{ ...fieldSt, marginBottom: asporto ? 18 : 14 }} value={ora} onChange={setOra} />
 
-          {/* Asporto: solo l'ora a cui passa il cliente (niente «appena possibile / non prima»). */}
+          {/* Asporto: solo l'ora a cui passa il cliente (niente «alle ore / non prima»). */}
           {!asporto && <label style={{ display: "block", fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.6, marginBottom: 6 }}>Modalità</label>}
           <div style={{ display: asporto ? "none" : "flex", gap: 8, marginBottom: 18 }}>
-            {([["appena_possibile", "Appena possibile"], ["non_prima", "Non prima"]] as const).map(([val, label]) => (
+            {([["alle_ore", "Alle ore"], ["non_prima", "Non prima"]] as const).map(([val, label]) => (
               <button key={val} onClick={() => setModalita(val)} style={{
                 flex: 1, padding: "10px", borderRadius: 9, border: "1px solid",
                 fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-ui)",

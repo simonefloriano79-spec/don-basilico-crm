@@ -149,11 +149,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   const tipo = ordine.tipo;
   const costoConsegnaFinale = tipo === "domicilio" ? Math.max(0, parseFloat(costoConsegna) || 0) : 0;
   const totale = Math.round((esito.totale + costoConsegnaFinale) * 100) / 100;
-  const modalitaValida = ["appena_possibile", "non_prima"].includes(modalitaConsegna) ? modalitaConsegna : null;
+  const modalitaValida = modalitaConsegna === "non_prima" ? "non_prima" : "alle_ore";
   const oraValida = oraConsegnaComunicata ? new Date(oraConsegnaComunicata) : null;
   const orarioOk = !!oraValida && !Number.isNaN(oraValida.getTime());
   const oraFinale = (tipo === "domicilio" || tipo === "asporto") && orarioOk ? oraValida : null;
-  const modalitaFinale = tipo === "domicilio" ? modalitaValida : tipo === "asporto" && oraFinale ? "alle_ore" : null;
+  const modalitaFinale = tipo === "domicilio" ? (oraFinale ? modalitaValida : null) : tipo === "asporto" && oraFinale ? "alle_ore" : null;
   const tavoloFinale = tipo === "tavolo" && typeof tavolo === "string" && tavolo.trim() ? tavolo.trim().slice(0, 40) : null;
   if (tipo === "tavolo" && !tavoloFinale) return NextResponse.json({ error: "Indica il tavolo (numero o nome)" }, { status: 400 });
 

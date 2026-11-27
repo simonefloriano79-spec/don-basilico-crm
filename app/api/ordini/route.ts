@@ -87,12 +87,12 @@ export async function POST(req: NextRequest) {
   const costoConsegnaFinale = tipo === "domicilio" ? Math.max(0, parseFloat(costoConsegna) || 0) : 0;
   totale += costoConsegnaFinale;
 
-  // Domicilio: «appena possibile» / «non prima» + orario di consegna. Asporto: solo l'orario di ritiro («alle ore»).
-  const modalitaConsegnaValida = ["appena_possibile", "non_prima"].includes(modalitaConsegna) ? modalitaConsegna : null;
+  // Domicilio: orario di consegna «alle ore» oppure «non prima». Asporto: solo l'orario di ritiro («alle ore»).
+  const modalitaConsegnaValida = modalitaConsegna === "non_prima" ? "non_prima" : "alle_ore";
   const oraComunicataValida = oraConsegnaComunicata ? new Date(oraConsegnaComunicata) : null;
   const orarioOk = !!oraComunicataValida && !Number.isNaN(oraComunicataValida.getTime());
   const oraConsegnaComunicataFinale = (tipo === "domicilio" || tipo === "asporto") && orarioOk ? oraComunicataValida : null;
-  const modalitaConsegnaFinale = tipo === "domicilio" ? modalitaConsegnaValida
+  const modalitaConsegnaFinale = tipo === "domicilio" ? (oraConsegnaComunicataFinale ? modalitaConsegnaValida : null)
     : tipo === "asporto" && oraConsegnaComunicataFinale ? "alle_ore" : null;
   const noteDomicilioFinale = tipo === "domicilio" ? (noteDomicilio || null) : null;
   const nomeCitofonoFinale = tipo === "domicilio" ? (nomeCitofono || null) : null;
