@@ -634,7 +634,7 @@ interface CartItem {
 }
 interface SlotCl { ora: string; iso: string; pieno: boolean; }
 interface SlotData {
-  apertura: string; chiusura: string; apertoOra: boolean;
+  apertura: string; chiusura: string; apertoOra: boolean; asapOra: boolean; ultimoOrdine: string;
   primoGiorno: "oggi" | "domani"; oggi: SlotCl[]; domani: SlotCl[];
 }
 
@@ -1075,6 +1075,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
   // Modifica di un ordine già fatto («I miei ordini» → Modifica): l'ordine viene rimesso nel carrello.
   const [modifica, setModifica] = useState<any>(null);
   const [attesaScaduta, setAttesaScaduta] = useState(false);
+  const [giroSlot, setGiroSlot] = useState(0); // si ricaricano gli orari quando il server dice che non valgono più
 
   // Ricorda l'ultima sede e l'ultimo indirizzo usati su questo telefono, per precompilarli.
   useEffect(() => {
@@ -1136,13 +1137,14 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
       .then((d: SlotData & { error?: string }) => {
         if (annullato || d.error) return;
         setSlotData(d);
-        setGiornoSlot((g) => (d.apertoOra ? g : d.primoGiorno));
-        // Con la sede chiusa "appena possibile" non esiste: si deve scegliere un orario.
-        setOrario((o) => (!d.apertoOra && o === "asap" ? "" : o === "" && d.apertoOra ? "asap" : o));
+        setGiornoSlot((g) => (d.asapOra ? g : d.primoGiorno));
+        // Fuori orario o dopo l'ultimo ordine "appena possibile" non esiste: si deve scegliere un orario.
+        const asap = d.asapOra || !!modifica?.asapInCorso;
+        setOrario((o) => (!asap && o === "asap" ? "" : o === "" && asap ? "asap" : o));
       })
       .catch(() => {});
     return () => { annullato = true; };
-  }, [sedeIdAttiva, pesoCarrello, modifica?.id]);
+  }, [sedeIdAttiva, pesoCarrello, modifica?.id, giroSlot]);
 
   useEffect(() => {
     const el = riepilogoRef.current;
@@ -1292,6 +1294,8 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
     setTimeout(() => setAttesaScaduta(true), 4000);
     setModifica({
       id: o.id, numeroOrdine: o.numeroOrdine, ordine: o, pronto: false, avviso: "",
+      // Un «appena possibile» di stasera resta tale anche se lo si modifica dopo l'ultimo ordine.
+      asapInCorso: !riferimento && new Date(o.createdAt).toDateString() === new Date().toDateString(),
       indirizzo: o.clienteIndirizzo ?? "", costoConsegna: o.costoConsegna, scontoFedelta: o.scontoFedelta,
       codiceSconto: o.codiceSconto ?? null, scontoCodice: o.scontoCodice, percentualeCodice: o.percentualeCodice ?? null,
     });
@@ -1389,7 +1393,11 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) { setErroreInvio(data.error ?? "Non siamo riusciti a salvare le modifiche, riprova tra un momento"); return; }
+      if (!res.ok) {
+        if (data.esito === "chiuso") setGiroSlot((n) => n + 1);
+        setErroreInvio(data.error ?? "Non siamo riusciti a salvare le modifiche, riprova tra un momento");
+        return;
+      }
       setConfermato({ numeroOrdine: data.numeroOrdine, sede: data.sede, totale: data.totale, oraRitiro: data.oraRitiro, scontoFedelta: data.scontoFedelta, scontoCodice: data.scontoCodice, codiceSconto: data.codiceSconto, modificato: true });
       setModifica(null);
     } catch {
@@ -1437,6 +1445,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (data.esito === "codice") setCodiceApplicato(null); // codice non più valido (usato, scaduto…): si toglie e il totale torna pieno
+        if (data.esito === "chiuso") setGiroSlot((n) => n + 1);
         setErroreInvio(data.error ?? "Non siamo riusciti a inviare l'ordine, riprova tra un momento");
         return;
       }
@@ -1981,12 +1990,12 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
         </div>
       )}
 
-      {slotData && !slotData.apertoOra && (
+      {slotData && !slotData.asapOra && !modifica?.asapInCorso && (
         <div style={{ borderRadius: 16, background: "#EEF6E2", border: "1px solid #D3E8B5", padding: "12px 14px", display: "flex", gap: 10, alignItems: "flex-start" }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3F5A12" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flex: "none", marginTop: 1 }} aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
           <p style={{ margin: 0, fontSize: 14, lineHeight: 1.4, color: "#2D3324" }}>
-            <span style={{ fontWeight: 600 }}>Ora siamo chiusi, apriamo alle {slotData.apertura}.</span>{" "}
-            Puoi già ordinare e scegliere l'orario di {tipo === "domicilio" ? "consegna" : "ritiro"}.{slotData.primoGiorno === "domani" ? " Gli orari disponibili sono per domani." : ""}
+            <span style={{ fontWeight: 600 }}>{slotData.oggi.length ? `Ora siamo chiusi, apriamo alle ${slotData.apertura}.` : `Per stasera gli ordini sono chiusi (ultimo alle ${slotData.ultimoOrdine}).`}</span>{" "}
+            Puoi già ordinare e scegliere l'orario di {tipo === "domicilio" ? "consegna" : "ritiro"}{slotData.oggi.length ? "." : " di domani."}
           </p>
         </div>
       )}
@@ -2126,7 +2135,7 @@ function OrdinaFlowInner({ sedeSlugIniziale, modoIniziale, onSchermataIniziale }
               <div style={{ fontSize: 10.5, letterSpacing: 1.6, textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 8 }}>
                 {tipo === "domicilio" ? "Orario di consegna" : "Orario di ritiro"}
               </div>
-              {slotData.apertoOra && (
+              {(slotData.asapOra || modifica?.asapInCorso) && (
                 <button onClick={() => setOrario("asap")} style={{
                   width: "100%", marginBottom: 8, padding: "12px", borderRadius: 12, border: "1.5px solid", cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 13.5,
                   ...sceltaSt(orario === "asap"),

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { clienteIdDaRichiesta } from "@/lib/customer-auth/session";
 import { elaboraRichiestaOrdine, RichiestaOrdine } from "@/lib/ordini-vocali/orchestrazione";
 import { ArticoloOrdinatoInput } from "@/lib/ordini-vocali/pricing";
-import { generaSlot } from "@/lib/slot-ritiro";
+import { generaSlot, dataLocale } from "@/lib/slot-ritiro";
 import { disponibilitaSlot, pesoRiga } from "@/lib/capacita-pizze";
 import { finestraCliente, MAX_MODIFICHE_CLIENTE } from "@/lib/modifica-ordine";
 import { righeOrdineDaArticoli } from "@/lib/ordina-righe";
@@ -85,6 +85,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const eraPrenotato = ordine.oraRichiesta.getTime() - ordine.createdAt.getTime() > 5 * 60000;
   const orarioAttuale = ordine.oraConsegnaComunicata ?? (eraPrenotato ? ordine.oraRichiesta : null);
   const orarioInvariato = !!oraRitiro && !!orarioAttuale && oraRitiro.getTime() === orarioAttuale.getTime();
+
+  // «Appena possibile» dopo l'ultimo ordine: resta solo a chi stasera lo aveva già e sta cambiando altro.
+  if (!oraRitiro) {
+    const giaInCoda = !orarioAttuale && dataLocale(ordine.createdAt) === dataLocale(new Date());
+    const gen = generaSlot({ adesso: new Date(), apertura: ordine.sede.orarioApertura, chiusura: ordine.sede.orarioChiusura });
+    if (!giaInCoda && !gen.asapOra) {
+      return NextResponse.json({ error: `«Appena possibile» non è più disponibile (ultimo ordine alle ${gen.ultimoOrdine}): scegli un orario`, esito: "chiuso" }, { status: 422 });
+    }
+  }
 
   // Con un orario NUOVO: lo slot deve esistere ancora e avere posto (senza contare l'ordine stesso).
   if (oraRitiro && !orarioInvariato) {
