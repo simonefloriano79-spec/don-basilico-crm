@@ -82,7 +82,7 @@ function quando(d: string) {
 }
 
 // Un ordine online è "prenotato" se l'orario richiesto è molto dopo la creazione.
-const prenotato = (o: any) => !!o.oraRichiesta && new Date(o.oraRichiesta).getTime() - new Date(o.createdAt).getTime() > 5 * 60000;
+const prenotato = (o: any) => !!o.oraRichiesta && new Date(o.oraRichiesta).getTime() - new Date(o.modificatoAt ?? o.createdAt).getTime() > 5 * 60000;
 // Orario di riferimento da mostrare in lista (confermato, oppure richiesto se prenotato).
 const orarioRif = (o: any): string | null =>
   o.oraConsegnaComunicata ?? (richiedeAccettazione(o) && prenotato(o) ? o.oraRichiesta : null);
@@ -196,8 +196,23 @@ export default function OrdiniPage() {
       : prenotato(selezionato)
         ? new Date(selezionato.oraRichiesta)
         : arrotonda10(new Date(Date.now() + 20 * 60000));
-    setOrarioConferma(perInputLocale(base));
+    const proposto = perInputLocale(base);
+    setOrarioConferma(proposto);
     setAvvisaSms(true);
+    if (selezionato.oraConsegnaComunicata || prenotato(selezionato)) return;
+    // «Appena possibile» = il primo orario libero (gli stessi dell'app, tenendo conto della cucina piena).
+    const peso = (selezionato.items ?? []).reduce(
+      (a: number, i: any) => a + pesoRiga(i.menuItem?.categoria ?? i.sedeExtra?.categoria, i.nomeSnapshot, i.quantita, i.menuItem?.comboConfig?.pizze), 0);
+    let annullato = false;
+    fetch(`/api/ordina/slot?sedeId=${selezionato.sedeId}&peso=${Math.max(1, peso)}&escludi=${selezionato.id}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const primo = d?.oggi?.find((s: { pieno: boolean }) => !s.pieno);
+        // Se nel frattempo l'orario è stato cambiato a mano, resta quello.
+        if (!annullato && primo) setOrarioConferma((prima) => (prima === proposto ? perInputLocale(new Date(primo.iso)) : prima));
+      })
+      .catch(() => {});
+    return () => { annullato = true; };
   }, [selezionato?.id]);
 
   // Carico della cucina nella fascia dell'orario scelto (esclude l'ordine stesso).
@@ -514,12 +529,9 @@ export default function OrdiniPage() {
             {selezionato.note && <div style={{ fontSize: 12, color: "var(--danger)", marginTop: 6 }}>Nota: {selezionato.note}</div>}
             {selezionato.oraConsegnaComunicata && (
               <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 6 }}>
-                {selezionato.modalitaConsegna === "alle_ore"
-                  ? <>{selezionato.tipo === "domicilio" ? "Consegna" : "Ritiro"}: <strong className="num">{quando(selezionato.oraConsegnaComunicata)}</strong></>
-                  : <>
-                      {selezionato.modalitaConsegna === "non_prima" ? "Non prima delle " : "Appena possibile, entro le "}
-                      <strong className="num">{ora(selezionato.oraConsegnaComunicata)}</strong>
-                    </>}
+                {selezionato.modalitaConsegna === "non_prima"
+                  ? <>Non prima delle <strong className="num">{ora(selezionato.oraConsegnaComunicata)}</strong></>
+                  : <>{selezionato.tipo === "domicilio" ? "Consegna" : "Ritiro"}: <strong className="num">{quando(selezionato.oraConsegnaComunicata)}</strong></>}
               </div>
             )}
             {selezionato.nomeCitofono && <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 6 }}>Citofono: <strong>{selezionato.nomeCitofono}</strong></div>}
@@ -570,9 +582,13 @@ export default function OrdiniPage() {
                     Se la comanda precedente era già stata stampata, <strong>va buttata</strong>: ne esce una nuova con «ORDINE MODIFICATO».
                   </div>
                 )}
-                <div style={{ fontSize: 12.5, color: "var(--text-2)", marginBottom: 8 }}>
-                  Richiesto dal cliente: <strong>{prenotato(selezionato) ? quando(selezionato.oraRichiesta) : "appena possibile"}</strong>
-                </div>
+                {/* Dopo la conferma conta solo l'orario: «appena possibile» non si mostra più. */}
+                {(prenotato(selezionato) || !selezionato.oraConsegnaComunicata) && (
+                  <div style={{ fontSize: 12.5, color: "var(--text-2)", marginBottom: 8 }}>
+                    Richiesto dal cliente: <strong>{prenotato(selezionato) ? quando(selezionato.oraRichiesta) : "appena possibile"}</strong>
+                    {!prenotato(selezionato) && " — qui sotto il primo orario libero, puoi cambiarlo"}
+                  </div>
+                )}
                 <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                   <input type="date" value={orarioConferma.split("T")[0] ?? ""} onChange={(e) => setOrarioConferma(`${e.target.value}T${orarioConferma.split("T")[1] ?? ""}`)} style={{ ...stileOrario, flex: 3 }} />
                   <CampoOra value={orarioConferma.split("T")[1] ?? ""} onChange={(ora) => setOrarioConferma((prima) => `${prima.split("T")[0]}T${ora}`)} style={{ ...stileOrario, flex: 2 }} />

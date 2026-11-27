@@ -39,9 +39,9 @@ export interface PrintOrdine {
 // Se non è per oggi («domani 19:00», «28/11 19:00») il giorno sta sopra l'ora, anch'esso ben visibile.
 function riquadroOrario(o: PrintOrdine): string {
   if (!o.oraConsegnaComunicata) return "";
+  // Un orario sulla comanda è l'orario: mai «appena possibile» accanto, o in cucina la pizza si fa subito.
   const etichetta = o.modalitaConsegna === "non_prima" ? "Non prima delle"
-    : o.modalitaConsegna === "alle_ore" ? (o.tipo === "domicilio" ? "Consegna alle" : "Ritiro alle")
-    : "Appena possibile, entro";
+    : o.tipo === "domicilio" ? "Consegna alle" : "Ritiro alle";
   const spazio = o.oraConsegnaComunicata.lastIndexOf(" ");
   const giorno = spazio > 0 ? o.oraConsegnaComunicata.slice(0, spazio) : "";
   const ora = o.oraConsegnaComunicata.slice(spazio + 1);
