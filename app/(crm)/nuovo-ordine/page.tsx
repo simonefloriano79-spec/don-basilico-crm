@@ -560,6 +560,9 @@ function CercaClienteModal({ onSeleziona, onChiudi }: {
 // ── Contenuto carrello (condiviso desktop/mobile) ──────────────
 const MESSAGGI_DOMICILIO = ["Resto a 50 euro", "Citofono rotto, chiamare", "Chiamare all'arrivo", "TAGLIATE"];
 
+// Il domicilio di solito arriva per telefono, il resto da chi è in pizzeria: quel tasto sta a sinistra ed è già scelto.
+const canalePredefinito = (tipo: string): "walk_in" | "telefono" => (tipo === "domicilio" ? "telefono" : "walk_in");
+
 function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo, setTavolo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna, oraConsegna, modConsegna, onApriOrario, onModifica, onCercaCliente, noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma, loading, justSent, inModifica, onEsciModifica, ripresa, onCancellaBozza }: any) {
   // Che tastierino aprire su questo campo (components/tastiera): lettere o solo numeri.
   const tast = (m: ModoTastiera) => ({ "data-tast": m, inputMode: (m === "n" ? "numeric" : "text") as "numeric" | "text" });
@@ -595,7 +598,7 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
           </div>
         )}
         <div style={{ display: "flex", gap: 8, ...(inModifica ? { pointerEvents: "none", opacity: 0.55 } : {}) }}>
-          {(["walk_in", "telefono"] as const).map((c) => (
+          {(canalePredefinito(tipo) === "telefono" ? (["telefono", "walk_in"] as const) : (["walk_in", "telefono"] as const)).map((c) => (
             <button key={c} onClick={() => setCanale(c)} style={{
               flex: 1, padding: "9px", borderRadius: 9, border: "1px solid",
               fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-ui)",
@@ -607,7 +610,7 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
         </div>
         <div style={{ display: "flex", gap: 6, ...(inModifica ? { pointerEvents: "none", opacity: 0.55 } : {}) }}>
           {(["asporto", "domicilio", "tavolo"] as const).map((t) => (
-            <button key={t} onClick={() => setTipo(t)} style={{
+            <button key={t} onClick={() => { if (t !== tipo) { setTipo(t); setCanale(canalePredefinito(t)); } }} style={{
               flex: 1, padding: "7px", borderRadius: 8, border: "1px solid",
               fontSize: 11.5, cursor: "pointer", fontFamily: "var(--font-ui)", textTransform: "capitalize",
               background: tipo === t ? "var(--accent-bg-2)" : "transparent",
@@ -931,7 +934,7 @@ export default function NuovoOrdinePage() {
   const svuotaOrdine = () => {
     setCart([]); setTavolo(""); setClienteNome(""); setClienteTel(""); setAddr(""); setNomeCitofono(""); setCostoConsegna("1.50");
     setNote(""); setNoteDomicilio(""); setOraConsegna(""); setModConsegna(""); setMetodoPagamento(""); setDomandeFatte([]);
-    setRipresa(""); setShowCart(false);
+    setRipresa(""); setShowCart(false); setCanale(canalePredefinito(tipo));
   };
 
   // Se mentre si modifica un ordine si va su «Nuovo ordine» dal menù laterale, la pagina resta la stessa: si esce dalla
