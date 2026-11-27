@@ -83,8 +83,15 @@ export default function TastierinoCrm() {
       setCampo(adatto(a) ? a : null);
     };
     const fuoco = (e: FocusEvent) => { if (adatto(e.target)) setCampo(e.target); };
-    // Un attimo di attesa: passando da un campo all'altro il tastierino resta aperto.
-    const lasciato = () => { setTimeout(controlla, 80); };
+    // Un attimo di attesa: passando da un campo all'altro il tastierino resta aperto. E finché il dito (o il mouse)
+    // è giù non si chiude: la finestra si muoverebbe sotto e il tocco finirebbe nel posto sbagliato.
+    let premuto = false;
+    const giu = () => { premuto = true; };
+    const su = () => { premuto = false; };
+    const lasciato = () => {
+      if (premuto) document.addEventListener("pointerup", () => { setTimeout(controlla, 80); }, { once: true });
+      else setTimeout(controlla, 80);
+    };
     const osserva = new MutationObserver(() => {
       prepara();
       setCampo((c) => (c && !c.isConnected ? null : c)); // finestra chiusa con il campo ancora attivo
@@ -94,10 +101,16 @@ export default function TastierinoCrm() {
     osserva.observe(document.body, { childList: true, subtree: true });
     document.addEventListener("focusin", fuoco);
     document.addEventListener("focusout", lasciato);
+    document.addEventListener("pointerdown", giu, true);
+    document.addEventListener("pointerup", su, true);
+    document.addEventListener("pointercancel", su, true);
     return () => {
       osserva.disconnect();
       document.removeEventListener("focusin", fuoco);
       document.removeEventListener("focusout", lasciato);
+      document.removeEventListener("pointerdown", giu, true);
+      document.removeEventListener("pointerup", su, true);
+      document.removeEventListener("pointercancel", su, true);
       document.querySelectorAll("[data-tast-im]").forEach((el) => {
         const prima = el.getAttribute("data-tast-im");
         if (prima) el.setAttribute("inputmode", prima); else el.removeAttribute("inputmode");
@@ -124,9 +137,11 @@ export default function TastierinoCrm() {
     }
     const larghezza = Math.min(window.innerWidth - 24, numerico ? 340 : 860);
     setBox({ sinistra: (window.innerWidth - larghezza) / 2, larghezza });
-    // Se il campo finirebbe sotto il tastierino lo si porta in vista.
+    // Si porta in vista il campo: nelle finestre sempre (si sono appena accorciate; un campo «Cerca» va in cima, così
+    // sotto si vedono i risultati), nelle pagine solo se finirebbe sotto il tastierino.
     const giro = setTimeout(() => {
-      if (campo.getBoundingClientRect().bottom > window.innerHeight - (numerico ? 290 : 350)) campo.scrollIntoView({ block: "center" });
+      if (campo.closest(".con-tastierino")) campo.scrollIntoView({ block: /cerca/i.test(campo.getAttribute("placeholder") ?? "") ? "start" : "nearest" });
+      else if (campo.getBoundingClientRect().bottom > window.innerHeight - (numerico ? 290 : 350)) campo.scrollIntoView({ block: "center" });
     }, 60);
     return () => clearTimeout(giro);
   }, [campo]);
