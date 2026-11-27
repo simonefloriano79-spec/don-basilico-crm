@@ -12,6 +12,7 @@ import { bozzaPiena, cancellaBozza, leggiBozza, salvaBozza } from "@/lib/bozza-c
 import { CATEGORIE_BABY, prezzoBaby } from "@/lib/pizza-baby";
 import type { ModoTastiera } from "@/components/tastiera/Tastiera";
 import CampoOra from "@/components/tastiera/CampoOra";
+import CampoCliente, { type ClienteSuggerito } from "@/components/cassa/CampoCliente";
 import { bevandaAmmessaInCombo, comboDisponibileIn, leggiComboConfig, testoDettaglioCombo } from "@/lib/combo";
 import { prezzoAggiunte } from "@/lib/compensazione";
 import { scontoCassaValido } from "@/lib/sconto-cassa";
@@ -441,130 +442,12 @@ function OrarioConsegnaModal({ tipo, oraConsegna, modConsegna, onSalva, onRimuov
 }
 
 // ── Ricerca/creazione cliente (domicilio) ──────────────────────
-interface ClienteTrovato {
-  id: string; nome: string; cognome?: string | null;
-  telefono?: string | null; indirizzoDefault?: string | null; note?: string | null;
-  numeroOrdini?: number;
-}
-
-function CercaClienteModal({ onSeleziona, onChiudi }: {
-  onSeleziona: (c: { nome: string; telefono: string; indirizzo: string; note: string }) => void;
-  onChiudi: () => void;
-}) {
-  const [query, setQuery] = useState("");
-  const [risultati, setRisultati] = useState<ClienteTrovato[]>([]);
-  const [cercando, setCercando] = useState(false);
-  const [nuovoAperto, setNuovoAperto] = useState(false);
-  const [nuovoNome, setNuovoNome] = useState("");
-  const [nuovoTelefono, setNuovoTelefono] = useState("");
-  const [nuovoIndirizzo, setNuovoIndirizzo] = useState("");
-  const [salvando, setSalvando] = useState(false);
-
-  useEffect(() => {
-    if (query.trim().length < 2) { setRisultati([]); setCercando(false); return; }
-    setCercando(true);
-    const t = setTimeout(async () => {
-      const res = await fetch(`/api/clienti?q=${encodeURIComponent(query.trim())}&limit=8`);
-      setRisultati(res.ok ? await res.json() : []);
-      setCercando(false);
-    }, 300);
-    return () => clearTimeout(t);
-  }, [query]);
-
-  function scegli(c: ClienteTrovato) {
-    onSeleziona({
-      nome: [c.nome, c.cognome].filter(Boolean).join(" "),
-      telefono: c.telefono ?? "",
-      indirizzo: c.indirizzoDefault ?? "",
-      note: c.note ?? "",
-    });
-  }
-
-  async function salvaNuovo() {
-    if (!nuovoNome.trim()) return;
-    setSalvando(true);
-    const res = await fetch("/api/clienti", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nome: nuovoNome.trim(), telefono: nuovoTelefono.trim() || null, indirizzoDefault: nuovoIndirizzo.trim() || null }),
-    });
-    setSalvando(false);
-    if (res.ok) {
-      scegli(await res.json());
-    } else if (res.status === 409) {
-      // Telefono già presente: usa comunque il cliente esistente invece di bloccare.
-      const data = await res.json();
-      scegli(data.cliente);
-    }
-  }
-
-  return createPortal(
-    <div className="cassa-maiuscolo con-tastierino" style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.55)", zIndex: 210, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
-      onClick={onChiudi}>
-      <div style={{ background: "var(--surface)", borderRadius: 20, maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "hidden", width: "100%", maxWidth: 480 }}
-        onClick={(e) => e.stopPropagation()}>
-        <div style={{ padding: "20px 20px 10px" }}>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--text)", marginBottom: 14 }}>Cerca cliente</div>
-          <input
-            style={fieldSt} placeholder="Nome, telefono o via e civico…"
-            value={query} onChange={(e) => setQuery(e.target.value)} autoFocus
-          />
-        </div>
-
-        <div style={{ flex: 1, overflowY: "auto", padding: "0 20px" }}>
-          {cercando && <div style={{ fontSize: 12.5, color: "var(--text-muted)", padding: "8px 0" }}>Cerco…</div>}
-          {!cercando && query.trim().length >= 2 && risultati.length === 0 && !nuovoAperto && (
-            <div style={{ fontSize: 12.5, color: "var(--text-muted)", padding: "8px 0" }}>Nessun cliente trovato.</div>
-          )}
-          {risultati.map((c) => (
-            <button key={c.id} onClick={() => scegli(c)} style={{
-              display: "block", width: "100%", textAlign: "left", background: "#fff",
-              border: "1px solid var(--border)", borderRadius: 10, padding: "10px 12px",
-              marginBottom: 8, cursor: "pointer", fontFamily: "var(--font-ui)",
-            }}>
-              <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text)" }}>
-                {[c.nome, c.cognome].filter(Boolean).join(" ")}
-                {typeof c.numeroOrdini === "number" && c.numeroOrdini > 0 && (
-                  <span style={{ fontWeight: 400, color: "var(--text-muted)" }}> · {c.numeroOrdini} ordini</span>
-                )}
-              </div>
-              <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
-                {[c.telefono, c.indirizzoDefault, c.note].filter(Boolean).join(" — ") || "—"}
-              </div>
-            </button>
-          ))}
-
-          {!nuovoAperto ? (
-            <button onClick={() => { setNuovoAperto(true); setNuovoNome(query); }} style={{
-              display: "block", width: "100%", textAlign: "center", background: "var(--surface-muted)",
-              border: "1px dashed var(--border)", color: "var(--text-2)", borderRadius: 10, padding: "10px 12px",
-              marginBottom: 16, cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 12.5,
-            }}>+ Nuovo cliente</button>
-          ) : (
-            <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 12, marginBottom: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-              <input style={fieldSt} placeholder="Nome" value={nuovoNome} onChange={inMaius(setNuovoNome)} />
-              <input style={fieldSt} data-tast="n" placeholder="Telefono" value={nuovoTelefono} onChange={(e) => setNuovoTelefono(e.target.value)} />
-              <input style={fieldSt} placeholder="Via e civico" value={nuovoIndirizzo} onChange={inMaius(setNuovoIndirizzo)} />
-              <button onClick={salvaNuovo} disabled={!nuovoNome.trim() || salvando} style={{
-                background: nuovoNome.trim() ? "var(--text)" : "var(--border)", color: nuovoNome.trim() ? "#fff" : "var(--text-faint)",
-                border: "none", padding: "10px 12px", borderRadius: 9, fontSize: 12.5, fontWeight: 500,
-                cursor: nuovoNome.trim() ? "pointer" : "default", fontFamily: "var(--font-ui)",
-              }}>{salvando ? "Salvo…" : "Salva e usa"}</button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
-}
-
-// ── Contenuto carrello (condiviso desktop/mobile) ──────────────
 const MESSAGGI_DOMICILIO = ["Resto a 50 euro", "Citofono rotto, chiamare", "Chiamare all'arrivo", "TAGLIATE"];
 
 // Il domicilio di solito arriva per telefono, il resto da chi è in pizzeria: quel tasto sta a sinistra ed è già scelto.
 const canalePredefinito = (tipo: string): "walk_in" | "telefono" => (tipo === "domicilio" ? "telefono" : "walk_in");
 
-function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo, setTavolo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna, sconto, setSconto, oraConsegna, modConsegna, onApriOrario, onModifica, onCercaCliente, noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma, loading, justSent, inModifica, onEsciModifica, ripresa, onCancellaBozza }: any) {
+function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo, setTavolo, clienteNome, setClienteNome, clienteTel, setClienteTel, clienteIndirizzo, setClienteIndirizzo, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna, sconto, setSconto, oraConsegna, modConsegna, onApriOrario, onModifica, onScegliCliente, noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma, loading, justSent, inModifica, onEsciModifica, ripresa, onCancellaBozza }: any) {
   // Che tastierino aprire su questo campo (components/tastiera): lettere o solo numeri.
   const tast = (m: ModoTastiera) => ({ "data-tast": m, inputMode: (m === "n" ? "numeric" : "text") as "numeric" | "text" });
   const subtotale = cart.reduce((a: number, c: CartItem) => a + c.prezzoTotaleItem * c.qty, 0);
@@ -624,18 +507,13 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
         {tipo === "tavolo" && (
           <input {...tast("t")} style={{ ...fieldSt, borderColor: "var(--accent-border)", fontWeight: 600 }} placeholder="Tavolo * (numero o nome)" value={tavolo} onChange={inMaius(setTavolo)} />
         )}
-        {tipo === "domicilio" && (
-          <button onClick={onCercaCliente} style={{
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%",
-            background: "var(--accent-bg-2)", border: "1px solid var(--accent-border)", color: "var(--accent-ink)",
-            padding: "9px 12px", borderRadius: 9, fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-ui)",
-          }}>⌕ Cerca cliente</button>
-        )}
         {/* Al domicilio il nome è uno solo: quello sul citofono (campo più sotto). */}
         {tipo !== "domicilio" && (
           <input {...tast("t")} style={fieldSt} placeholder="Nome cliente" value={clienteNome} onChange={inMaius(setClienteNome)} />
         )}
-        <input {...tast("n")} style={fieldSt} placeholder="Telefono" value={clienteTel} onChange={(e: any) => setClienteTel(e.target.value)} />
+        {/* Al domicilio, scrivendo il telefono o il nome sul citofono escono i clienti: un tocco compila tutto. */}
+        <CampoCliente cerca={tipo === "domicilio" ? "telefono" : null} onScegli={onScegliCliente}
+          {...tast("n")} style={fieldSt} placeholder="Telefono" value={clienteTel} onChange={(e: any) => setClienteTel(e.target.value)} />
         {/* Asporto: a che ora passa il cliente a ritirare (vuoto = subito, come sempre). */}
         {tipo === "asporto" && (
           <button onClick={onApriOrario} style={{
@@ -651,8 +529,10 @@ function CartContents({ cart, setCart, canale, setCanale, tipo, setTipo, tavolo,
         )}
         {tipo === "domicilio" && (
           <>
-            <input {...tast("t")} style={fieldSt} placeholder="Indirizzo *" value={clienteIndirizzo} onChange={inMaius(setClienteIndirizzo)} />
-            <input {...tast("t")} style={fieldSt} placeholder="Nome sul citofono" value={nomeCitofono || clienteNome} onChange={inMaius((v: string) => { setNomeCitofono(v); setClienteNome(v); })} />
+            {/* Per via si cerca solo partendo da zero: con telefono o nome già scritti è un indirizzo nuovo da digitare. */}
+            <CampoCliente cerca={!clienteTel && !nomeCitofono && !clienteNome ? "indirizzo" : null} onScegli={onScegliCliente}
+              {...tast("t")} style={fieldSt} placeholder="Indirizzo *" value={clienteIndirizzo} onChange={inMaius(setClienteIndirizzo)} />
+            <CampoCliente cerca="nome" onScegli={onScegliCliente} {...tast("t")} style={fieldSt} placeholder="Nome sul citofono" value={nomeCitofono || clienteNome} onChange={inMaius((v: string) => { setNomeCitofono(v); setClienteNome(v); })} />
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 12.5, color: "var(--text-2)", flex: 1 }}>Costo consegna</span>
               <div style={{ position: "relative", width: 90 }}>
@@ -821,7 +701,6 @@ export default function NuovoOrdinePage() {
   const [modConsegna, setModConsegna] = useState("");
   const [metodoPagamento, setMetodoPagamento] = useState<"contanti" | "pos" | "">("");
   const [showOrarioModal, setShowOrarioModal] = useState(false);
-  const [showCercaCliente, setShowCercaCliente] = useState(false);
   const [loading, setLoading] = useState(false);
   const [justSent, setJustSent] = useState(false);
   const [pizzaModal, setPizzaModal] = useState<any>(null);
@@ -1176,6 +1055,22 @@ export default function NuovoOrdinePage() {
     }
   };
 
+  // Cliente scelto dall'elenco sotto il campo. La nota del cliente scelto prima (scelta sbagliata) si toglie.
+  const notaCliente = useRef("");
+  function scegliCliente(c: ClienteSuggerito) {
+    const nome = [c.nome, c.cognome].filter(Boolean).join(" ");
+    setClienteNome(nome); setClienteTel(c.telefono ?? ""); setAddr(c.indirizzoDefault ?? "");
+    // Il nome del cliente è anche il nome sul citofono (così si lavora al telefono): si compila da solo, resta modificabile.
+    setNomeCitofono(nome);
+    const prima = notaCliente.current;
+    const nota = c.note ?? "";
+    notaCliente.current = nota;
+    setNoteDomicilio((p) => {
+      const base = prima && p.includes(prima) ? p.replace(prima, "").replace(/, ,/g, ",").replace(/^[\s,]+|[\s,]+$/g, "") : p;
+      return !nota || base.includes(nota) ? base : base ? `${base}, ${nota}` : nota;
+    });
+  }
+
   const cartProps = {
     cart, setCart, canale, setCanale, tipo, setTipo, tavolo, setTavolo, clienteNome, setClienteNome, clienteTel, setClienteTel,
     clienteIndirizzo, setClienteIndirizzo: setAddr, nomeCitofono, setNomeCitofono, note, setNote, costoConsegna, setCostoConsegna, sconto, setSconto,
@@ -1185,7 +1080,7 @@ export default function NuovoOrdinePage() {
       if (!voce) return toast.error("Questa pizza non è più nel menù: toglila e aggiungila di nuovo");
       setRigaInModifica(riga); setPizzaModal(voce); setShowCart(false);
     },
-    onCercaCliente: () => setShowCercaCliente(true),
+    onScegliCliente: scegliCliente,
     noteDomicilio, setNoteDomicilio, metodoPagamento, setMetodoPagamento, onConferma: confermaOrdine, loading, justSent,
     inModifica: ordineMod?.numeroOrdine ?? null,
     ripresa: bozzaPiena({ cart, tavolo, clienteNome, clienteTel, clienteIndirizzo, nomeCitofono, note, noteDomicilio, sconto }) ? ripresa : "",
@@ -1329,18 +1224,6 @@ export default function NuovoOrdinePage() {
           onSalva={(ora, modalita) => { setOraConsegna(ora); setModConsegna(modalita); setShowOrarioModal(false); }}
           onRimuovi={() => { setOraConsegna(""); setModConsegna(""); setShowOrarioModal(false); }}
           onChiudi={() => setShowOrarioModal(false)}
-        />
-      )}
-      {showCercaCliente && (
-        <CercaClienteModal
-          onSeleziona={(c) => {
-            setClienteNome(c.nome); setClienteTel(c.telefono); setAddr(c.indirizzo);
-            // Il nome del cliente è anche il nome sul citofono (così si lavora al telefono): si compila da solo, resta modificabile.
-            setNomeCitofono(c.nome);
-            if (c.note) setNoteDomicilio((p) => p.includes(c.note) ? p : (p ? `${p}, ${c.note}` : c.note));
-            setShowCercaCliente(false);
-          }}
-          onChiudi={() => setShowCercaCliente(false)}
         />
       )}
     </div>

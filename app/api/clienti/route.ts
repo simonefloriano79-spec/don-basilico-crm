@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { filtroClientiVisibili, telefoniEsatti } from "@/lib/clienti-visibilita";
+import { suggerimentiClienti } from "@/lib/clienti-suggerimenti";
 
 // GET /api/clienti?q=mario&sedeId=xxx&limit=50
 export async function GET(req: NextRequest) {
@@ -13,6 +14,9 @@ export async function GET(req: NextRequest) {
   const isSuperAdmin = user.ruolo === "super_admin";
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q");
+  // Elenco veloce della cassa, mentre si scrive (solo i dati che servono a compilare l'ordine).
+  const campo = searchParams.get("suggerimenti");
+  if (campo) return NextResponse.json(await suggerimentiClienti(user, q, campo));
   // Gli account delle sedi vedono solo i clienti che hanno ordinato nella propria sede (vedi lib/clienti-visibilita.ts):
   // ordini e totali si contano sempre e solo sulla propria sede.
   const sedeId = isSuperAdmin ? searchParams.get("sedeId") : (user.sedeId as string | null);
