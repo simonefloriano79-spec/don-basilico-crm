@@ -554,6 +554,12 @@ export default function OrdiniPage() {
                 <span className="num" style={{ fontSize: 12.5, color: "var(--accent-ink)" }}>-{euro(parseFloat(selezionato.scontoCodice))}</span>
               </div>
             )}
+            {parseFloat(selezionato.scontoCassa ?? 0) > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+                <span style={{ fontSize: 12.5, color: "var(--accent-ink)" }}>Sconto</span>
+                <span className="num" style={{ fontSize: 12.5, color: "var(--accent-ink)" }}>-{euro(parseFloat(selezionato.scontoCassa))}</span>
+              </div>
+            )}
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border-soft)" }}>
               <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-2)" }}>Totale</span>
               <span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--text)" }}>{euro(parseFloat(selezionato.totale))}</span>

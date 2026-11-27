@@ -6,6 +6,7 @@ import { timbraOrdine, ripristinaSconto } from "@/lib/fedelta";
 import { richiedeAccettazione } from "@/lib/accettazione";
 import { inviaPushCliente } from "@/lib/push";
 import { prezzaRigheCassa } from "@/lib/ordini-cassa";
+import { scontoCassaValido } from "@/lib/sconto-cassa";
 
 // GET /api/ordini/[id]
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -148,7 +149,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   // Tipo e canale restano quelli dell'ordine; stesse regole di un ordine nuovo per consegna, orario e tavolo.
   const tipo = ordine.tipo;
   const costoConsegnaFinale = tipo === "domicilio" ? Math.max(0, parseFloat(costoConsegna) || 0) : 0;
-  const totale = Math.round((esito.totale + costoConsegnaFinale) * 100) / 100;
+  const lordo = Math.round((esito.totale + costoConsegnaFinale) * 100) / 100;
+  const scontoCassa = scontoCassaValido(body.sconto ?? ordine.scontoCassa, lordo);
+  const totale = Math.round((lordo - scontoCassa) * 100) / 100;
   const modalitaValida = modalitaConsegna === "non_prima" ? "non_prima" : "alle_ore";
   const oraValida = oraConsegnaComunicata ? new Date(oraConsegnaComunicata) : null;
   const orarioOk = !!oraValida && !Number.isNaN(oraValida.getTime());
@@ -179,6 +182,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         modalitaConsegna: modalitaFinale,
         metodoPagamento: ["contanti", "pos"].includes(metodoPagamento) ? metodoPagamento : null,
         costoConsegna: costoConsegnaFinale,
+        scontoCassa,
         totale,
         items: { deleteMany: {}, create: esito.itemsData as any },
       },
