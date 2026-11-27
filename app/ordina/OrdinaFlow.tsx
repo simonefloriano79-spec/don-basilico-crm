@@ -16,6 +16,7 @@ const CAT_LABEL: Record<string, string> = {
 };
 
 import { TIMBRI_PER_CICLO, PERCENTUALE_SCONTO, PERCENTUALE_SCONTO_INTERA } from "@/lib/fedelta-regole";
+import { prezzoAggiunte } from "@/lib/compensazione";
 
 const fieldSt: React.CSSProperties = {
   width: "100%", background: "#fff", border: "1px solid var(--border)",
@@ -671,9 +672,8 @@ function PizzaModalCliente({ item, ingredienti, impasti, maxi, onConferma, onChi
   const prezzoNormale = num(item.prezzoEffettivo ?? item.prezzoBase);
   const moltTaglia = taglia === "maxi" && maxi ? maxi : 1;
   const prezzoBase = prezzoNormale * moltTaglia;
-  const lordo = Array.from(aggiunti.values()).reduce((a, i) => a + num(i.prezzoAggiunta), 0);
-  const credito = base.filter((i) => rimossi.has(i.id) && !i.escludiCompensazione).reduce((a, i) => a + num(i.prezzoAggiunta), 0);
-  const unitario = prezzoBase + Math.max(0, lordo - credito) * moltTaglia + (impastoScelto?.supplemento ?? 0);
+  const supplementoExtra = prezzoAggiunte(Array.from(aggiunti.values()), base.filter((i) => rimossi.has(i.id))).supplemento;
+  const unitario = prezzoBase + supplementoExtra * moltTaglia + (impastoScelto?.supplemento ?? 0);
 
   const extra = ingredienti.filter((i) => !rimossi.has(i.id) && !i.disabilitatoInSede
     && i.nome.toLowerCase().includes(cerca.toLowerCase()));

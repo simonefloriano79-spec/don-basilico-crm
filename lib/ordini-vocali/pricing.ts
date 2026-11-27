@@ -4,6 +4,7 @@ import { filtroIngredientiFiniti, ingredienteMancante, overrideDisponibile } fro
 import { CATEGORIE_IMPASTO, impastiDellaSede } from "@/lib/impasti";
 import { èCodiceBreve, risolviCodice } from "./id-brevi";
 import { bevandaAmmessaInCombo, leggiComboConfig, leggiComboScelte, testoDettaglioCombo, type ComboScelte } from "@/lib/combo";
+import { prezzoAggiunte } from "@/lib/compensazione";
 
 // Pizza maxi: rosse, bianche, speciali e focacce (non i calzoni), e solo nelle sedi con la maxi attiva (tabella sedi_pizza_maxi).
 export const CATEGORIE_MAXI = new Set(["pizze_rosse", "pizze_bianche", "menu_speciale", "focacce"]);
@@ -286,7 +287,7 @@ export async function calcolaOrdine(
     const rimossi = rimossiDefinitivi.map((id) => {
       const ing = ingredienteMap.get(id);
       if (!ing || !baseIds.has(id)) throw new ErrorePricing(`Ingrediente non rimovibile da ${menuItem.nome}`);
-      return { ingredienteId: id, nome: ing.nome, credito: ing.escludiCompensazione ? 0 : parseFloat(ing.prezzoAggiunta.toString()) };
+      return { ingredienteId: id, nome: ing.nome };
     });
 
     // Impasto speciale: solo se la pizzeria lo prepara e solo su pizze; il supplemento si somma al prezzo.
@@ -298,12 +299,16 @@ export async function calcolaOrdine(
       impasto = { id: imp.id, nome: imp.nome, supplemento: imp.supplemento };
     }
 
-    const extraLordo = extra.reduce((acc, e) => acc + e.prezzo, 0);
-    const credito = rimossi.reduce((acc, r) => acc + r.credito, 0);
+    // Compensazione e cambio di mozzarella: regole in lib/compensazione.ts.
+    const calcolo = prezzoAggiunte(
+      extra.map((e) => ingredienteMap.get(e.ingredienteId)!),
+      rimossi.map((r) => ingredienteMap.get(r.ingredienteId)!),
+    );
+    const { credito } = calcolo;
     const euroT = (n: number) => `${n.toFixed(2).replace(".", ",")} euro`;
     // Maxi: anche gli extra (e il credito degli ingredienti tolti) valgono il doppio; il supplemento dell'impasto no.
     const fattoreMaxi = taglia === "maxi" ? moltiplicatore : 1;
-    const prezzoUnitario = prezzoBase + Math.max(0, extraLordo - credito) * fattoreMaxi + (impasto?.supplemento ?? 0);
+    const prezzoUnitario = prezzoBase + calcolo.supplemento * fattoreMaxi + (impasto?.supplemento ?? 0);
     const quantita = Math.max(1, Math.round(a.quantita) || 1);
     totale += prezzoUnitario * quantita;
 
@@ -311,10 +316,12 @@ export async function calcolaOrdine(
     const partiDettaglio: string[] = [];
     if (extra.length) {
       const nomiExtra = extra.map((e) => e.nome).join(", ");
-      const supplemento = Math.max(0, extraLordo - credito) * fattoreMaxi;
+      const supplemento = calcolo.supplemento * fattoreMaxi;
       if (supplemento > 0) {
         partiDettaglio.push(`aggiunte (${nomiExtra}): in più ${euroT(supplemento)}${credito > 0 ? ", già al netto degli ingredienti tolti" : ""}`);
-      } else if (credito > 0 && extraLordo > 0) {
+      } else if (calcolo.sostituzione) {
+        partiDettaglio.push(`aggiunte (${nomiExtra}) senza supplemento: è un cambio di mozzarella`);
+      } else if (credito > 0 && extra.some((e) => e.prezzo > 0)) {
         partiDettaglio.push(`aggiunte (${nomiExtra}) senza supplemento: gli ingredienti tolti (${rimossi.map((r) => r.nome).join(", ")}) compensano quelli aggiunti`);
       } else {
         partiDettaglio.push(`aggiunte (${nomiExtra}) senza supplemento`);

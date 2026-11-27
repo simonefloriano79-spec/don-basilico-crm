@@ -4,6 +4,7 @@ import { calcolaOrdine, CATEGORIE_MAXI, type ArticoloPrezzato } from "@/lib/ordi
 import { CATEGORIE_BABY, prezzoBaby } from "@/lib/pizza-baby";
 import { menuDellaSede, ingredientiDellaSede } from "@/lib/menu-sede";
 import { esauritoAttivo, filtroIngredientiFiniti, ingredienteMancante, overrideDisponibile } from "@/lib/esauriti";
+import { prezzoAggiunte } from "@/lib/compensazione";
 
 // Righe d'ordine della cassa: il prezzo si ricalcola SEMPRE sul server (mai fidarsi di quello mandato dal browser).
 // Lo usano sia «nuovo ordine» (POST /api/ordini) sia «modifica ordine» (PUT /api/ordini/[id]): stesse regole, stessi errori.
@@ -130,22 +131,18 @@ export async function prezzaRigheCassa(sedeId: string, items: any[], esistenti: 
       const base = override?.prezzoCustom != null
         ? parseFloat(override.prezzoCustom.toString())
         : parseFloat(menuItem.prezzoBase.toString());
-      const extraLordo = (i.ingredientiAggiuntiIds ?? []).reduce((acc: number, id: string) => {
+      const trova = (id: string) => {
         const ing = ingredienteMap.get(id);
         if (!ing) throw new Error(`Ingrediente non trovato: ${id}`);
+        return ing;
+      };
+      const aggiunte = ((i.ingredientiAggiuntiIds ?? []) as string[]).map((id) => {
+        const ing = trova(id);
         if (ingredientiFiniti.has(id)) throw new Error(`${ing.nome} è finito in questa sede: toglilo dagli extra di ${menuItem.nome}`);
-        return acc + parseFloat(ing.prezzoAggiunta.toString());
-      }, 0);
-      // Compensazione: un ingrediente rimosso non genera mai uno sconto da solo,
-      // ma "copre" fino al suo valore un ingrediente aggiunto al suo posto —
-      // a meno che l'ingrediente non sia marcato "escluso dalla compensazione"
-      // (es. Mozzarella, Pomodoro: farne a meno non "vale" credito).
-      const credito = (i.ingredientiRimossi ?? []).reduce((acc: number, id: string) => {
-        const ing = ingredienteMap.get(id);
-        if (!ing) throw new Error(`Ingrediente non trovato: ${id}`);
-        return ing.escludiCompensazione ? acc : acc + parseFloat(ing.prezzoAggiunta.toString());
-      }, 0);
-      const extra = Math.max(0, extraLordo - credito);
+        return ing;
+      });
+      // Compensazione e cambio di mozzarella: regole in lib/compensazione.ts.
+      const extra = prezzoAggiunte(aggiunte, ((i.ingredientiRimossi ?? []) as string[]).map(trova)).supplemento;
       // Impasto speciale (solo su pizze, solo se la pizzeria lo prepara): il supplemento si somma al prezzo.
       const impasto = i.impastoId ? impastoMap.get(i.impastoId) : undefined;
       if (i.impastoId && !impasto) throw new Error("L'impasto scelto non è disponibile in questa pizzeria");
