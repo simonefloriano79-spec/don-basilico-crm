@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { dataValida, finestraServizio, giornoServizioOggi } from "@/lib/conti";
 import { pizzeJePerSede, pizzePerSede, type PizzeSede } from "@/lib/pizze-fatte";
 import { venditeBanco } from "@/lib/banco-db";
+import { TRANCI, contaTranci } from "@/lib/banco";
 
 export const dynamic = "force-dynamic";
 
@@ -162,6 +163,20 @@ export async function GET(req: NextRequest) {
     speciale: vendite.reduce((a, v) => a + v.speciale, 0),
   };
 
+  // Tranci venduti: quelli del banco più quelli messi negli ordini (tavolo, asporto...); i loro soldi stanno già nell'ordine.
+  const negliOrdini = contaTranci(await prisma.ordineItem.findMany({
+    where: {
+      menuItemId: null, sedeExtraId: null, nomeSnapshot: { in: TRANCI.map((t) => t.nome) },
+      ordine: { ...(sedeFiltro && { sedeId: sedeFiltro }), createdAt: { gte: inizio, lt: fine }, stato: { not: "annullato" } },
+    },
+    select: { nomeSnapshot: true, quantita: true },
+  }));
+  const tranci = {
+    margherita: banco.margherita + negliOrdini.margherita,
+    farcito: banco.farcito + negliOrdini.farcito,
+    speciale: banco.speciale + negliOrdini.speciale,
+  };
+
   const totDomicilio = r2(totDom.totale), totAsporto = somma(asp).totale, totTavolo = somma(tav).totale;
   const totale = {
     domicilio: totDomicilio, asporto: totAsporto, tavolo: totTavolo, banco: banco.totale, justEat: r2(je.giaPagato + je.contanti),
@@ -203,6 +218,6 @@ export async function GET(req: NextRequest) {
     },
     asporto: { ...somma(asp), perCanale, ordini: asp },
     tavolo: { ...somma(tav), ordini: tav },
-    banco, je, pizze, totale, perSede,
+    banco, tranci, je, pizze, totale, perSede,
   });
 }

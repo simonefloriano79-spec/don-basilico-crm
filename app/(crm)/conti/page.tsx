@@ -21,6 +21,7 @@ type Conti = {
   asporto: { ordini: Ord[]; totale: number; perCanale: { canale: string; ordini: number; totale: number }[] } & { ordini_n?: number };
   tavolo: { ordini: Ord[]; totale: number };
   banco: { vendite: number; totale: number; margherita: number; farcito: number; speciale: number };
+  tranci: { margherita: number; farcito: number; speciale: number };
   je: { ok: boolean; giaPagato: number; contanti: number; modificatoDa: string | null; modificatoAt: string | null };
   pizze: { ok: boolean; nostre: number; maxi: number; justEat: number; totale: number; asporto: number; domicilio: number; tavolo: number };
   totale: { domicilio: number; asporto: number; tavolo: number; banco: number; justEat: number; totalone: number; contantiNoti: number; carteNote: number; ordiniInCorso: number };
@@ -327,7 +328,7 @@ Confermi la correzione dell'ordine #${o.numero}?`)) return;
             <Riga a="Asporto" nota={`${dati.asporto.ordini.length} ordini`} b={euro(dati.totale.asporto)} />
             <Riga a="Tavolo" nota={`${dati.tavolo.ordini.length} ordini`} b={euro(dati.totale.tavolo)} />
             {dati.banco.vendite > 0 && (
-              <Riga a="Tranci" nota={`${dati.banco.vendite} ${dati.banco.vendite === 1 ? "vendita" : "vendite"} al banco`} b={euro(dati.totale.banco)} />
+              <Riga a="Tranci al banco" nota={`${dati.banco.vendite} ${dati.banco.vendite === 1 ? "vendita" : "vendite"}`} b={euro(dati.totale.banco)} />
             )}
 
             {/* Just Eat: inserito a mano */}
@@ -385,17 +386,18 @@ Confermi la correzione dell'ordine #${o.numero}?`)) return;
                 <span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 24 }}>{dati.pizze.totale}</span>
               </div>
             </div>
-            {dati.banco.vendite > 0 && (
+            {pezziBanco(dati.tranci) > 0 && (
               <div style={{ borderTop: "1px solid var(--border-soft)", marginTop: 10, paddingTop: 8 }}>
                 <div style={{ ...etichetta, padding: "2px 0" }}>Tranci venduti</div>
-                {TRANCI.map((t) => <Riga key={t.id} a={t.nome} b={String(dati.banco[t.id])} />)}
+                <div style={{ fontSize: 11.5, color: "var(--text-muted)", padding: "2px 0 6px" }}>Al banco e dentro gli ordini (tavolo, asporto…)</div>
+                {TRANCI.map((t) => <Riga key={t.id} a={t.nome} b={String(dati.tranci[t.id])} />)}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", paddingTop: 6 }}>
                   <span style={{ fontSize: 14, fontWeight: 700 }}>TOTALE TRANCI VENDUTI</span>
-                  <span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 24 }}>{pezziBanco(dati.banco)}</span>
+                  <span className="num" style={{ fontFamily: "var(--font-display)", fontSize: 24 }}>{pezziBanco(dati.tranci)}</span>
                 </div>
               </div>
             )}
-            <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 6 }}>Asporto, tavolo e tranci non sono divisi per metodo di pagamento: per questo contanti e carte «noti» non arrivano al totale.</div>
+            <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 6 }}>Asporto, tavolo e banco non sono divisi per metodo di pagamento: per questo contanti e carte «noti» non arrivano al totale.</div>
           </div>
 
           {dati.perSede && (
@@ -406,7 +408,7 @@ Confermi la correzione dell'ordine #${o.numero}?`)) return;
                   <tr style={{ textAlign: "right", color: "var(--text-muted)", fontSize: 11 }}>
                     <th style={{ textAlign: "left", padding: "4px 0", fontWeight: 600 }}>Sede</th>
                     <th style={{ fontWeight: 600 }}>Domicilio</th><th style={{ fontWeight: 600 }}>Asporto</th><th style={{ fontWeight: 600 }}>Tavolo</th>
-                    {dati.totale.banco > 0 && <th style={{ fontWeight: 600 }}>Tranci</th>}
+                    {dati.totale.banco > 0 && <th style={{ fontWeight: 600 }}>Banco</th>}
                     <th style={{ fontWeight: 600 }}>Just Eat</th><th style={{ fontWeight: 600 }}>Totale</th><th style={{ fontWeight: 600 }}>Pizze</th>
                   </tr>
                 </thead>

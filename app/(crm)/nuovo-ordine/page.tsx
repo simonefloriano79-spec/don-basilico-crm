@@ -16,11 +16,11 @@ import { bevandaAmmessaInCombo, comboDisponibileIn, leggiComboConfig, testoDetta
 import { prezzoAggiunte } from "@/lib/compensazione";
 import { scontoCassaValido } from "@/lib/sconto-cassa";
 import Banco from "@/components/cassa/Banco";
-import { SEDI_BANCO } from "@/lib/banco";
+import { SEDI_BANCO, TRANCI, idTrancio } from "@/lib/banco";
 
 const CAT_LABEL: Record<string, string> = {
   pizze_rosse: "Pizze rosse", pizze_bianche: "Pizze bianche", calzoni: "Calzoni",
-  fritti: "Fritti", bevande: "Bevande", dolci: "Dolci", extra: "Extra", menu_speciale: "Speciali", focacce: "Focacce", combo: "Menù Combo",
+  fritti: "Fritti", bevande: "Bevande", dolci: "Dolci", extra: "Extra", menu_speciale: "Speciali", focacce: "Focacce", combo: "Menù Combo", tranci: "Tranci",
 };
 
 const fieldSt: React.CSSProperties = {
@@ -1038,10 +1038,15 @@ export default function NuovoOrdinePage() {
   }, [ordineMod, modCaricata, menuDellaSede, menuItems, ingredienti]);
 
   // In cassa "Speciali" viene dopo i calzoni; sul sito clienti (OrdinaFlow) è invece la prima sezione.
-  const cats = ["pizze_rosse", "pizze_bianche", "calzoni", "focacce", "menu_speciale", "combo", "fritti", "dolci", "bevande", "extra"];
+  const cats = ["pizze_rosse", "pizze_bianche", "calzoni", "focacce", "tranci", "menu_speciale", "combo", "fritti", "dolci", "bevande", "extra"];
   // Disattivato in questa sede (permanente) = non si vede; esaurito oggi o senza un ingrediente = resta, in grigio.
   // (menuItems resta completo: serve per riaprire un ordine che contiene un prodotto disattivato nel frattempo.)
-  const visibili = menuItems.filter((m) => m.attivoInSede !== false);
+  // Dove c'è il banco, i tranci si possono mettere anche in un ordine (es. al tavolo: pizze al piatto e tranci nello stesso conto).
+  const conTranci = SEDI_BANCO.includes(sedi.find((s) => s.id === sedeSelezionata)?.slug);
+  const visibili = [
+    ...menuItems.filter((m) => m.attivoInSede !== false),
+    ...(conTranci ? TRANCI.map((t) => ({ id: idTrancio(t.id), nome: t.nome, categoria: "tranci", prezzoBase: t.prezzo })) : []),
+  ] as any[];
   const catsPresenti = cats.filter((c) => visibili.some((m) => m.categoria === c));
   const isSezionePizze = catFiltro === "pizze_rosse" || catFiltro === "pizze_bianche";
   // In ordine alfabetico dentro ogni sezione, per leggere e cercare più in fretta.
