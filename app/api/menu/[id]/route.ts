@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { leggiProdotto, type DatiProdotto } from "@/lib/menu-prodotto";
+import { ingredientiAmmessi } from "@/lib/ingredienti-prodotto";
 
 // Disponibilità di un prodotto in una sede: due interruttori separati (vedi lib/esauriti.ts).
 //  - `disponibile`: «in vendita» (permanente). Cambiarlo toglie anche un eventuale «esaurito».
@@ -73,6 +74,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const dati = leggiProdotto(body, { nuovo: false, isSuperAdmin });
   if ("errore" in dati) return NextResponse.json({ error: dati.errore }, { status: 400 });
+  if (!(await ingredientiAmmessi(dati.ingredientiIds, item.sedeId))) {
+    return NextResponse.json({ error: "Uno degli ingredienti scelti è di una sola pizzeria e non si può usare in questo prodotto" }, { status: 400 });
+  }
   const { isAttivo, immagineUrl, ordineVisualizzazione } = body;
   const aggiornato = await salvaProdotto(params.id, dati, {
     ...(typeof isAttivo === "boolean" && { isAttivo }),

@@ -6,3 +6,6 @@ export const SOLO_COMUNI = { sedeId: null };
 export function menuDellaSede(sedeId: string | null | undefined) {
   return sedeId ? { OR: [{ sedeId: null }, { sedeId }] } : SOLO_COMUNI;
 }
+
+// Stessa regola per gli ingredienti: quelli comuni più, se c'è la sede, quelli solo suoi.
+export const ingredientiDellaSede = menuDellaSede;

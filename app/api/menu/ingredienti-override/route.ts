@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ingredientiDellaSede } from "@/lib/menu-sede";
 
 // POST /api/menu/ingredienti-override
 // Abilita/disabilita un ingrediente in una sede
@@ -16,6 +17,9 @@ export async function POST(req: NextRequest) {
   if (user.ruolo !== "super_admin" && user.sedeId !== sedeId) {
     return NextResponse.json({ error: "Permesso negato" }, { status: 403 });
   }
+
+  const suo = await prisma.ingrediente.count({ where: { id: ingredienteId, ...ingredientiDellaSede(sedeId) } });
+  if (!suo) return NextResponse.json({ error: "Ingrediente non trovato" }, { status: 404 });
 
   // «Finito» in questa sede: vale fino alle 5:00 del giorno dopo (vedi lib/esauriti.ts). Si ricrea il segno a ogni richiesta.
   await prisma.sedeIngredienteDisabilitato.deleteMany({ where: { sedeId, ingredienteId } });

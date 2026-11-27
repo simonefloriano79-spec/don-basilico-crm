@@ -9,6 +9,8 @@ function euro(n: number) {
   return `€ ${n.toFixed(2).replace(".", ",")}`;
 }
 
+const NUOVO_VUOTO = { nome: "", prezzoAggiunta: "", allergeni: [] as string[], allergeniControllati: false, escludiCompensazione: false };
+
 export default function IngredientiPage() {
   const { data: session } = useSession();
   const [ingredienti, setIngredienti] = useState<any[]>([]);
@@ -16,10 +18,13 @@ export default function IngredientiPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{ nome: string; prezzoAggiunta: string; isAllergene: boolean; escludiCompensazione: boolean; allergeni: string[]; allergeniDaVerificare: boolean }>({ nome: "", prezzoAggiunta: "", isAllergene: false, escludiCompensazione: false, allergeni: [], allergeniDaVerificare: false });
   const [showNuovo, setShowNuovo] = useState(false);
-  const [nuovoForm, setNuovoForm] = useState({ nome: "", prezzoAggiunta: "0.00", isAllergene: false, escludiCompensazione: false });
+  const [nuovoForm, setNuovoForm] = useState(NUOVO_VUOTO);
   const user = session?.user as any;
   const isSuperAdmin = user?.ruolo === "super_admin";
   const sedeId = user?.sedeId;
+  // «Mio»: ingrediente aggiunto da questa pizzeria (lo modifica ed elimina lei).
+  const mio = (ing: any) => !isSuperAdmin && !!ing.sedeId && ing.sedeId === sedeId;
+  const gestibile = (ing: any) => isSuperAdmin || mio(ing);
 
   const carica = useCallback(async () => {
     const url = sedeId ? `/api/ingredienti?sedeId=${sedeId}` : "/api/ingredienti";
@@ -30,13 +35,22 @@ export default function IngredientiPage() {
 
   useEffect(() => { carica(); }, [carica]);
 
-  const salvaPrezzoAdmin = async (id: string) => {
+  const errore = async (res: Response, altrimenti: string) => toast.error((await res.json().catch(() => null))?.error ?? altrimenti);
+
+  const salvaModifica = async (id: string) => {
     const res = await fetch(`/api/ingredienti/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nome: editForm.nome, prezzoAggiunta: parseFloat(editForm.prezzoAggiunta), allergeni: editForm.allergeni, allergeniDaVerificare: editForm.allergeniDaVerificare, escludiCompensazione: editForm.escludiCompensazione }),
+      body: JSON.stringify({ nome: editForm.nome, prezzoAggiunta: parseFloat(editForm.prezzoAggiunta || "0"), allergeni: editForm.allergeni, allergeniDaVerificare: editForm.allergeniDaVerificare, escludiCompensazione: editForm.escludiCompensazione }),
     });
     if (res.ok) { toast.success("Ingrediente aggiornato"); setEditingId(null); carica(); }
-    else toast.error("Errore nel salvataggio");
+    else errore(res, "Errore nel salvataggio");
+  };
+
+  const elimina = async (ing: any) => {
+    if (!confirm(`Eliminare «${ing.nome}» dagli ingredienti della vostra pizzeria?`)) return;
+    const res = await fetch(`/api/ingredienti/${ing.id}`, { method: "DELETE" });
+    if (res.ok) { toast.success("Ingrediente eliminato"); carica(); }
+    else errore(res, "Operazione non riuscita");
   };
 
   const toggleDisabilitatoSede = async (ing: any) => {
@@ -60,12 +74,17 @@ export default function IngredientiPage() {
   };
 
   const aggiungiIngrediente = async () => {
-    if (!nuovoForm.nome) return toast.error("Inserisci un nome");
+    if (!nuovoForm.nome.trim()) return toast.error("Inserisci un nome");
+    if (!isSuperAdmin && nuovoForm.prezzoAggiunta.trim() === "") return toast.error("Scrivi il prezzo di vendita (0 se è gratis)");
     const res = await fetch("/api/ingredienti", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nome: nuovoForm.nome, prezzoAggiunta: parseFloat(nuovoForm.prezzoAggiunta), isAllergene: nuovoForm.isAllergene, escludiCompensazione: nuovoForm.escludiCompensazione }),
+      body: JSON.stringify({
+        nome: nuovoForm.nome, prezzoAggiunta: parseFloat(nuovoForm.prezzoAggiunta || "0"), allergeni: nuovoForm.allergeni,
+        allergeniDaVerificare: !nuovoForm.allergeniControllati, escludiCompensazione: nuovoForm.escludiCompensazione,
+      }),
     });
-    if (res.ok) { toast.success("Ingrediente aggiunto"); setShowNuovo(false); setNuovoForm({ nome: "", prezzoAggiunta: "0.00", isAllergene: false, escludiCompensazione: false }); carica(); }
+    if (res.ok) { toast.success("Ingrediente aggiunto"); setShowNuovo(false); setNuovoForm(NUOVO_VUOTO); carica(); }
+    else errore(res, "Non riesco a salvare l'ingrediente");
   };
 
   const filtrati = ingredienti.filter((i) => i.nome.toLowerCase().includes(search.toLowerCase()));
@@ -87,9 +106,9 @@ export default function IngredientiPage() {
         </div>
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>{filtrati.length} ingredienti</span>
-          {isSuperAdmin && (
-            <button onClick={() => setShowNuovo(true)} style={{ background: "var(--text)", color: "#fff", border: "none", padding: "9px 18px", borderRadius: 9, fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)" }}>
-              Nuovo ingrediente
+          {(isSuperAdmin || sedeId) && (
+            <button onClick={() => { setNuovoForm(NUOVO_VUOTO); setShowNuovo(true); }} style={{ background: "var(--text)", color: "#fff", border: "none", padding: "9px 18px", borderRadius: 9, fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-ui)" }}>
+              {isSuperAdmin ? "Nuovo ingrediente (tutte le sedi)" : "Aggiungi un ingrediente nostro"}
             </button>
           )}
         </div>
@@ -98,14 +117,14 @@ export default function IngredientiPage() {
       <div style={{ background: "var(--accent-bg)", border: "1px solid var(--accent-border)", borderRadius: 9, padding: "10px 16px", marginBottom: 16, fontSize: 12.5, color: "var(--accent-ink)" }}>
         {isSuperAdmin
           ? "Il prezzo di aggiunta viene applicato automaticamente quando un cliente aggiunge l'ingrediente extra a una pizza."
-          : "Puoi segnare un ingrediente come esaurito: sparisce solo dalla tua sede fino alle 5:00 del giorno dopo, poi torna da solo (e con lui le pizze che lo contengono). I prezzi sono gestiti dall'admin."}
+          : "Puoi segnare un ingrediente come esaurito: sparisce solo dalla tua sede fino alle 5:00 del giorno dopo, poi torna da solo (e con lui le pizze che lo contengono). Gli ingredienti comuni e i loro prezzi li gestisce l'admin; con «Aggiungi un ingrediente nostro» aggiungi i tuoi, col tuo prezzo: si vedono solo nella tua pizzeria, in cassa e nell'app."}
       </div>
 
       <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "var(--surface-muted)" }}>
-              {["Ingrediente", "Prezzo aggiunta", "Allergeni", ...(isSuperAdmin ? ["Compensazione", "Disponibile", "Azioni"] : ["Disponibile in sede"])].map((h) => (
+              {["Ingrediente", "Prezzo aggiunta", "Allergeni", ...(isSuperAdmin ? ["Compensazione", "Disponibile", "Azioni"] : ["Disponibile in sede", "Azioni"])].map((h) => (
                 <th key={h} style={{ padding: "11px 14px", textAlign: "left", fontSize: 9.5, letterSpacing: 1.7, textTransform: "uppercase", color: "var(--text-muted)", fontWeight: 500 }}>{h}</th>
               ))}
             </tr>
@@ -119,6 +138,11 @@ export default function IngredientiPage() {
                   ) : (
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text)" }}>{ing.nome}</span>
+                      {ing.sedeId && (
+                        <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase", padding: "2px 8px", borderRadius: 20, background: "var(--accent-bg-2)", border: "1px solid var(--accent-border)", color: "var(--accent-ink)", whiteSpace: "nowrap" }}>
+                          {isSuperAdmin ? `Solo ${String(ing.sede?.nome ?? "una sede").replace("Don Basilico ", "")}` : "Solo nostro"}
+                        </span>
+                      )}
                       {!ing.disponibileDefault && (
                         <span style={{ opacity: 1, fontSize: 10, fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase", padding: "2px 8px", borderRadius: 20, background: "var(--danger)", color: "#fff", flexShrink: 0 }}>Disattivato</span>
                       )}
@@ -205,18 +229,21 @@ export default function IngredientiPage() {
                   </td>
                 )}
 
-                {isSuperAdmin && (
-                  <td style={{ padding: "12px 14px" }}>
-                    {editingId === ing.id ? (
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <button onClick={() => salvaPrezzoAdmin(ing.id)} style={{ background: "var(--accent-bg-2)", border: "1px solid var(--accent-border)", color: "var(--accent-ink)", padding: "5px 12px", borderRadius: 8, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-ui)" }}>Salva</button>
-                        <button onClick={() => setEditingId(null)} style={{ background: "#fff", border: "1px solid var(--border)", color: "var(--text-3)", padding: "5px 10px", borderRadius: 8, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-ui)" }}>✕</button>
-                      </div>
-                    ) : (
+                <td style={{ padding: "12px 14px" }}>
+                  {!gestibile(ing) ? (
+                    <span style={{ fontSize: 13, color: "var(--text-faint)" }}>—</span>
+                  ) : editingId === ing.id ? (
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={() => salvaModifica(ing.id)} style={{ background: "var(--accent-bg-2)", border: "1px solid var(--accent-border)", color: "var(--accent-ink)", padding: "5px 12px", borderRadius: 8, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-ui)" }}>Salva</button>
+                      <button onClick={() => setEditingId(null)} style={{ background: "#fff", border: "1px solid var(--border)", color: "var(--text-3)", padding: "5px 10px", borderRadius: 8, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-ui)" }}>✕</button>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", gap: 6 }}>
                       <button onClick={() => startEdit(ing)} style={{ background: "#fff", border: "1px solid var(--border)", color: "var(--text-2)", padding: "5px 12px", borderRadius: 8, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-ui)" }}>Modifica</button>
-                    )}
-                  </td>
-                )}
+                      {mio(ing) && <button onClick={() => elimina(ing)} style={{ background: "#fff", border: "1px solid var(--danger-border)", color: "var(--danger)", padding: "5px 12px", borderRadius: 8, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-ui)" }}>Elimina</button>}
+                    </div>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -226,21 +253,31 @@ export default function IngredientiPage() {
       {showNuovo && (
         <div className="con-tastierino" style={{ position: "fixed", inset: 0, background: "rgba(28,29,24,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
           onClick={() => setShowNuovo(false)}>
-          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 26, width: 400, maxWidth: "90vw" }}
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 26, width: 440, maxWidth: "90vw", maxHeight: "90vh", overflowY: "auto" }}
             onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ fontFamily: "var(--font-display)", fontSize: 19, color: "var(--text)", marginBottom: 18 }}>Nuovo ingrediente</h2>
+            <h2 style={{ fontFamily: "var(--font-display)", fontSize: 19, color: "var(--text)", marginBottom: 18 }}>{isSuperAdmin ? "Nuovo ingrediente per tutte le sedi" : "Nuovo ingrediente della nostra pizzeria"}</h2>
             <div style={{ marginBottom: 12 }}>
               <label style={labelSt}>Nome *</label>
               <input style={fieldSt} placeholder="es. Nduja" value={nuovoForm.nome} onChange={(e) => setNuovoForm((p) => ({ ...p, nome: e.target.value }))} />
             </div>
             <div style={{ marginBottom: 12 }}>
-              <label style={labelSt}>Prezzo aggiunta (€)</label>
+              <label style={labelSt}>Prezzo di vendita come aggiunta (€){isSuperAdmin ? "" : " *"}</label>
               <input style={fieldSt} inputMode="decimal" value={nuovoForm.prezzoAggiunta} onChange={(e) => setNuovoForm((p) => ({ ...p, prezzoAggiunta: e.target.value.replace(",", ".").replace(/[^\d.]/g, "") }))} />
             </div>
             <div style={{ marginBottom: 12 }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 12.5, color: "var(--text-2)" }}>
-                <input type="checkbox" checked={nuovoForm.isAllergene} onChange={(e) => setNuovoForm((p) => ({ ...p, isAllergene: e.target.checked }))} />
-                È un allergene
+              <label style={labelSt}>Allergeni</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {ALLERGENI.map((al) => {
+                  const on = nuovoForm.allergeni.includes(al.codice);
+                  return (
+                    <button key={al.codice} type="button" onClick={() => setNuovoForm((p) => ({ ...p, allergeni: on ? p.allergeni.filter((x) => x !== al.codice) : [...p.allergeni, al.codice] }))}
+                      style={{ padding: "5px 11px", borderRadius: 20, fontSize: 12, cursor: "pointer", border: "1px solid", fontFamily: "var(--font-ui)", background: on ? "var(--text)" : "var(--surface-muted)", color: on ? "#fff" : "var(--text-3)", borderColor: on ? "var(--text)" : "var(--border)" }}>{al.etichetta}</button>
+                  );
+                })}
+              </div>
+              <label style={{ display: "flex", gap: 8, alignItems: "flex-start", marginTop: 10, cursor: "pointer", fontSize: 12, color: "var(--text-2)" }}>
+                <input type="checkbox" checked={nuovoForm.allergeniControllati} onChange={(e) => setNuovoForm((p) => ({ ...p, allergeniControllati: e.target.checked }))} />
+                <span>Ho controllato gli allergeni sulle etichette. Se non è spuntato, l'app scrive al cliente di chiedere al personale.</span>
               </label>
             </div>
             <div style={{ marginBottom: 20 }}>

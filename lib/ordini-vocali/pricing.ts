@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { menuDellaSede } from "@/lib/menu-sede";
+import { menuDellaSede, ingredientiDellaSede } from "@/lib/menu-sede";
 import { filtroIngredientiFiniti, ingredienteMancante, overrideDisponibile } from "@/lib/esauriti";
 import { CATEGORIE_IMPASTO, impastiDellaSede } from "@/lib/impasti";
 import { èCodiceBreve, risolviCodice } from "./id-brevi";
@@ -71,7 +71,7 @@ async function espandiCodici(sedeId: string, articoli: ArticoloOrdinatoInput[]):
 
   const [menu, ingredienti, impasti] = await Promise.all([
     prisma.menuItem.findMany({ where: menuDellaSede(sedeId), select: { id: true } }),
-    prisma.ingrediente.findMany({ select: { id: true } }),
+    prisma.ingrediente.findMany({ where: ingredientiDellaSede(sedeId), select: { id: true } }),
     impastiDellaSede(sedeId),
   ]);
   const idMenu = menu.map((m) => m.id);
@@ -127,7 +127,7 @@ export async function calcolaOrdine(
       include: { ingredienti: { select: { ingredienteId: true, ingrediente: { select: { nome: true } } } } },
     }),
     ingredienteIds.length
-      ? prisma.ingrediente.findMany({ where: { id: { in: ingredienteIds } } })
+      ? prisma.ingrediente.findMany({ where: { id: { in: ingredienteIds }, ...ingredientiDellaSede(sedeId) } })
       : Promise.resolve([]),
     prisma.sedePizzaMaxi.findUnique({ where: { sedeId } }),
     prisma.sedeMenuOverride.findMany({ where: { sedeId, menuItemId: { in: menuItemIds } } }),

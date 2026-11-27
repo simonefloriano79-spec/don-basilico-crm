@@ -70,11 +70,18 @@ export default function MenuPage() {
     if (isSuperAdmin) fetch("/api/sedi").then((r) => r.json()).then((d) => setSedi(Array.isArray(d) ? d : []));
   }, [isSuperAdmin]);
 
+  // Il super admin li legge tutti; chi lavora in una sede i comuni più i propri.
   useEffect(() => {
-    fetch("/api/ingredienti").then((r) => r.json()).then((d) => setIngredienti(Array.isArray(d) ? d : []));
-  }, []);
+    if (!user) return;
+    const url = isSuperAdmin ? "/api/ingredienti" : `/api/ingredienti?sedeId=${user.sedeId}`;
+    fetch(url).then((r) => r.json()).then((d) => setIngredienti(Array.isArray(d) ? d : []));
+  }, [user?.ruolo, user?.sedeId]);
 
   const mio = (item: any) => !isSuperAdmin && !!item.sedeId && item.sedeId === user?.sedeId;
+
+  // Un prodotto comune può avere solo ingredienti comuni; quello di una sede anche i suoi.
+  const sedeDelProdotto = editItem ? editItem.sedeId : isSuperAdmin ? null : user?.sedeId;
+  const ingredientiUsabili = ingredienti.filter((i) => !i.sedeId || i.sedeId === sedeDelProdotto);
 
   const apri = (modifica: any, copia: any = null) => {
     setEditItem(modifica); setCopiaDi(copia); setNascondiComune(true); setCercaIng("");
@@ -433,7 +440,7 @@ export default function MenuPage() {
                 <label style={labelSt}>Ingredienti {form.ingredientiIds.length > 0 && `· ${form.ingredientiIds.length} scelti`}</label>
                 <input style={{ ...fieldSt, marginBottom: 8 }} placeholder="Cerca ingrediente…" value={cercaIng} onChange={(e) => setCercaIng(e.target.value)} />
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 150, overflowY: "auto" }}>
-                  {ingredienti
+                  {ingredientiUsabili
                     .filter((i) => form.ingredientiIds.includes(i.id) || i.nome.toLowerCase().includes(cercaIng.toLowerCase()))
                     .sort((a, b) => Number(form.ingredientiIds.includes(b.id)) - Number(form.ingredientiIds.includes(a.id)))
                     .map((i) => {
